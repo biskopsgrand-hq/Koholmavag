@@ -38,3 +38,10 @@ export const inviteAccessMember = createServerFn({ method: "POST" })
     const { inviteMemberForAdmin } = await import("@/lib/access.server");
     await inviteMemberForAdmin(context.userId, data.email, data.name);
   });
+
+export const setOwnerPassword = createServerFn({ method: "POST" })
+  .validator((input: { password: string; name: string }) => input)
+  .handler(async ({ data }): Promise<void> => {
+    const { setOwnerCredentialPassword } = await import("@/lib/access.server");
+    await setOwnerCredentialPassword(data.password, data.name);
+  });

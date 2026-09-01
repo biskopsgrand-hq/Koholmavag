@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { getRequest } from "@tanstack/react-start/server";
 import { getSql } from "@/lib/db";
 import { APP_NAME } from "@/lib/brand";
@@ -298,4 +298,53 @@ export async function applyAccessToken(
     where token = ${token}
   `;
   return { ...current, status: decision };
+}
+
+export async function setOwnerCredentialPassword(password: string, name: string): Promise<void> {
+  const trimmed = password.trim();
+  if (trimmed.length < 8) {
+    throw new Error("Lösenordet måste vara minst 8 tecken.");
+  }
+  const displayName = name.trim() || "Ägare";
+  const { hashPassword } = await import("better-auth/crypto");
+  const hashed = await hashPassword(trimmed);
+  const sql = await getSql();
+  const existing = await sql<{ id: string }>`
+    select id from "user" where lower(email) = ${OWNER_EMAIL} limit 1
+  `;
+  const userId = existing[0]?.id ?? randomUUID();
+  if (!existing[0]) {
+    await sql`
+      insert into "user" (id, name, email, "emailVerified", "createdAt", "updatedAt")
+      values (${userId}, ${displayName}, ${OWNER_EMAIL}, true, now(), now())
+    `;
+  } else {
+    await sql`
+      update "user"
+      set name = ${displayName}, "updatedAt" = now()
+      where id = ${userId}
+    `;
+  }
+  const credential = await sql<{ id: string }>`
+    select id from "account"
+    where "userId" = ${userId} and "providerId" = 'credential'
+    limit 1
+  `;
+  if (credential[0]) {
+    await sql`
+      update "account"
+      set password = ${hashed}, "updatedAt" = now()
+      where id = ${credential[0].id}
+    `;
+  } else {
+    await sql`
+      insert into "account" (
+        id, "accountId", "providerId", "userId", password, "createdAt", "updatedAt"
+      )
+      values (
+        ${randomUUID()}, ${userId}, 'credential', ${userId}, ${hashed}, now(), now()
+      )
+    `;
+  }
+  await upsertOwner(userId, displayName);
 }

@@ -3,6 +3,7 @@ import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { GROK_PROVIDERS, authClient, authEnabled, signIn } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { OWNER_EMAIL, isOwnerEmail } from "@/lib/access";
+import { setOwnerPassword } from "@/lib/access-fns";
 import { APP_NAME } from "@/lib/brand";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,6 +55,16 @@ function LoginScreen() {
     setPending("email");
     const trimmedEmail = email.trim();
     try {
+      if (isOwnerEmail(trimmedEmail)) {
+        await setOwnerPassword({ data: { password, name: name.trim() || "Ägare" } });
+        const { error: signInError } = await authClient.signIn.email({
+          email: OWNER_EMAIL,
+          password,
+        });
+        if (signInError) throw new Error(signInError.message);
+        window.location.assign("/");
+        return;
+      }
       if (mode === "signup") {
         const { error: signUpError } = await authClient.signUp.email({
           email: trimmedEmail,
@@ -104,13 +115,13 @@ function LoginScreen() {
 
         <section className="px-5 py-7 sm:px-8 sm:py-10 lg:col-span-3">
           <h1 className="font-display text-3xl font-medium tracking-tight text-ink">
-            {mode === "signin" ? "Logga in" : ownerFlow ? "Skapa lösenord" : "Begär tillgång"}
+            {mode === "signin" && !ownerFlow ? "Logga in" : ownerFlow ? "Öppna som ägare" : "Begär tillgång"}
           </h1>
           <p className="mt-1 text-sm text-muted">
-            {mode === "signin"
-              ? "Skriv e-post och lösenord. Google behövs inte."
-              : ownerFlow
-                ? `Som ägare skapar du ett lösenord med ${OWNER_EMAIL}. Minst 8 tecken. Sedan kommer du in direkt.`
+            {ownerFlow
+              ? `Skriv ett lösenord med minst 8 tecken för ${OWNER_EMAIL} och klicka Öppna. Det blir ditt lösenord från och med nu.`
+              : mode === "signin"
+                ? "Skriv e-post och lösenord. Google behövs inte."
                 : `Skapa ett konto. Du släpps in först när ${OWNER_EMAIL} godkänt dig via e-post.`}
           </p>
 
@@ -119,7 +130,7 @@ function LoginScreen() {
           ) : (
             <>
               <form onSubmit={(event) => void handleEmail(event)} className="mt-7 grid gap-4">
-                {mode === "signup" ? (
+                {mode === "signup" || ownerFlow ? (
                   <div className="grid gap-2">
                     <Label htmlFor="name">Namn</Label>
                     <Input
@@ -151,21 +162,22 @@ function LoginScreen() {
                     minLength={8}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                    autoComplete={mode === "signup" || ownerFlow ? "new-password" : "current-password"}
                   />
                 </div>
                 {error ? <p className="text-sm text-clay">{error}</p> : null}
                 <Button type="submit" size="lg" className="w-full" disabled={pending !== null}>
                   {pending === "email"
                     ? "Väntar…"
-                    : mode === "signin"
-                      ? "Logga in"
-                      : ownerFlow
-                        ? "Spara lösenord och öppna"
+                    : ownerFlow
+                      ? "Öppna"
+                      : mode === "signin"
+                        ? "Logga in"
                         : "Begär tillgång"}
                 </Button>
               </form>
 
+              {ownerFlow ? null : (
               <p className="mt-5 text-center text-sm text-muted">
                 {mode === "signin" ? "Första gången?" : "Har du redan ett lösenord?"}{" "}
                 <button
@@ -183,6 +195,7 @@ function LoginScreen() {
                   {mode === "signin" ? "Skapa lösenord" : "Logga in"}
                 </button>
               </p>
+              )}
 
               <div className="my-6 flex items-center gap-3">
                 <span className="h-px flex-1 bg-line" />
