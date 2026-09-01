@@ -1,0 +1,38 @@
+{
+  "url": "http://127.0.0.1:8081/rapporter",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "Årsrapport — Saldo",
+      "hasCanvas": false,
+      "bodyTextLen": 911,
+      "bodyTextHash": "3c6478cbed2bb4d6bb79759c13efd46df3f8f0fff31ca6826ad23a1056fb6fc6",
+      "bodyTextPrefix": "SALDO Årsrapport 2026/2027 1 juli 2026 – 30 juni 2027 Budget 202",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/reports-built.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "Årsrapport — Saldo",
+      "hasCanvas": false,
+      "bodyTextLen": 911,
+      "bodyTextHash": "3c6478cbed2bb4d6bb79759c13efd46df3f8f0fff31ca6826ad23a1056fb6fc6",
+      "bodyTextPrefix": "SALDO Årsrapport 2026/2027 1 juli 2026 – 30 juni 2027 Budget 202",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/reports-built-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/reports-built.json",
+  "divergesFromBaseline": false,
+  "baselineReasons": []
+}

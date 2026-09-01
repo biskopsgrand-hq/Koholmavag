@@ -1,0 +1,125 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@theme {
+  --font-sans: "Schibsted Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Fraunces", "Iowan Old Style", "Palatino Linotype", serif;
+
+  --color-bg: #efe9dc;
+  --color-surface: #f7f3ea;
+  --color-surface-2: #e7dfd0;
+  --color-ink: #1a1714;
+  --color-muted: #6b6458;
+  --color-subtle: #8a8274;
+  --color-line: #d8cfbf;
+  --color-pine: #1e4638;
+  --color-pine-fg: #f4efe4;
+  --color-moss: #3d6b54;
+  --color-clay: #9a4634;
+  --color-slate: #4a5560;
+  --color-taupe: #6b5d4d;
+  --color-stone: #7a6a58;
+  --color-chart-housing: #1e4638;
+  --color-chart-food: #c45c48;
+  --color-chart-transport: #3d5a73;
+  --color-chart-bills: #2c2a27;
+  --color-chart-health: #4f8a68;
+  --color-chart-fun: #8a6d52;
+  --color-chart-shop: #6b7c8a;
+  --color-chart-other: #9a9080;
+
+  --color-background: #efe9dc;
+  --color-foreground: #1a1714;
+  --color-card: #f7f3ea;
+  --color-card-foreground: #1a1714;
+  --color-primary: #1e4638;
+  --color-primary-foreground: #f4efe4;
+  --color-secondary: #e7dfd0;
+  --color-secondary-foreground: #1a1714;
+  --color-muted-foreground: #6b6458;
+  --color-accent: #e7dfd0;
+  --color-accent-foreground: #1a1714;
+  --color-destructive: #9a4634;
+  --color-destructive-foreground: #f7f3ea;
+  --color-border: #d8cfbf;
+  --color-input: #d8cfbf;
+  --color-ring: #1e4638;
+  --color-popover: #f7f3ea;
+  --color-popover-foreground: #1a1714;
+
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+  --radius-2xl: 2rem;
+  --radius-3xl: 1.75rem;
+
+  --shadow-border:
+    0 0 0 1px rgba(26, 23, 20, 0.06),
+    0 1px 2px -1px rgba(26, 23, 20, 0.06),
+    0 2px 4px 0 rgba(26, 23, 20, 0.04);
+  --shadow-border-hover:
+    0 0 0 1px rgba(26, 23, 20, 0.08),
+    0 1px 2px -1px rgba(26, 23, 20, 0.08),
+    0 2px 4px 0 rgba(26, 23, 20, 0.06);
+  --shadow-raised:
+    0 0 0 1px rgba(26, 23, 20, 0.06),
+    0 8px 24px -12px rgba(26, 23, 20, 0.18);
+
+  --ease-out-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-line);
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background: var(--color-bg);
+    color: var(--color-ink);
+  }
+
+  body {
+    min-height: 100dvh;
+    background: var(--color-bg);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+  }
+
+  h1, h2, h3 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    opacity: 0.55;
+    cursor: pointer;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media print {
+  body {
+    background: var(--color-surface);
+    color: var(--color-ink);
+  }
+}
