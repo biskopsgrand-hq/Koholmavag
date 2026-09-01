@@ -57,12 +57,7 @@ function LoginScreen() {
     try {
       if (isOwnerEmail(trimmedEmail)) {
         await setOwnerPassword({ data: { password, name: name.trim() || "Ägare" } });
-        const { error: signInError } = await authClient.signIn.email({
-          email: OWNER_EMAIL,
-          password,
-        });
-        if (signInError) throw new Error(signInError.message);
-        window.location.assign("/");
+        await completeEmailSignIn(OWNER_EMAIL, password);
         return;
       }
       if (mode === "signup") {
@@ -70,21 +65,23 @@ function LoginScreen() {
           email: trimmedEmail,
           password,
           name: name.trim() || trimmedEmail,
+          fetchOptions: {
+            onSuccess(ctx) {
+              keepPreviewSession(readAuthToken(ctx));
+            },
+          },
         });
         if (signUpError) {
           const message = signUpError.message || "";
           if (message.toLowerCase().includes("exist") || message.toLowerCase().includes("already")) {
-            setMode("signin");
-            throw new Error("Kontot finns redan. Logga in med ditt lösenord.");
+            await completeEmailSignIn(trimmedEmail, password);
+            return;
           }
           throw new Error(signUpError.message);
         }
       } else {
-        const { error: signInError } = await authClient.signIn.email({
-          email: trimmedEmail,
-          password,
-        });
-        if (signInError) throw new Error(signInError.message);
+        await completeEmailSignIn(trimmedEmail, password);
+        return;
       }
       window.location.assign("/");
     } catch (err) {
@@ -119,7 +116,7 @@ function LoginScreen() {
           </h1>
           <p className="mt-1 text-sm text-muted">
             {ownerFlow
-              ? `Skriv ett lösenord med minst 8 tecken för ${OWNER_EMAIL} och klicka Öppna. Det blir ditt lösenord från och med nu.`
+              ? `Logga in här i appen. Skriv ett lösenord med minst 8 tecken för ${OWNER_EMAIL} och klicka Öppna.`
               : mode === "signin"
                 ? "Skriv e-post och lösenord. Google behövs inte."
                 : `Skapa ett konto. Du släpps in först när ${OWNER_EMAIL} godkänt dig via e-post.`}
@@ -278,11 +275,58 @@ function XMark() {
   );
 }
 
+function keepPreviewSession(token: string | null) {
+  if (!token || typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem("grok-auth.bearer-token", token);
+  } catch {
+    /* storage unavailable */
+  }
+}
+
+function readAuthToken(ctx: { data?: unknown; response?: Response }): string | null {
+  const header = ctx.response?.headers.get("set-auth-token");
+  if (header) return header;
+  if (ctx.data && typeof ctx.data === "object" && "token" in ctx.data) {
+    const token = (ctx.data as { token?: unknown }).token;
+    if (typeof token === "string" && token) return token;
+  }
+  return null;
+}
+
+async function completeEmailSignIn(email: string, password: string): Promise<void> {
+  let token: string | null = null;
+  const { data, error } = await authClient.signIn.email({
+    email,
+    password,
+    fetchOptions: {
+      onSuccess(ctx) {
+        token = readAuthToken(ctx);
+      },
+    },
+  });
+  if (error) throw new Error(error.message);
+  if (!token && data && typeof data === "object" && "token" in data) {
+    const value = (data as { token?: unknown }).token;
+    if (typeof value === "string") token = value;
+  }
+  keepPreviewSession(token);
+  try {
+    await authClient.getSession();
+  } catch {
+    /* next page load will recover */
+  }
+  window.location.assign("/");
+}
+
 function swedishAuthError(message: string): string {
   const lower = message.toLowerCase();
   if (lower.includes("popup")) return "Tillåt popup-fönster för att logga in.";
-  if (lower.includes("invalid") || lower.includes("credential") || lower.includes("password")) {
-    return "Fel e-post eller lösenord.";
+  if (lower.includes("invalid origin") || lower.includes("unable to verify")) {
+    return "Logga in här i appen, inte via GitHub.";
+  }
+  if (lower.includes("invalid email or password") || lower.includes("invalid password")) {
+    return "Fel e-post eller lösenord. Skriv minst 8 tecken och klicka Öppna.";
   }
   if (lower.includes("exist") || lower.includes("already")) {
     return "Det finns redan ett konto med den e-postadressen.";
