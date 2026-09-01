@@ -1,67 +1,6 @@
-import { i as __toESM } from "../_runtime.mjs";
-import { u as require_react } from "../_libs/@floating-ui/react-dom+[...].mjs";
-import { A as Slot, N as require_jsx_runtime } from "../_libs/@radix-ui/react-alert-dialog+[...].mjs";
-import { n as clsx, t as cva } from "../_libs/class-variance-authority+clsx.mjs";
-import { t as twMerge } from "../_libs/tailwind-merge.mjs";
-import { t as Root } from "../_libs/radix-ui__react-label.mjs";
 import { n as parseISO, r as format, t as sv } from "../_libs/date-fns.mjs";
 import { n as create, t as persist } from "../_libs/zustand.mjs";
-//#region node_modules/.nitro/vite/services/ssr/assets/budget-store-BmoyfTre.js
-var import_react = /* @__PURE__ */ __toESM(require_react());
-var import_jsx_runtime = require_jsx_runtime();
-function cn(...inputs) {
-	return twMerge(clsx(inputs));
-}
-var buttonVariants = cva("inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-[background-color,color,box-shadow,transform,opacity] duration-150 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-bg disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 active:not-disabled:scale-[0.96]", {
-	variants: {
-		variant: {
-			default: "bg-pine text-pine-fg hover:bg-pine/90",
-			secondary: "bg-surface-2 text-ink hover:bg-line",
-			outline: "bg-transparent text-ink shadow-[var(--shadow-border)] hover:shadow-[var(--shadow-border-hover)]",
-			ghost: "bg-transparent text-ink hover:bg-surface-2",
-			destructive: "bg-clay text-destructive-foreground hover:bg-clay/90",
-			link: "text-pine underline-offset-4 hover:underline"
-		},
-		size: {
-			default: "h-11 px-4",
-			sm: "h-9 rounded-sm px-3 text-sm",
-			lg: "h-12 rounded-lg px-5",
-			icon: "size-11",
-			"icon-sm": "size-9 rounded-sm"
-		}
-	},
-	defaultVariants: {
-		variant: "default",
-		size: "default"
-	}
-});
-var Button = import_react.forwardRef(({ className, variant, size, asChild = false, ...props }, ref) => {
-	return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(asChild ? Slot : "button", {
-		className: cn(buttonVariants({
-			variant,
-			size,
-			className
-		})),
-		ref,
-		...props
-	});
-});
-Button.displayName = "Button";
-var Input = import_react.forwardRef(({ className, type, ...props }, ref) => {
-	return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", {
-		type,
-		className: cn("flex h-11 w-full rounded-md bg-bg px-3 text-base text-ink shadow-[var(--shadow-border)] transition-[box-shadow] duration-150 ease-out placeholder:text-subtle file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm", className),
-		ref,
-		...props
-	});
-});
-Input.displayName = "Input";
-var Label = import_react.forwardRef(({ className, ...props }, ref) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Root, {
-	ref,
-	className: cn("text-sm font-medium text-ink", className),
-	...props
-}));
-Label.displayName = Root.displayName;
+//#region node_modules/.nitro/vite/services/ssr/assets/budget-store-DNr10-pq.js
 function formatKr(amount) {
 	return new Intl.NumberFormat("sv-SE", {
 		style: "currency",
@@ -537,4 +476,4 @@ function spendingByCategory(transactions) {
 	})).sort((a, b) => b.amount - a.amount);
 }
 //#endregion
-export { shiftMonth as C, useBudgetStore as E, parseMoneyInput as S, todayIso as T, formatKr as _, buttonVariants as a, monthTransactions as b, cn as c, fallbackCategoryId as d, fiscalClosingLabel as f, formatDayLabel as g, fiscalYearLabel as h, Label as i, currentFiscalYear as l, fiscalYearFromIso as m, EMPTY_YEAR_BOOK as n, categoriesFor as o, fiscalPeriodLabel as p, Input as r, categoryById as s, Button as t, defaultCategory as u, formatMonthLabel as v, spendingByCategory as w, parseAmountInput as x, monthTotals as y };
+export { parseMoneyInput as _, defaultCategory as a, todayIso as b, fiscalPeriodLabel as c, formatDayLabel as d, formatKr as f, parseAmountInput as g, monthTransactions as h, currentFiscalYear as i, fiscalYearFromIso as l, monthTotals as m, categoriesFor as n, fallbackCategoryId as o, formatMonthLabel as p, categoryById as r, fiscalClosingLabel as s, EMPTY_YEAR_BOOK as t, fiscalYearLabel as u, shiftMonth as v, useBudgetStore as x, spendingByCategory as y };

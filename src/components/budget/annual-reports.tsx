@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { AccountChip } from "@/components/budget/account-chip";
+import { AdminNav } from "@/components/budget/auth-gate";
 import { currentFiscalYear, formatKr, parseAmountInput, parseMoneyInput } from "@/lib/format";
 import { buildAnnualReport, yearsFromData } from "@/lib/reports";
 import { reportToDocx } from "@/lib/report-docx";
@@ -101,6 +103,8 @@ export function AnnualReports() {
           <p className="mt-1 text-sm text-muted">{report.periodLabel}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2 print:hidden">
+          <AccountChip />
+          <AdminNav />
           <Button variant="outline" asChild>
             <Link to="/">
               <ArrowLeft />

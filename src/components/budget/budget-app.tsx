@@ -28,6 +28,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
+import { AccountChip } from "@/components/budget/account-chip";
+import { AdminNav } from "@/components/budget/auth-gate";
 import { BudgetDialog } from "@/components/budget/budget-dialog";
 import { CategoriesDialog } from "@/components/budget/categories-dialog";
 import { TransactionDialog } from "@/components/budget/transaction-dialog";
@@ -109,6 +111,8 @@ export function BudgetApp() {
           </h1>
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+          <AccountChip />
+          <AdminNav />
           <Button variant="outline" onClick={() => setCategoriesOpen(true)}>
             Kategorier
           </Button>

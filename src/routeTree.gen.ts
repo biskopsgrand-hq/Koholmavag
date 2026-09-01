@@ -10,11 +10,25 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as GodkannandenRouteImport } from './routes/godkannanden'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as RapporterRouteImport } from './routes/rapporter'
+import { Route as ApiGodkannRouteImport } from './routes/api/godkann'
+import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GodkannandenRoute = GodkannandenRouteImport.update({
+  id: '/godkannanden',
+  path: '/godkannanden',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RapporterRoute = RapporterRouteImport.update({
@@ -22,31 +36,76 @@ const RapporterRoute = RapporterRouteImport.update({
   path: '/rapporter',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiGodkannRoute = ApiGodkannRouteImport.update({
+  id: '/api/godkann',
+  path: '/api/godkann',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
+  id: '/api/auth/$',
+  path: '/api/auth/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/godkannanden': typeof GodkannandenRoute
+  '/login': typeof LoginRoute
   '/rapporter': typeof RapporterRoute
+  '/api/godkann': typeof ApiGodkannRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/godkannanden': typeof GodkannandenRoute
+  '/login': typeof LoginRoute
   '/rapporter': typeof RapporterRoute
+  '/api/godkann': typeof ApiGodkannRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/godkannanden': typeof GodkannandenRoute
+  '/login': typeof LoginRoute
   '/rapporter': typeof RapporterRoute
+  '/api/godkann': typeof ApiGodkannRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/rapporter'
+  fullPaths:
+    | '/'
+    | '/godkannanden'
+    | '/login'
+    | '/rapporter'
+    | '/api/godkann'
+    | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/rapporter'
-  id: '__root__' | '/' | '/rapporter'
+  to:
+    | '/'
+    | '/godkannanden'
+    | '/login'
+    | '/rapporter'
+    | '/api/godkann'
+    | '/api/auth/$'
+  id:
+    | '__root__'
+    | '/'
+    | '/godkannanden'
+    | '/login'
+    | '/rapporter'
+    | '/api/godkann'
+    | '/api/auth/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  GodkannandenRoute: typeof GodkannandenRoute
+  LoginRoute: typeof LoginRoute
   RapporterRoute: typeof RapporterRoute
+  ApiGodkannRoute: typeof ApiGodkannRoute
+  ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -58,6 +117,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/godkannanden': {
+      id: '/godkannanden'
+      path: '/godkannanden'
+      fullPath: '/godkannanden'
+      preLoaderRoute: typeof GodkannandenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/rapporter': {
       id: '/rapporter'
       path: '/rapporter'
@@ -65,12 +138,30 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RapporterRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/godkann': {
+      id: '/api/godkann'
+      path: '/api/godkann'
+      fullPath: '/api/godkann'
+      preLoaderRoute: typeof ApiGodkannRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/$': {
+      id: '/api/auth/$'
+      path: '/api/auth/$'
+      fullPath: '/api/auth/$'
+      preLoaderRoute: typeof ApiAuthSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  GodkannandenRoute: GodkannandenRoute,
+  LoginRoute: LoginRoute,
   RapporterRoute: RapporterRoute,
+  ApiGodkannRoute: ApiGodkannRoute,
+  ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

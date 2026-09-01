@@ -1,11 +1,13 @@
-import { i as __toESM } from "../_runtime.mjs";
+import { o as __toESM } from "../_runtime.mjs";
 import { u as require_react } from "../_libs/@floating-ui/react-dom+[...].mjs";
-import { N as require_jsx_runtime } from "../_libs/@radix-ui/react-alert-dialog+[...].mjs";
-import { E as useBudgetStore, S as parseMoneyInput, _ as formatKr, c as cn, f as fiscalClosingLabel, h as fiscalYearLabel, i as Label, l as currentFiscalYear, m as fiscalYearFromIso, n as EMPTY_YEAR_BOOK, p as fiscalPeriodLabel, r as Input, s as categoryById, t as Button, x as parseAmountInput, y as monthTotals } from "./budget-store-BmoyfTre.mjs";
 import { _ as Link } from "../_libs/@tanstack/react-router+[...].mjs";
+import { N as require_jsx_runtime } from "../_libs/@radix-ui/react-alert-dialog+[...].mjs";
+import { a as cn, n as Input, r as Label, t as Button } from "./label-BRi1-1MI.mjs";
 import { a as Plus, c as Download, f as ArrowLeft, i as Printer, l as ChevronRight, r as Trash2, u as ChevronLeft } from "../_libs/lucide-react.mjs";
+import { n as AdminNav, r as AuthGate, t as AccountChip } from "./account-chip-WuqQSmsk.mjs";
 import { n as toast, t as Toaster } from "../_libs/sonner.mjs";
-//#region node_modules/.nitro/vite/services/ssr/assets/rapporter-p4LAH0PO.js
+import { _ as parseMoneyInput, c as fiscalPeriodLabel, f as formatKr, g as parseAmountInput, i as currentFiscalYear, l as fiscalYearFromIso, m as monthTotals, r as categoryById, s as fiscalClosingLabel, t as EMPTY_YEAR_BOOK, u as fiscalYearLabel, x as useBudgetStore } from "./budget-store-DNr10-pq.mjs";
+//#region node_modules/.nitro/vite/services/ssr/assets/rapporter-Cvf_C2TC.js
 var import_react = /* @__PURE__ */ __toESM(require_react());
 var import_jsx_runtime = require_jsx_runtime();
 function transactionsInFiscalYear(transactions, startYear) {
@@ -453,18 +455,23 @@ function AnnualReports() {
 					]
 				}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
 					className: "flex flex-wrap items-center gap-2 print:hidden",
-					children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Button, {
-						variant: "outline",
-						asChild: true,
-						children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(Link, {
-							to: "/",
-							children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(ArrowLeft, {}), "Budget"]
+					children: [
+						/* @__PURE__ */ (0, import_jsx_runtime.jsx)(AccountChip, {}),
+						/* @__PURE__ */ (0, import_jsx_runtime.jsx)(AdminNav, {}),
+						/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Button, {
+							variant: "outline",
+							asChild: true,
+							children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(Link, {
+								to: "/",
+								children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(ArrowLeft, {}), "Budget"]
+							})
+						}),
+						/* @__PURE__ */ (0, import_jsx_runtime.jsx)(YearNav, {
+							year,
+							years,
+							onChange: setYear
 						})
-					}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(YearNav, {
-						year,
-						years,
-						onChange: setYear
-					})]
+					]
 				})]
 			}),
 			/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("p", {
@@ -777,14 +784,14 @@ function ItemEditor({ title, name, amount, onName, onAmount, items, onAdd, onRem
 	});
 }
 function ReportsPage() {
-	return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("main", {
+	return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(AuthGate, { children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("main", {
 		className: "min-h-dvh overflow-x-clip bg-bg text-ink",
 		children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(AnnualReports, {}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Toaster, {
 			position: "top-center",
 			offset: 16,
 			toastOptions: { className: "!bg-surface !text-ink !border-0 !shadow-[var(--shadow-raised)] !font-sans" }
 		})]
-	});
+	}) });
 }
 //#endregion
 export { ReportsPage as component };

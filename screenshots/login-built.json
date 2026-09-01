@@ -1,0 +1,38 @@
+{
+  "url": "http://127.0.0.1:8081/login",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "Logga in — Saldo",
+      "hasCanvas": false,
+      "bodyTextLen": 318,
+      "bodyTextHash": "698bcfacca42fbe38f21d9472e98dd2ec7345cb95c30fbfd684abdbb073cb851",
+      "bodyTextPrefix": "SALDO Privat budget Inte öppet för alla. Nya personer måste godk",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/login-built.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "Logga in — Saldo",
+      "hasCanvas": false,
+      "bodyTextLen": 240,
+      "bodyTextHash": "abb7074611507a559047cd70b1e7dda179272a9296645fcbf1a25d547691401a",
+      "bodyTextPrefix": "SALDO Privat budget Inte öppet för alla. Nya personer måste godk",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/login-built-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/login-built.json",
+  "divergesFromBaseline": false,
+  "baselineReasons": []
+}

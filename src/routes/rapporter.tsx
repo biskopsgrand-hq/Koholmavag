@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Toaster } from "sonner";
 import { AnnualReports } from "@/components/budget/annual-reports";
+import { AuthGate } from "@/components/budget/auth-gate";
 
 export const Route = createFileRoute("/rapporter")({
   component: ReportsPage,
@@ -17,16 +18,18 @@ export const Route = createFileRoute("/rapporter")({
 
 function ReportsPage() {
   return (
-    <main className="min-h-dvh overflow-x-clip bg-bg text-ink">
-      <AnnualReports />
-      <Toaster
-        position="top-center"
-        offset={16}
-        toastOptions={{
-          className:
-            "!bg-surface !text-ink !border-0 !shadow-[var(--shadow-raised)] !font-sans",
-        }}
-      />
-    </main>
+    <AuthGate>
+      <main className="min-h-dvh overflow-x-clip bg-bg text-ink">
+        <AnnualReports />
+        <Toaster
+          position="top-center"
+          offset={16}
+          toastOptions={{
+            className:
+              "!bg-surface !text-ink !border-0 !shadow-[var(--shadow-raised)] !font-sans",
+          }}
+        />
+      </main>
+    </AuthGate>
   );
 }

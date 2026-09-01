@@ -1,13 +1,15 @@
-import { i as __toESM } from "../_runtime.mjs";
+import { o as __toESM } from "../_runtime.mjs";
 import { u as require_react } from "../_libs/@floating-ui/react-dom+[...].mjs";
-import { N as require_jsx_runtime, a as Overlay2, c as Title2, d as DialogContent$1, f as DialogDescription$1, h as DialogTitle$1, i as Description2, l as Dialog$1, m as DialogPortal$1, n as Cancel, o as Portal2, p as DialogOverlay$1, r as Content2, s as Root2, t as Action, u as DialogClose } from "../_libs/@radix-ui/react-alert-dialog+[...].mjs";
-import { C as shiftMonth, E as useBudgetStore, T as todayIso, _ as formatKr, a as buttonVariants, b as monthTransactions, c as cn, d as fallbackCategoryId, g as formatDayLabel, i as Label, o as categoriesFor, r as Input, s as categoryById, t as Button, u as defaultCategory, v as formatMonthLabel, w as spendingByCategory, x as parseAmountInput, y as monthTotals } from "./budget-store-BmoyfTre.mjs";
 import { _ as Link } from "../_libs/@tanstack/react-router+[...].mjs";
+import { N as require_jsx_runtime, a as Overlay2, c as Title2, d as DialogContent$1, f as DialogDescription$1, h as DialogTitle$1, i as Description2, l as Dialog$1, m as DialogPortal$1, n as Cancel, o as Portal2, p as DialogOverlay$1, r as Content2, s as Root2, t as Action, u as DialogClose } from "../_libs/@radix-ui/react-alert-dialog+[...].mjs";
+import { a as cn, i as buttonVariants, n as Input, r as Label, t as Button } from "./label-BRi1-1MI.mjs";
 import { a as Plus, d as Check, l as ChevronRight, o as Pencil, r as Trash2, s as Ellipsis, t as X, u as ChevronLeft } from "../_libs/lucide-react.mjs";
+import { n as AdminNav, r as AuthGate, t as AccountChip } from "./account-chip-WuqQSmsk.mjs";
 import { n as toast, t as Toaster } from "../_libs/sonner.mjs";
+import { a as defaultCategory, b as todayIso, d as formatDayLabel, f as formatKr, g as parseAmountInput, h as monthTransactions, m as monthTotals, n as categoriesFor, o as fallbackCategoryId, p as formatMonthLabel, r as categoryById, v as shiftMonth, x as useBudgetStore, y as spendingByCategory } from "./budget-store-DNr10-pq.mjs";
 import { a as Separator2, i as Root2$1, n as Item2, o as Trigger, r as Portal2$1, t as Content2$1 } from "../_libs/@radix-ui/react-dropdown-menu+[...].mjs";
 import { n as Root, t as Indicator } from "../_libs/radix-ui__react-progress.mjs";
-//#region node_modules/.nitro/vite/services/ssr/assets/routes-BV35Y8l0.js
+//#region node_modules/.nitro/vite/services/ssr/assets/routes-BKyDLMSt.js
 var import_react = /* @__PURE__ */ __toESM(require_react());
 var import_jsx_runtime = require_jsx_runtime();
 var AlertDialog = Root2;
@@ -643,6 +645,8 @@ function BudgetApp() {
 				}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
 					className: "flex flex-wrap items-center gap-2 sm:justify-end",
 					children: [
+						/* @__PURE__ */ (0, import_jsx_runtime.jsx)(AccountChip, {}),
+						/* @__PURE__ */ (0, import_jsx_runtime.jsx)(AdminNav, {}),
 						/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Button, {
 							variant: "outline",
 							onClick: () => setCategoriesOpen(true),
@@ -1007,14 +1011,14 @@ function EmptyList({ filter, onAdd }) {
 	});
 }
 function Home() {
-	return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("main", {
+	return /* @__PURE__ */ (0, import_jsx_runtime.jsx)(AuthGate, { children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("main", {
 		className: "min-h-dvh overflow-x-clip bg-bg text-ink",
 		children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(BudgetApp, {}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Toaster, {
 			position: "top-center",
 			offset: 16,
 			toastOptions: { className: "!bg-surface !text-ink !border-0 !shadow-[var(--shadow-raised)] !font-sans" }
 		})]
-	});
+	}) });
 }
 //#endregion
 export { Home as component };
