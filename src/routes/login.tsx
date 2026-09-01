@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { createFileRoute, Navigate } from "@tanstack/react-router";
-import { GROK_PROVIDERS, authClient, authEnabled, signIn } from "@/lib/auth/client";
+import { authClient, authEnabled } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { OWNER_EMAIL, isOwnerEmail } from "@/lib/access";
 import { requestAccess, setOwnerPassword } from "@/lib/access-fns";
@@ -32,21 +32,6 @@ function LoginScreen() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<string | null>(null);
-
-  async function handleProvider(providerId: string) {
-    setError(null);
-    setPending(providerId);
-    try {
-      await signIn(providerId, { callbackURL: "/", errorCallbackURL: "/login" });
-    } catch (err) {
-      setPending(null);
-      setError(
-        err instanceof Error
-          ? swedishAuthError(err.message)
-          : "Google-inloggningen misslyckades. Skapa ett lösenord nedan i stället.",
-      );
-    }
-  }
 
   async function handleEmail(event: FormEvent) {
     event.preventDefault();
@@ -187,33 +172,6 @@ function LoginScreen() {
                   {mode === "signin" ? "Begär tillgång" : "Logga in"}
                 </button>
               </p>
-
-              <div className="my-6 flex items-center gap-3">
-                <span className="h-px flex-1 bg-line" />
-                <span className="text-xs font-medium tracking-wide text-muted uppercase">
-                  eller
-                </span>
-                <span className="h-px flex-1 bg-line" />
-              </div>
-
-              <div className="grid gap-2">
-                {GROK_PROVIDERS.map((provider) => (
-                  <Button
-                    key={provider.providerId}
-                    type="button"
-                    variant="outline"
-                    size="lg"
-                    className="w-full justify-center"
-                    disabled={pending !== null}
-                    onClick={() => void handleProvider(provider.providerId)}
-                  >
-                    {provider.idp === "google" ? <GoogleMark /> : <XMark />}
-                    {pending === provider.providerId
-                      ? "Öppnar…"
-                      : `Fortsätt med ${provider.label}`}
-                  </Button>
-                ))}
-              </div>
             </>
           )}
         </section>
@@ -228,43 +186,6 @@ function LedgerMark({ className }: { className?: string }) {
       <rect x="3" y="5" width="30" height="5" rx="1.5" fill="currentColor" opacity="0.35" />
       <rect x="3" y="15.5" width="22" height="5" rx="1.5" fill="currentColor" />
       <rect x="3" y="26" width="14" height="5" rx="1.5" fill="currentColor" opacity="0.65" />
-    </svg>
-  );
-}
-
-function GoogleMark() {
-  return (
-    <svg viewBox="0 0 24 24" className="size-4" aria-hidden>
-      <path
-        fill="currentColor"
-        d="M21.6 12.23c0-.74-.06-1.45-.18-2.13H12v4.03h5.38a4.6 4.6 0 0 1-2 3.02v2.5h3.24c1.9-1.75 2.98-4.33 2.98-7.42Z"
-      />
-      <path
-        fill="currentColor"
-        d="M12 22c2.7 0 4.97-.9 6.63-2.35l-3.24-2.5c-.9.6-2.05.96-3.39.96-2.6 0-4.81-1.76-5.6-4.12H3.06v2.58A10 10 0 0 0 12 22Z"
-        opacity="0.85"
-      />
-      <path
-        fill="currentColor"
-        d="M6.4 13.99A6 6 0 0 1 6.08 12c0-.69.12-1.36.32-1.99V7.43H3.06A10 10 0 0 0 2 12c0 1.61.38 3.14 1.06 4.57l3.34-2.58Z"
-        opacity="0.7"
-      />
-      <path
-        fill="currentColor"
-        d="M12 5.96c1.47 0 2.79.5 3.83 1.5l2.87-2.87C16.96 2.97 14.7 2 12 2A10 10 0 0 0 3.06 7.43l3.34 2.58C7.19 7.72 9.4 5.96 12 5.96Z"
-        opacity="0.55"
-      />
-    </svg>
-  );
-}
-
-function XMark() {
-  return (
-    <svg viewBox="0 0 24 24" className="size-4" aria-hidden>
-      <path
-        fill="currentColor"
-        d="M18.24 2H21.5l-7.19 8.21L22.5 22h-6.59l-5.16-6.74L5.2 22H1.92l7.7-8.8L1.5 2h6.76l4.66 6.18L18.24 2Zm-1.16 18.02h1.83L7.01 3.88H5.05l12.03 16.14Z"
-      />
     </svg>
   );
 }

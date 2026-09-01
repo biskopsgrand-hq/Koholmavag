@@ -135,7 +135,7 @@ function PendingAccess({
         <p className="mt-3 break-all rounded-lg bg-bg px-3 py-2 text-sm text-ink">{access.email}</p>
       ) : (
         <p className="mt-3 text-sm text-muted">
-          Vi kunde inte läsa din e-post. Logga in med Google eller e-post och lösenord.
+          Vi kunde inte läsa din e-post. Logga in med e-post och lösenord.
         </p>
       )}
       {!denied && mailto ? (
