@@ -26,13 +26,12 @@ function Login() {
 }
 
 function LoginScreen() {
-  const [mode, setMode] = useState<"signin" | "signup">("signup");
-  const [name, setName] = useState("Ägare");
-  const [email, setEmail] = useState(OWNER_EMAIL);
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<string | null>(null);
-  const ownerFlow = isOwnerEmail(email);
 
   async function handleProvider(providerId: string) {
     setError(null);
@@ -117,14 +116,12 @@ function LoginScreen() {
 
         <section className="px-5 py-7 sm:px-8 sm:py-10 lg:col-span-3">
           <h1 className="font-display text-3xl font-medium tracking-tight text-ink">
-            {mode === "signin" && !ownerFlow ? "Logga in" : ownerFlow ? "Öppna som ägare" : "Begär tillgång"}
+            {mode === "signin" ? "Logga in" : "Begär tillgång"}
           </h1>
           <p className="mt-1 text-sm text-muted">
-            {ownerFlow
-              ? `Skriv ett lösenord med minst 8 tecken för ${OWNER_EMAIL} och klicka Öppna.`
-              : mode === "signin"
-                ? "Skriv e-post och lösenord. Google behövs inte."
-                : `Skapa ett konto. Du släpps in först när ${OWNER_EMAIL} godkänt dig via e-post.`}
+            {mode === "signin"
+              ? "Skriv e-post och lösenord."
+              : "Skapa ett konto. Du släpps in när en administratör godkänt dig."}
           </p>
 
           {!authEnabled ? (
@@ -132,7 +129,7 @@ function LoginScreen() {
           ) : (
             <>
               <form onSubmit={(event) => void handleEmail(event)} className="mt-7 grid gap-4">
-                {mode === "signup" || ownerFlow ? (
+                {mode === "signup" ? (
                   <div className="grid gap-2">
                     <Label htmlFor="name">Namn</Label>
                     <Input
@@ -164,22 +161,19 @@ function LoginScreen() {
                     minLength={8}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    autoComplete={mode === "signup" || ownerFlow ? "new-password" : "current-password"}
+                    autoComplete={mode === "signup" ? "new-password" : "current-password"}
                   />
                 </div>
                 {error ? <p className="text-sm text-clay">{error}</p> : null}
                 <Button type="submit" size="lg" className="w-full" disabled={pending !== null}>
                   {pending === "email"
                     ? "Väntar…"
-                    : ownerFlow
-                      ? "Öppna"
-                      : mode === "signin"
-                        ? "Logga in"
-                        : "Begär tillgång"}
+                    : mode === "signin"
+                      ? "Logga in"
+                      : "Begär tillgång"}
                 </Button>
               </form>
 
-              {ownerFlow ? null : (
               <p className="mt-5 text-center text-sm text-muted">
                 {mode === "signin" ? "Första gången?" : "Har du redan ett lösenord?"}{" "}
                 <button
@@ -188,16 +182,11 @@ function LoginScreen() {
                   onClick={() => {
                     setMode(mode === "signin" ? "signup" : "signin");
                     setError(null);
-                    if (mode === "signin") {
-                      setEmail(OWNER_EMAIL);
-                      setName("Ägare");
-                    }
                   }}
                 >
-                  {mode === "signin" ? "Skapa lösenord" : "Logga in"}
+                  {mode === "signin" ? "Begär tillgång" : "Logga in"}
                 </button>
               </p>
-              )}
 
               <div className="my-6 flex items-center gap-3">
                 <span className="h-px flex-1 bg-line" />
