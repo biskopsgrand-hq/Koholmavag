@@ -3,3 +3,11 @@ node_modules/
 .github_repo
 .env
 .env.*
+
+# Vercel build output — must never be committed. When present in the repo,
+# Vercel deploys these prebuilt artifacts verbatim ("Using prebuilt build
+# artifacts from .vercel/output") and skips `npm run build`, shipping a stale
+# server function that 500s at runtime. Let Vercel build from source instead.
+.vercel
+.output
+dist
