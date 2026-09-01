@@ -16,7 +16,7 @@ export const requestAccess = createServerFn({ method: "POST" })
     return requestAccessForUserId(context.userId);
   });
 
-export const listAccessMembers = createServerFn({ method: "GET" })
+export const listAccessMembers = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .handler(async ({ context }): Promise<AccessMember[]> => {
     const { listMembersForAdmin } = await import("@/lib/access.server");
@@ -26,17 +26,17 @@ export const listAccessMembers = createServerFn({ method: "GET" })
 export const decideAccessMember = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator((input: { email: string; status: "approved" | "denied" }) => input)
-  .handler(async ({ context, data }): Promise<void> => {
+  .handler(async ({ context, data }): Promise<AccessMember[]> => {
     const { decideMemberForAdmin } = await import("@/lib/access.server");
-    await decideMemberForAdmin(context.userId, data.email, data.status);
+    return decideMemberForAdmin(context.userId, data.email, data.status);
   });
 
 export const inviteAccessMember = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator((input: { email: string; name: string }) => input)
-  .handler(async ({ context, data }): Promise<void> => {
+  .handler(async ({ context, data }): Promise<AccessMember[]> => {
     const { inviteMemberForAdmin } = await import("@/lib/access.server");
-    await inviteMemberForAdmin(context.userId, data.email, data.name);
+    return inviteMemberForAdmin(context.userId, data.email, data.name);
   });
 
 export const setOwnerPassword = createServerFn({ method: "POST" })

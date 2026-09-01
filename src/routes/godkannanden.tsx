@@ -47,11 +47,6 @@ function AccessAdmin() {
   const [name, setName] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
 
-  async function reload() {
-    const rows = await listAccessMembers();
-    setMembers(rows);
-  }
-
   useEffect(() => {
     if (!access?.isAdmin) return;
     let cancelled = false;
@@ -82,8 +77,8 @@ function AccessAdmin() {
   async function decide(memberEmail: string, status: "approved" | "denied") {
     setBusy(memberEmail + status);
     try {
-      await decideAccessMember({ data: { email: memberEmail, status } });
-      await reload();
+      const rows = await decideAccessMember({ data: { email: memberEmail, status } });
+      setMembers(rows);
       toast(status === "approved" ? "Personen är godkänd." : "Personen är nekad.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Kunde inte spara.");
@@ -96,10 +91,10 @@ function AccessAdmin() {
     event.preventDefault();
     setBusy("invite");
     try {
-      await inviteAccessMember({ data: { email, name } });
+      const rows = await inviteAccessMember({ data: { email, name } });
       setEmail("");
       setName("");
-      await reload();
+      setMembers(rows);
       toast("Personen är förhandsgodkänd.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Kunde inte bjuda in.");

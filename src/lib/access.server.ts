@@ -224,13 +224,22 @@ export async function listMembersForAdmin(userId: string): Promise<AccessMember[
   const sql = await getSql();
   const rows = await sql<MemberRow>`
     select email, user_id, name, status, token, requested_at::text, decided_at::text
-    from access_members
+    from (
+      select lower(email) as email, user_id, name, status, token, requested_at, decided_at
+      from access_members
+      union all
+      select lower(u.email), u.id, u.name, 'pending', null, u."createdAt", null
+      from "user" u
+      where not exists (
+        select 1 from access_members m where lower(m.email) = lower(u.email)
+      )
+    ) listed
     order by
       case status when 'pending' then 0 when 'approved' then 1 else 2 end,
       requested_at desc
   `;
   return rows.map((row) => ({
-    email: row.email,
+    email: normalizeEmail(row.email),
     name: row.name,
     status: row.status,
     requestedAt: row.requested_at,
@@ -242,36 +251,67 @@ export async function decideMemberForAdmin(
   userId: string,
   email: string,
   status: "approved" | "denied",
-): Promise<void> {
+): Promise<AccessMember[]> {
   await requireAdmin(userId);
   const normalized = normalizeEmail(email);
   if (isOwnerEmail(normalized) && status !== "approved") {
     throw new Error("Ägaren kan inte nekas.");
   }
   const sql = await getSql();
-  await sql`
+  const updated = await sql<{ email: string }>`
     update access_members
     set status = ${status},
         decided_at = now(),
-        decided_by = ${OWNER_EMAIL}
-    where email = ${normalized}
+        decided_by = ${OWNER_EMAIL},
+        user_id = coalesce(
+          user_id,
+          (select id from "user" where lower(email) = ${normalized} limit 1)
+        ),
+        name = coalesce(
+          name,
+          (select name from "user" where lower(email) = ${normalized} limit 1)
+        )
+    where lower(email) = ${normalized}
+    returning email
   `;
+  if (!updated[0]) {
+    await sql`
+      insert into access_members (email, user_id, name, status, decided_at, decided_by)
+      values (
+        ${normalized},
+        (select id from "user" where lower(email) = ${normalized} limit 1),
+        coalesce((select name from "user" where lower(email) = ${normalized} limit 1), ${normalized}),
+        ${status},
+        now(),
+        ${OWNER_EMAIL}
+      )
+    `;
+  }
+  return listMembersForAdmin(userId);
 }
 
-export async function inviteMemberForAdmin(userId: string, email: string, name: string): Promise<void> {
+export async function inviteMemberForAdmin(userId: string, email: string, name: string): Promise<AccessMember[]> {
   await requireAdmin(userId);
   const normalized = normalizeEmail(email);
   if (!normalized.includes("@")) throw new Error("Ogiltig e-post.");
   const sql = await getSql();
   await sql`
-    insert into access_members (email, name, status, decided_at, decided_by)
-    values (${normalized}, ${name || null}, 'approved', now(), ${OWNER_EMAIL})
+    insert into access_members (email, user_id, name, status, decided_at, decided_by)
+    values (
+      ${normalized},
+      (select id from "user" where lower(email) = ${normalized} limit 1),
+      ${name || null},
+      'approved',
+      now(),
+      ${OWNER_EMAIL}
+    )
     on conflict (email) do update set
       name = coalesce(excluded.name, access_members.name),
       status = 'approved',
       decided_at = now(),
       decided_by = ${OWNER_EMAIL}
   `;
+  return listMembersForAdmin(userId);
 }
 
 export async function peekAccessToken(token: string): Promise<{ email: string; name: string | null; status: AccessStatus } | null> {
