@@ -3,7 +3,7 @@ import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { GROK_PROVIDERS, authClient, authEnabled, signIn } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { OWNER_EMAIL, isOwnerEmail } from "@/lib/access";
-import { setOwnerPassword } from "@/lib/access-fns";
+import { requestAccess, setOwnerPassword } from "@/lib/access-fns";
 import { APP_NAME } from "@/lib/brand";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -79,11 +79,16 @@ function LoginScreen() {
           }
           throw new Error(signUpError.message);
         }
-      } else {
-        await completeEmailSignIn(trimmedEmail, password);
+        try {
+          await authClient.getSession();
+          await requestAccess();
+        } catch {
+          /* AuthGate retries after redirect */
+        }
+        window.location.assign("/");
         return;
       }
-      window.location.assign("/");
+      await completeEmailSignIn(trimmedEmail, password);
     } catch (err) {
       setPending(null);
       setError(err instanceof Error ? swedishAuthError(err.message) : "Något gick fel.");
@@ -313,6 +318,7 @@ async function completeEmailSignIn(email: string, password: string): Promise<voi
   keepPreviewSession(token);
   try {
     await authClient.getSession();
+    if (!isOwnerEmail(email)) await requestAccess();
   } catch {
     /* next page load will recover */
   }

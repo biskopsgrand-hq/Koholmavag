@@ -4,7 +4,7 @@ import { RedirectToSignIn } from "@/lib/auth/gates";
 import { signOut } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { OWNER_EMAIL, isApproved, type AccessState } from "@/lib/access";
-import { getMyAccess, requestAccess } from "@/lib/access-fns";
+import { getMyAccess, listAccessMembers, requestAccess } from "@/lib/access-fns";
 import { APP_NAME } from "@/lib/brand";
 import { Button } from "@/components/ui/button";
 
@@ -129,7 +129,7 @@ function PendingAccess({
       <p className="mt-3 text-sm leading-relaxed text-muted">
         {denied
           ? `Du har inte tillgång till ${APP_NAME}. Kontakta ${OWNER_EMAIL} om det är fel.`
-          : `${APP_NAME} är inte öppet för alla. Ett mejl till ${OWNER_EMAIL} måste godkännas innan du kommer in.`}
+          : `${APP_NAME} är inte öppet för alla. ${OWNER_EMAIL} får ett mejl och måste godkänna dig innan du kommer in.`}
       </p>
       {access?.email ? (
         <p className="mt-3 break-all rounded-lg bg-bg px-3 py-2 text-sm text-ink">{access.email}</p>
@@ -139,8 +139,8 @@ function PendingAccess({
         </p>
       )}
       {!denied && mailto ? (
-        <Button className="mt-6 w-full" size="lg" asChild>
-          <a href={mailto}>Skicka godkännandemejl</a>
+        <Button variant="outline" className="mt-6 w-full" size="lg" asChild>
+          <a href={mailto}>Skicka extra mejl manuellt</a>
         </Button>
       ) : null}
       {!denied ? (
@@ -160,7 +160,7 @@ function PendingAccess({
       <p className="mt-4 text-sm text-muted">
         {denied
           ? "Nekade konton kommer inte in i budgeten."
-          : "Öppna mejlet, skicka det, och vänta tills du fått godkännande. Sedan kan du logga in."}
+          : "Mejlet skickas automatiskt. När du är godkänd klickar du knappen ovan."}
       </p>
       <SignOutButton />
     </PendingShell>
@@ -210,10 +210,38 @@ export function AuthPending() {
 
 export function AdminNav() {
   const access = useAccess();
+  const [pendingCount, setPendingCount] = useState(0);
+
+  useEffect(() => {
+    if (!access?.isAdmin) return;
+    let cancelled = false;
+    async function load() {
+      try {
+        const rows = await listAccessMembers();
+        if (!cancelled) setPendingCount(rows.filter((row) => row.status === "pending").length);
+      } catch {
+        /* ignore */
+      }
+    }
+    void load();
+    const timer = window.setInterval(() => void load(), 15000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [access?.isAdmin]);
+
   if (!access?.isAdmin) return null;
   return (
     <Button variant="outline" asChild>
-      <Link to="/godkannanden">Godkännanden</Link>
+      <Link to="/godkannanden">
+        Godkännanden
+        {pendingCount > 0 ? (
+          <span className="ml-1 rounded-full bg-clay px-1.5 py-0.5 text-[11px] font-semibold text-white">
+            {pendingCount}
+          </span>
+        ) : null}
+      </Link>
     </Button>
   );
 }

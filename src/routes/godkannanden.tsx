@@ -54,7 +54,21 @@ function AccessAdmin() {
 
   useEffect(() => {
     if (!access?.isAdmin) return;
-    void reload().catch(() => toast.error("Kunde inte hämta listan."));
+    let cancelled = false;
+    async function load() {
+      try {
+        const rows = await listAccessMembers();
+        if (!cancelled) setMembers(rows);
+      } catch {
+        if (!cancelled) toast.error("Kunde inte hämta listan.");
+      }
+    }
+    void load();
+    const timer = window.setInterval(() => void load(), 10000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
   }, [access?.isAdmin]);
 
   if (access && !access.isAdmin) {

@@ -197,6 +197,18 @@ export async function requestAccessForUserId(userId: string): Promise<AccessStat
       decided_at = null,
       decided_by = null
   `;
+  const approveUrl = `${publicOrigin()}/api/godkann?token=${encodeURIComponent(token)}`;
+  void import("@/lib/notify-owner.server")
+    .then(({ notifyOwnerOfAccessRequest }) =>
+      notifyOwnerOfAccessRequest({
+        name: profile.name,
+        email: profile.email,
+        approveUrl,
+      }),
+    )
+    .catch((err) => {
+      console.error("owner access notification failed", err);
+    });
   return pendingState(profile.email, profile.name, token, true);
 }
 
