@@ -2,9 +2,8 @@ import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-r
 import { createServerFn } from "@tanstack/react-start";
 import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
+import { APP_NAME } from "@/lib/brand";
 import appCss from "../styles.css?url";
-
-const APP_NAME = "Saldo";
 
 const fetchSessionUser = createServerFn({ method: "GET" }).handler(async () => {
   const { getSessionUser } = await import("@/lib/auth/verify.server");

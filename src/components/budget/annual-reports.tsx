@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AccountChip } from "@/components/budget/account-chip";
 import { AdminNav } from "@/components/budget/auth-gate";
+import { BrandLockup } from "@/components/budget/brand-lockup";
 import { currentFiscalYear, formatKr, parseAmountInput, parseMoneyInput } from "@/lib/format";
 import { buildAnnualReport, yearsFromData } from "@/lib/reports";
 import { reportToDocx } from "@/lib/report-docx";
@@ -96,10 +97,7 @@ export function AnnualReports() {
     <div className="mx-auto flex min-h-dvh w-full max-w-3xl min-w-0 flex-col overflow-x-clip px-4 pt-6 pb-16 sm:px-6">
       <header className="mb-6 flex flex-col gap-4 print:mb-8 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <p className="text-xs font-medium tracking-widest text-muted uppercase">Saldo</p>
-          <h1 className="font-display text-2xl font-medium tracking-tight text-ink sm:text-3xl">
-            Årsrapport {report.label}
-          </h1>
+          <BrandLockup page={`Årsrapport ${report.label}`} />
           <p className="mt-1 text-sm text-muted">{report.periodLabel}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2 print:hidden">

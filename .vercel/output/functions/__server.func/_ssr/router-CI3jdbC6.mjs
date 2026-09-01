@@ -3,11 +3,11 @@ import { u as require_react } from "../_libs/@floating-ui/react-dom+[...].mjs";
 import { f as createRouter, g as createRootRoute, h as createFileRoute, l as Scripts, m as lazyRouteComponent, p as Outlet, u as HeadContent, y as useRouter } from "../_libs/@tanstack/react-router+[...].mjs";
 import { N as require_jsx_runtime } from "../_libs/@radix-ui/react-alert-dialog+[...].mjs";
 import { a as getServerFnById, i as TSS_SERVER_FUNCTION, r as createServerFn, s as __exportAll } from "./ssr.mjs";
-import { n as applyAccessToken, r as peekAccessToken } from "./access.server-uGIuNPF4.mjs";
+import { n as applyAccessToken, o as APP_NAME, r as peekAccessToken } from "./access.server-D93raL0l.mjs";
 import { L as string, N as number, P as object, R as union, j as literal } from "../_libs/@better-auth/core+[...].mjs";
 import { n as auth } from "./server-CamEzyG5.mjs";
 import { n as TriangleAlert } from "../_libs/lucide-react.mjs";
-//#region node_modules/.nitro/vite/services/ssr/assets/router-D0ieqxp-.js
+//#region node_modules/.nitro/vite/services/ssr/assets/router-CI3jdbC6.js
 var import_react = /* @__PURE__ */ __toESM(require_react());
 var import_jsx_runtime = require_jsx_runtime();
 function AppErrorComponent({ error }) {
@@ -288,8 +288,7 @@ function PreviewHostBridge() {
 	}, [router]);
 	return null;
 }
-var styles_default = "/assets/styles-aU4lilDW.css";
-var APP_NAME = "Saldo";
+var styles_default = "/assets/styles-fl9Ru1O8.css";
 var fetchSessionUser = createServerFn({ method: "GET" }).handler(createSsrRpc("2c4985e96c199268f7f639534cb5e8e31d6b19d43286bf77416413db60ffde26"));
 var Route$6 = createRootRoute({
 	beforeLoad: async () => ({ sessionUser: await fetchSessionUser() }),
@@ -353,28 +352,28 @@ var Route$6 = createRootRoute({
 		] })]
 	})
 });
-var $$splitComponentImporter$3 = () => import("./routes-BKyDLMSt.mjs");
+var $$splitComponentImporter$3 = () => import("./routes-DpDNdWAa.mjs");
 var Route$5 = createFileRoute("/")({ component: lazyRouteComponent($$splitComponentImporter$3, "component") });
-var $$splitComponentImporter$2 = () => import("./godkannanden-Dj4-SSA_.mjs");
+var $$splitComponentImporter$2 = () => import("./godkannanden-DfwKXe4e.mjs");
 var Route$4 = createFileRoute("/godkannanden")({
 	component: lazyRouteComponent($$splitComponentImporter$2, "component"),
-	head: () => ({ meta: [{ title: "Godkännanden — Saldo" }, {
+	head: () => ({ meta: [{ title: `Godkännanden — ${APP_NAME}` }, {
 		name: "description",
-		content: "Godkänn vilka som får logga in i Saldo."
+		content: "Godkänn vilka som får logga in."
 	}] })
 });
-var $$splitComponentImporter$1 = () => import("./login-BQ9Kmk8I.mjs");
+var $$splitComponentImporter$1 = () => import("./login-CaDEmLZd.mjs");
 var Route$3 = createFileRoute("/login")({
 	component: lazyRouteComponent($$splitComponentImporter$1, "component"),
-	head: () => ({ meta: [{ title: "Logga in — Saldo" }, {
+	head: () => ({ meta: [{ title: `Logga in — ${APP_NAME}` }, {
 		name: "description",
 		content: "Privat inloggning. Bara godkända personer kommer in."
 	}] })
 });
-var $$splitComponentImporter = () => import("./rapporter-Cvf_C2TC.mjs");
+var $$splitComponentImporter = () => import("./rapporter-DxSkXOnM.mjs");
 var Route$2 = createFileRoute("/rapporter")({
 	component: lazyRouteComponent($$splitComponentImporter, "component"),
-	head: () => ({ meta: [{ title: "Årsrapport — Saldo" }, {
+	head: () => ({ meta: [{ title: `Årsrapport — ${APP_NAME}` }, {
 		name: "description",
 		content: "Resultaträkning och balansräkning för räkenskapsåret 1 juli–30 juni."
 	}] })
@@ -384,9 +383,9 @@ var Route$1 = createFileRoute("/api/godkann")({ server: { handlers: {
 		const token = new URL(request.url).searchParams.get("token") ?? "";
 		const member = await peekAccessToken(token);
 		if (!member) return htmlPage("Ogiltig länk", "Den här godkännandelänken är ogiltig eller har redan använts.", null);
-		if (member.status === "approved") return htmlPage("Redan godkänd", `${escapeHtml(member.name || member.email)} har redan tillgång till Saldo.`, null);
+		if (member.status === "approved") return htmlPage("Redan godkänd", `${escapeHtml(member.name || member.email)} har redan tillgång.`, null);
 		if (member.status === "denied") return htmlPage("Redan nekad", `${escapeHtml(member.name || member.email)} är nekad. Du kan godkänna igen här.`, token);
-		return htmlPage("Godkänn åtkomst", `${escapeHtml(member.name || "En person")} (${escapeHtml(member.email)}) vill ha tillgång till Saldo. Bara du kan släppa in personen.`, token);
+		return htmlPage("Godkänn åtkomst", `${escapeHtml(member.name || "En person")} (${escapeHtml(member.email)}) vill ha tillgång till ${escapeHtml(APP_NAME)}. Bara du kan släppa in personen.`, token);
 	},
 	POST: async ({ request }) => {
 		const form = await request.formData();
@@ -394,8 +393,8 @@ var Route$1 = createFileRoute("/api/godkann")({ server: { handlers: {
 		const beslut = form.get("beslut") === "nej" ? "denied" : "approved";
 		const member = await applyAccessToken(token, beslut);
 		if (!member) return htmlPage("Ogiltig länk", "Den här godkännandelänken är ogiltig.", null);
-		if (beslut === "approved") return htmlPage("Godkänd", `${escapeHtml(member.name || member.email)} har nu tillgång till Saldo.`, null);
-		return htmlPage("Nekad", `${escapeHtml(member.name || member.email)} har inte tillgång till Saldo.`, null);
+		if (beslut === "approved") return htmlPage("Godkänd", `${escapeHtml(member.name || member.email)} har nu tillgång.`, null);
+		return htmlPage("Nekad", `${escapeHtml(member.name || member.email)} har inte tillgång.`, null);
 	}
 } } });
 function escapeHtml(value) {
@@ -418,12 +417,12 @@ function htmlPage(title, body, token) {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>${escapeHtml(title)} — Saldo</title>
+    <title>${escapeHtml(title)} — ${escapeHtml(APP_NAME)}</title>
     <style>
       :root { color-scheme: light; }
       body { margin:0; min-height:100dvh; display:grid; place-items:center; background:#efe9dc; color:#1a1714; font-family:"Schibsted Grotesk",system-ui,sans-serif; padding:24px; }
       main { width:min(100%, 28rem); background:#f7f3ea; border-radius:1.5rem; padding:1.75rem; box-shadow:0 0 0 1px rgba(26,23,20,.06), 0 8px 24px -12px rgba(26,23,20,.18); }
-      p.kicker { margin:0; font-size:.75rem; letter-spacing:.16em; text-transform:uppercase; color:#6b6458; font-weight:500; }
+      p.kicker { margin:0; font-size:.8rem; color:#6b6458; font-weight:500; line-height:1.35; }
       h1 { margin:.4rem 0 0; font-family:Fraunces,Georgia,serif; font-size:1.75rem; font-weight:500; }
       .lead { margin: .75rem 0 0; color:#6b6458; line-height:1.5; }
       form { display:flex; flex-wrap:wrap; gap:.5rem; margin-top:1.25rem; }
@@ -434,7 +433,7 @@ function htmlPage(title, body, token) {
   </head>
   <body>
     <main>
-      <p class="kicker">Saldo · via e-post</p>
+      <p class="kicker">${escapeHtml(APP_NAME)}</p>
       <h1>${escapeHtml(title)}</h1>
       <p class="lead">${body}</p>
       ${actions}

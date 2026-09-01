@@ -1,7 +1,8 @@
 import { o as getRequest, s as __exportAll } from "./ssr.mjs";
 import { r as getSql } from "./db-CGFkUWQz.mjs";
 import { randomBytes } from "node:crypto";
-//#region node_modules/.nitro/vite/services/ssr/assets/access.server-uGIuNPF4.js
+//#region node_modules/.nitro/vite/services/ssr/assets/access.server-D93raL0l.js
+var APP_NAME = "Koholma Byväg Samfällighet";
 var OWNER_EMAIL = "biskopsgrand@gmail.com";
 function normalizeEmail(email) {
 	return email.trim().toLowerCase();
@@ -47,18 +48,18 @@ function publicOrigin() {
 }
 function buildMailto(name, email, token) {
 	const link = `${publicOrigin()}/api/godkann?token=${encodeURIComponent(token)}`;
-	const subject = `Saldo: ${name || email} vill ha tillgång`;
+	const subject = `${APP_NAME}: ${name || email} vill ha tillgång`;
 	const body = [
 		"Hej,",
 		"",
-		`${name || "En person"} (${email}) vill ha tillgång till Saldo.`,
+		`${name || "En person"} (${email}) vill ha tillgång till ${APP_NAME}.`,
 		"",
-		"Saldo är privat. Godkänn eller neka med länken:",
+		"Godkänn eller neka med länken:",
 		link,
 		"",
 		"Bara personer du godkänt kan logga in.",
 		"",
-		"— Saldo"
+		`— ${APP_NAME}`
 	].join("\n");
 	return `mailto:${OWNER_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
@@ -269,4 +270,4 @@ async function applyAccessToken(token, decision) {
 	};
 }
 //#endregion
-export { isApproved as a, OWNER_EMAIL as i, applyAccessToken as n, peekAccessToken as r, access_server_exports as t };
+export { isApproved as a, OWNER_EMAIL as i, applyAccessToken as n, APP_NAME as o, peekAccessToken as r, access_server_exports as t };

@@ -30,6 +30,7 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { AccountChip } from "@/components/budget/account-chip";
 import { AdminNav } from "@/components/budget/auth-gate";
+import { BrandLockup } from "@/components/budget/brand-lockup";
 import { BudgetDialog } from "@/components/budget/budget-dialog";
 import { CategoriesDialog } from "@/components/budget/categories-dialog";
 import { TransactionDialog } from "@/components/budget/transaction-dialog";
@@ -105,10 +106,7 @@ export function BudgetApp() {
     <div className="mx-auto flex min-h-dvh w-full max-w-6xl min-w-0 flex-col overflow-x-clip px-4 pt-6 pb-10 sm:px-6 lg:px-8">
       <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <p className="text-xs font-medium tracking-widest text-muted uppercase">Saldo</p>
-          <h1 className="font-display text-2xl font-medium tracking-tight text-ink sm:text-3xl">
-            Budgetplan
-          </h1>
+          <BrandLockup page="Budgetplan" />
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:justify-end">
           <AccountChip />

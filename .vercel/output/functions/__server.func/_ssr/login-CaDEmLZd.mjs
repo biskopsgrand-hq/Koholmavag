@@ -2,11 +2,11 @@ import { o as __toESM } from "../_runtime.mjs";
 import { u as require_react } from "../_libs/@floating-ui/react-dom+[...].mjs";
 import { v as Navigate } from "../_libs/@tanstack/react-router+[...].mjs";
 import { N as require_jsx_runtime } from "../_libs/@radix-ui/react-alert-dialog+[...].mjs";
-import { i as OWNER_EMAIL } from "./access.server-uGIuNPF4.mjs";
+import { i as OWNER_EMAIL, o as APP_NAME } from "./access.server-D93raL0l.mjs";
 import { r as signIn, t as authClient } from "./client-B40BzJxt.mjs";
 import { n as Input, o as useCurrentUserState, r as Label, t as Button } from "./label-BRi1-1MI.mjs";
 import { t as GROK_PROVIDERS } from "./server-CamEzyG5.mjs";
-//#region node_modules/.nitro/vite/services/ssr/assets/login-BQ9Kmk8I.js
+//#region node_modules/.nitro/vite/services/ssr/assets/login-CaDEmLZd.js
 var import_react = /* @__PURE__ */ __toESM(require_react());
 var import_jsx_runtime = require_jsx_runtime();
 function Login() {
@@ -68,12 +68,8 @@ function LoginScreen() {
 				children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
 					/* @__PURE__ */ (0, import_jsx_runtime.jsx)(LedgerMark, { className: "size-9 text-pine-fg" }),
 					/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
-						className: "mt-5 text-xs font-medium tracking-widest uppercase opacity-80",
-						children: "Saldo"
-					}),
-					/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
-						className: "mt-1 font-display text-3xl font-medium tracking-tight",
-						children: "Privat budget"
+						className: "mt-5 font-display text-3xl font-medium tracking-tight text-balance leading-[1.15]",
+						children: APP_NAME
 					}),
 					/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
 						className: "mt-2 max-w-xs text-sm text-pine-fg/80",

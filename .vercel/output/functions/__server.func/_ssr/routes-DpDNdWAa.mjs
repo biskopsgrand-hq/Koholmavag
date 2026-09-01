@@ -4,12 +4,12 @@ import { _ as Link } from "../_libs/@tanstack/react-router+[...].mjs";
 import { N as require_jsx_runtime, a as Overlay2, c as Title2, d as DialogContent$1, f as DialogDescription$1, h as DialogTitle$1, i as Description2, l as Dialog$1, m as DialogPortal$1, n as Cancel, o as Portal2, p as DialogOverlay$1, r as Content2, s as Root2, t as Action, u as DialogClose } from "../_libs/@radix-ui/react-alert-dialog+[...].mjs";
 import { a as cn, i as buttonVariants, n as Input, r as Label, t as Button } from "./label-BRi1-1MI.mjs";
 import { a as Plus, d as Check, l as ChevronRight, o as Pencil, r as Trash2, s as Ellipsis, t as X, u as ChevronLeft } from "../_libs/lucide-react.mjs";
-import { n as AdminNav, r as AuthGate, t as AccountChip } from "./account-chip-WuqQSmsk.mjs";
+import { i as BrandLockup, n as AdminNav, r as AuthGate, t as AccountChip } from "./brand-lockup-fWDKVPML.mjs";
 import { n as toast, t as Toaster } from "../_libs/sonner.mjs";
 import { a as defaultCategory, b as todayIso, d as formatDayLabel, f as formatKr, g as parseAmountInput, h as monthTransactions, m as monthTotals, n as categoriesFor, o as fallbackCategoryId, p as formatMonthLabel, r as categoryById, v as shiftMonth, x as useBudgetStore, y as spendingByCategory } from "./budget-store-DNr10-pq.mjs";
 import { a as Separator2, i as Root2$1, n as Item2, o as Trigger, r as Portal2$1, t as Content2$1 } from "../_libs/@radix-ui/react-dropdown-menu+[...].mjs";
 import { n as Root, t as Indicator } from "../_libs/radix-ui__react-progress.mjs";
-//#region node_modules/.nitro/vite/services/ssr/assets/routes-BKyDLMSt.js
+//#region node_modules/.nitro/vite/services/ssr/assets/routes-DpDNdWAa.js
 var import_react = /* @__PURE__ */ __toESM(require_react());
 var import_jsx_runtime = require_jsx_runtime();
 var AlertDialog = Root2;
@@ -633,15 +633,9 @@ function BudgetApp() {
 		children: [
 			/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("header", {
 				className: "mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between",
-				children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+				children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
 					className: "min-w-0",
-					children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
-						className: "text-xs font-medium tracking-widest text-muted uppercase",
-						children: "Saldo"
-					}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("h1", {
-						className: "font-display text-2xl font-medium tracking-tight text-ink sm:text-3xl",
-						children: "Budgetplan"
-					})]
+					children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(BrandLockup, { page: "Budgetplan" })
 				}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
 					className: "flex flex-wrap items-center gap-2 sm:justify-end",
 					children: [

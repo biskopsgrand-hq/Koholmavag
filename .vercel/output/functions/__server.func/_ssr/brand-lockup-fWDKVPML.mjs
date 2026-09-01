@@ -4,11 +4,11 @@ import { _ as Link, v as Navigate } from "../_libs/@tanstack/react-router+[...].
 import { N as require_jsx_runtime } from "../_libs/@radix-ui/react-alert-dialog+[...].mjs";
 import { r as createServerFn } from "./ssr.mjs";
 import { t as authMiddleware } from "./middleware-Ciqh_WMw.mjs";
-import { a as isApproved, i as OWNER_EMAIL } from "./access.server-uGIuNPF4.mjs";
+import { a as isApproved, i as OWNER_EMAIL, o as APP_NAME } from "./access.server-D93raL0l.mjs";
 import { i as signOut } from "./client-B40BzJxt.mjs";
-import { o as useCurrentUserState, t as Button } from "./label-BRi1-1MI.mjs";
-import { n as createSsrRpc } from "./router-D0ieqxp-.mjs";
-//#region node_modules/.nitro/vite/services/ssr/assets/account-chip-WuqQSmsk.js
+import { a as cn, o as useCurrentUserState, t as Button } from "./label-BRi1-1MI.mjs";
+import { n as createSsrRpc } from "./router-CI3jdbC6.mjs";
+//#region node_modules/.nitro/vite/services/ssr/assets/brand-lockup-fWDKVPML.js
 var import_react = /* @__PURE__ */ __toESM(require_react());
 var import_jsx_runtime = require_jsx_runtime();
 /**
@@ -127,8 +127,8 @@ function PendingAccess({ access, onRefresh }) {
 	const [checking, setChecking] = (0, import_react.useState)(false);
 	return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(PendingShell, { children: [
 		/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
-			className: "text-xs font-medium tracking-widest text-muted uppercase",
-			children: "Privat app"
+			className: "text-sm font-medium text-muted text-balance",
+			children: APP_NAME
 		}),
 		/* @__PURE__ */ (0, import_jsx_runtime.jsx)("h1", {
 			className: "mt-2 font-display text-3xl font-medium tracking-tight text-ink",
@@ -136,7 +136,7 @@ function PendingAccess({ access, onRefresh }) {
 		}),
 		/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
 			className: "mt-3 text-sm leading-relaxed text-muted",
-			children: denied ? `Du har inte tillgång till Saldo. Kontakta ${OWNER_EMAIL} om det är fel.` : `Saldo är inte öppet för alla. Ett mejl till ${OWNER_EMAIL} måste godkännas innan du kommer in.`
+			children: denied ? `Du har inte tillgång till ${APP_NAME}. Kontakta ${OWNER_EMAIL} om det är fel.` : `${APP_NAME} är inte öppet för alla. Ett mejl till ${OWNER_EMAIL} måste godkännas innan du kommer in.`
 		}),
 		access?.email ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
 			className: "mt-3 break-all rounded-lg bg-bg px-3 py-2 text-sm text-ink",
@@ -163,7 +163,7 @@ function PendingAccess({ access, onRefresh }) {
 				setChecking(true);
 				onRefresh().finally(() => setChecking(false));
 			},
-			children: checking ? "Kollar…" : "Jag är godkänd — öppna Saldo"
+			children: checking ? "Kollar…" : "Jag är godkänd — öppna budgeten"
 		}) : null,
 		/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
 			className: "mt-4 text-sm text-muted",
@@ -201,8 +201,8 @@ function AuthPending() {
 		children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
 			className: "flex flex-col items-center gap-3",
 			children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
-				className: "text-xs font-medium tracking-widest text-muted uppercase",
-				children: "Saldo"
+				className: "max-w-xs text-center text-sm font-medium text-balance text-muted",
+				children: APP_NAME
 			}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "h-1.5 w-20 animate-pulse rounded-full bg-surface-2" })]
 		})
 	});
@@ -252,5 +252,17 @@ function AccountChip() {
 		]
 	});
 }
+function BrandLockup({ page, className }) {
+	return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+		className: cn("min-w-0", className),
+		children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("h1", {
+			className: "font-display text-2xl font-medium tracking-tight text-balance text-ink leading-[1.15] sm:text-3xl",
+			children: APP_NAME
+		}), page ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+			className: "mt-1 text-sm text-muted",
+			children: page
+		}) : null]
+	});
+}
 //#endregion
-export { inviteAccessMember as a, decideAccessMember as i, AdminNav as n, listAccessMembers as o, AuthGate as r, useAccess as s, AccountChip as t };
+export { decideAccessMember as a, useAccess as c, BrandLockup as i, AdminNav as n, inviteAccessMember as o, AuthGate as r, listAccessMembers as s, AccountChip as t };

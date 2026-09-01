@@ -4,10 +4,10 @@ import { _ as Link } from "../_libs/@tanstack/react-router+[...].mjs";
 import { N as require_jsx_runtime } from "../_libs/@radix-ui/react-alert-dialog+[...].mjs";
 import { a as cn, n as Input, r as Label, t as Button } from "./label-BRi1-1MI.mjs";
 import { a as Plus, c as Download, f as ArrowLeft, i as Printer, l as ChevronRight, r as Trash2, u as ChevronLeft } from "../_libs/lucide-react.mjs";
-import { n as AdminNav, r as AuthGate, t as AccountChip } from "./account-chip-WuqQSmsk.mjs";
+import { i as BrandLockup, n as AdminNav, r as AuthGate, t as AccountChip } from "./brand-lockup-fWDKVPML.mjs";
 import { n as toast, t as Toaster } from "../_libs/sonner.mjs";
 import { _ as parseMoneyInput, c as fiscalPeriodLabel, f as formatKr, g as parseAmountInput, i as currentFiscalYear, l as fiscalYearFromIso, m as monthTotals, r as categoryById, s as fiscalClosingLabel, t as EMPTY_YEAR_BOOK, u as fiscalYearLabel, x as useBudgetStore } from "./budget-store-DNr10-pq.mjs";
-//#region node_modules/.nitro/vite/services/ssr/assets/rapporter-Cvf_C2TC.js
+//#region node_modules/.nitro/vite/services/ssr/assets/rapporter-DxSkXOnM.js
 var import_react = /* @__PURE__ */ __toESM(require_react());
 var import_jsx_runtime = require_jsx_runtime();
 function transactionsInFiscalYear(transactions, startYear) {
@@ -439,20 +439,10 @@ function AnnualReports() {
 				className: "mb-6 flex flex-col gap-4 print:mb-8 sm:flex-row sm:items-center sm:justify-between",
 				children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
 					className: "min-w-0",
-					children: [
-						/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
-							className: "text-xs font-medium tracking-widest text-muted uppercase",
-							children: "Saldo"
-						}),
-						/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("h1", {
-							className: "font-display text-2xl font-medium tracking-tight text-ink sm:text-3xl",
-							children: ["Årsrapport ", report.label]
-						}),
-						/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
-							className: "mt-1 text-sm text-muted",
-							children: report.periodLabel
-						})
-					]
+					children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(BrandLockup, { page: `Årsrapport ${report.label}` }), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+						className: "mt-1 text-sm text-muted",
+						children: report.periodLabel
+					})]
 				}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
 					className: "flex flex-wrap items-center gap-2 print:hidden",
 					children: [

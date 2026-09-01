@@ -12,7 +12,7 @@ var install_page_default = "<!DOCTYPE html>\n<html lang=\"en\" class=\"device-de
 //#endregion
 //#region \0virtual:grok-og-identity
 var grokOgIdentity = { "site": {
-	"title": "Saldo",
+	"title": "Koholma Byväg Samfällighet",
 	"card": "custom",
 	"color": "1E4638",
 	"image": "/og.jpg"

@@ -3,6 +3,7 @@ import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { GROK_PROVIDERS, authClient, authEnabled, signIn } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { OWNER_EMAIL } from "@/lib/access";
+import { APP_NAME } from "@/lib/brand";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,7 +12,7 @@ export const Route = createFileRoute("/login")({
   component: Login,
   head: () => ({
     meta: [
-      { title: "Logga in — Saldo" },
+      { title: `Logga in — ${APP_NAME}` },
       { name: "description", content: "Privat inloggning. Bara godkända personer kommer in." },
     ],
   }),
@@ -74,8 +75,9 @@ function LoginScreen() {
         <aside className="bg-pine px-6 py-6 text-pine-fg lg:col-span-2 lg:flex lg:flex-col lg:justify-between lg:px-8 lg:py-10">
           <div>
             <LedgerMark className="size-9 text-pine-fg" />
-            <p className="mt-5 text-xs font-medium tracking-widest uppercase opacity-80">Saldo</p>
-            <p className="mt-1 font-display text-3xl font-medium tracking-tight">Privat budget</p>
+            <p className="mt-5 font-display text-3xl font-medium tracking-tight text-balance leading-[1.15]">
+              {APP_NAME}
+            </p>
             <p className="mt-2 max-w-xs text-sm text-pine-fg/80">
               Inte öppet för alla. Nya personer måste godkännas via e-post.
             </p>

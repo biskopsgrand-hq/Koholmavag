@@ -2,12 +2,12 @@ import { o as __toESM } from "../_runtime.mjs";
 import { u as require_react } from "../_libs/@floating-ui/react-dom+[...].mjs";
 import { _ as Link } from "../_libs/@tanstack/react-router+[...].mjs";
 import { N as require_jsx_runtime } from "../_libs/@radix-ui/react-alert-dialog+[...].mjs";
-import { i as OWNER_EMAIL } from "./access.server-uGIuNPF4.mjs";
+import { i as OWNER_EMAIL } from "./access.server-D93raL0l.mjs";
 import { n as Input, r as Label, t as Button } from "./label-BRi1-1MI.mjs";
 import { f as ArrowLeft } from "../_libs/lucide-react.mjs";
-import { a as inviteAccessMember, i as decideAccessMember, o as listAccessMembers, r as AuthGate, s as useAccess, t as AccountChip } from "./account-chip-WuqQSmsk.mjs";
+import { a as decideAccessMember, c as useAccess, i as BrandLockup, o as inviteAccessMember, r as AuthGate, s as listAccessMembers, t as AccountChip } from "./brand-lockup-fWDKVPML.mjs";
 import { n as toast, t as Toaster } from "../_libs/sonner.mjs";
-//#region node_modules/.nitro/vite/services/ssr/assets/godkannanden-Dj4-SSA_.js
+//#region node_modules/.nitro/vite/services/ssr/assets/godkannanden-DfwKXe4e.js
 var import_react = /* @__PURE__ */ __toESM(require_react());
 var import_jsx_runtime = require_jsx_runtime();
 function AccessAdminPage() {
@@ -87,24 +87,14 @@ function AccessAdmin() {
 				className: "mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between",
 				children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
 					className: "min-w-0",
-					children: [
-						/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
-							className: "text-xs font-medium tracking-widest text-muted uppercase",
-							children: "Saldo"
-						}),
-						/* @__PURE__ */ (0, import_jsx_runtime.jsx)("h1", {
-							className: "font-display text-2xl font-medium tracking-tight sm:text-3xl",
-							children: "Godkännanden"
-						}),
-						/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("p", {
-							className: "mt-1 text-sm text-muted",
-							children: [
-								"Bara ",
-								OWNER_EMAIL,
-								" kan släppa in nya personer."
-							]
-						})
-					]
+					children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(BrandLockup, { page: "Godkännanden" }), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("p", {
+						className: "mt-1 text-sm text-muted",
+						children: [
+							"Bara ",
+							OWNER_EMAIL,
+							" kan släppa in nya personer."
+						]
+					})]
 				}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
 					className: "flex flex-wrap items-center gap-2",
 					children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(AccountChip, {}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Button, {

@@ -4,18 +4,20 @@ import { ArrowLeft } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { AuthGate, useAccess } from "@/components/budget/auth-gate";
 import { AccountChip } from "@/components/budget/account-chip";
+import { BrandLockup } from "@/components/budget/brand-lockup";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { OWNER_EMAIL, type AccessMember } from "@/lib/access";
 import { decideAccessMember, inviteAccessMember, listAccessMembers } from "@/lib/access-fns";
+import { APP_NAME } from "@/lib/brand";
 
 export const Route = createFileRoute("/godkannanden")({
   component: AccessAdminPage,
   head: () => ({
     meta: [
-      { title: "Godkännanden — Saldo" },
-      { name: "description", content: "Godkänn vilka som får logga in i Saldo." },
+      { title: `Godkännanden — ${APP_NAME}` },
+      { name: "description", content: "Godkänn vilka som får logga in." },
     ],
   }),
 });
@@ -99,8 +101,7 @@ function AccessAdmin() {
     <div className="mx-auto flex min-h-dvh w-full max-w-3xl min-w-0 flex-col overflow-x-clip px-4 pt-6 pb-16 sm:px-6">
       <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <p className="text-xs font-medium tracking-widest text-muted uppercase">Saldo</p>
-          <h1 className="font-display text-2xl font-medium tracking-tight sm:text-3xl">Godkännanden</h1>
+          <BrandLockup page="Godkännanden" />
           <p className="mt-1 text-sm text-muted">Bara {OWNER_EMAIL} kan släppa in nya personer.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

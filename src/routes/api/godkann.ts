@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { applyAccessToken, peekAccessToken } from "@/lib/access.server";
+import { APP_NAME } from "@/lib/brand";
 
 export const Route = createFileRoute("/api/godkann")({
   server: {
@@ -9,14 +10,14 @@ export const Route = createFileRoute("/api/godkann")({
         const member = await peekAccessToken(token);
         if (!member) return htmlPage("Ogiltig länk", "Den här godkännandelänken är ogiltig eller har redan använts.", null);
         if (member.status === "approved") {
-          return htmlPage("Redan godkänd", `${escapeHtml(member.name || member.email)} har redan tillgång till Saldo.`, null);
+          return htmlPage("Redan godkänd", `${escapeHtml(member.name || member.email)} har redan tillgång.`, null);
         }
         if (member.status === "denied") {
           return htmlPage("Redan nekad", `${escapeHtml(member.name || member.email)} är nekad. Du kan godkänna igen här.`, token);
         }
         return htmlPage(
           "Godkänn åtkomst",
-          `${escapeHtml(member.name || "En person")} (${escapeHtml(member.email)}) vill ha tillgång till Saldo. Bara du kan släppa in personen.`,
+          `${escapeHtml(member.name || "En person")} (${escapeHtml(member.email)}) vill ha tillgång till ${escapeHtml(APP_NAME)}. Bara du kan släppa in personen.`,
           token,
         );
       },
@@ -27,9 +28,9 @@ export const Route = createFileRoute("/api/godkann")({
         const member = await applyAccessToken(token, beslut);
         if (!member) return htmlPage("Ogiltig länk", "Den här godkännandelänken är ogiltig.", null);
         if (beslut === "approved") {
-          return htmlPage("Godkänd", `${escapeHtml(member.name || member.email)} har nu tillgång till Saldo.`, null);
+          return htmlPage("Godkänd", `${escapeHtml(member.name || member.email)} har nu tillgång.`, null);
         }
-        return htmlPage("Nekad", `${escapeHtml(member.name || member.email)} har inte tillgång till Saldo.`, null);
+        return htmlPage("Nekad", `${escapeHtml(member.name || member.email)} har inte tillgång.`, null);
       },
     },
   },
@@ -58,12 +59,12 @@ function htmlPage(title: string, body: string, token: string | null): Response {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>${escapeHtml(title)} — Saldo</title>
+    <title>${escapeHtml(title)} — ${escapeHtml(APP_NAME)}</title>
     <style>
       :root { color-scheme: light; }
       body { margin:0; min-height:100dvh; display:grid; place-items:center; background:#efe9dc; color:#1a1714; font-family:"Schibsted Grotesk",system-ui,sans-serif; padding:24px; }
       main { width:min(100%, 28rem); background:#f7f3ea; border-radius:1.5rem; padding:1.75rem; box-shadow:0 0 0 1px rgba(26,23,20,.06), 0 8px 24px -12px rgba(26,23,20,.18); }
-      p.kicker { margin:0; font-size:.75rem; letter-spacing:.16em; text-transform:uppercase; color:#6b6458; font-weight:500; }
+      p.kicker { margin:0; font-size:.8rem; color:#6b6458; font-weight:500; line-height:1.35; }
       h1 { margin:.4rem 0 0; font-family:Fraunces,Georgia,serif; font-size:1.75rem; font-weight:500; }
       .lead { margin: .75rem 0 0; color:#6b6458; line-height:1.5; }
       form { display:flex; flex-wrap:wrap; gap:.5rem; margin-top:1.25rem; }
@@ -74,7 +75,7 @@ function htmlPage(title: string, body: string, token: string | null): Response {
   </head>
   <body>
     <main>
-      <p class="kicker">Saldo · via e-post</p>
+      <p class="kicker">${escapeHtml(APP_NAME)}</p>
       <h1>${escapeHtml(title)}</h1>
       <p class="lead">${body}</p>
       ${actions}

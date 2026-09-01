@@ -118,7 +118,7 @@ var HEADERS = { TSS_SHELL: "X-TSS_SHELL" };
 * the dev styles URL for route-scoped CSS collection.
 */
 async function getStartManifest(matchedRoutes) {
-	const { tsrStartManifest } = await import("../_tanstack-start-manifest_v-AiwnTFtu.mjs");
+	const { tsrStartManifest } = await import("../_tanstack-start-manifest_v-8_2W0yP9.mjs");
 	const startManifest = tsrStartManifest();
 	let routes = startManifest.routes;
 	routes[rootRouteId];
@@ -144,23 +144,23 @@ var manifest = {
 	},
 	"8dcb9d3f37b35b435c4f69c3334a9e36cc273368f782b420ffcbadd6f96529b5": {
 		functionName: "inviteAccessMember_createServerFn_handler",
-		importer: () => import("./access-fns-DDcmR0W3.mjs")
+		importer: () => import("./access-fns-CachbUzi.mjs")
 	},
 	"c992ae44bf969bf4a4dffa9e5990731ca306c2c1771ec69aaf1bb594c0623a9e": {
 		functionName: "listAccessMembers_createServerFn_handler",
-		importer: () => import("./access-fns-DDcmR0W3.mjs")
+		importer: () => import("./access-fns-CachbUzi.mjs")
 	},
 	"ef5360fe45e2500755dea6c2ac635a7a1eef4721f364dbd73438454c9c8a50f2": {
 		functionName: "requestAccess_createServerFn_handler",
-		importer: () => import("./access-fns-DDcmR0W3.mjs")
+		importer: () => import("./access-fns-CachbUzi.mjs")
 	},
 	"f67051883ae23305a9bbdb1147bdecb7c3758a60b7fd65b055771224b3d7ccc8": {
 		functionName: "getMyAccess_createServerFn_handler",
-		importer: () => import("./access-fns-DDcmR0W3.mjs")
+		importer: () => import("./access-fns-CachbUzi.mjs")
 	},
 	"f734280cff002c73a40ec796e30d99a20d8cf281164d7f1923f62e19eba8916c": {
 		functionName: "decideAccessMember_createServerFn_handler",
-		importer: () => import("./access-fns-DDcmR0W3.mjs")
+		importer: () => import("./access-fns-CachbUzi.mjs")
 	}
 };
 async function getServerFnById(id, access) {
@@ -1430,7 +1430,7 @@ var getBaseManifest = getProdBaseManifest;
 var createEarlyHintsForRequest = createEarlyHintsCollector;
 async function loadEntries() {
 	const [routerEntry, startEntry, pluginAdapters] = await Promise.all([
-		import("./router-D0ieqxp-.mjs").then((n) => n.t),
+		import("./router-CI3jdbC6.mjs").then((n) => n.t),
 		import("./start-5Z2QO8AU.mjs"),
 		import("./empty-plugin-adapters-D9UWiqvJ.mjs")
 	]);

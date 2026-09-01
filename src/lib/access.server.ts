@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { getRequest } from "@tanstack/react-start/server";
 import { getSql } from "@/lib/db";
+import { APP_NAME } from "@/lib/brand";
 import {
   OWNER_EMAIL,
   isOwnerEmail,
@@ -49,18 +50,18 @@ function publicOrigin(): string {
 export function buildMailto(name: string | null, email: string, token: string): string {
   const origin = publicOrigin();
   const link = `${origin}/api/godkann?token=${encodeURIComponent(token)}`;
-  const subject = `Saldo: ${name || email} vill ha tillgång`;
+  const subject = `${APP_NAME}: ${name || email} vill ha tillgång`;
   const body = [
     "Hej,",
     "",
-    `${name || "En person"} (${email}) vill ha tillgång till Saldo.`,
+    `${name || "En person"} (${email}) vill ha tillgång till ${APP_NAME}.`,
     "",
-    "Saldo är privat. Godkänn eller neka med länken:",
+    "Godkänn eller neka med länken:",
     link,
     "",
     "Bara personer du godkänt kan logga in.",
     "",
-    "— Saldo",
+    `— ${APP_NAME}`,
   ].join("\n");
   return `mailto:${OWNER_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }

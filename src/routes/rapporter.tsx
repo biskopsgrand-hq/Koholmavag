@@ -2,12 +2,13 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Toaster } from "sonner";
 import { AnnualReports } from "@/components/budget/annual-reports";
 import { AuthGate } from "@/components/budget/auth-gate";
+import { APP_NAME } from "@/lib/brand";
 
 export const Route = createFileRoute("/rapporter")({
   component: ReportsPage,
   head: () => ({
     meta: [
-      { title: "Årsrapport — Saldo" },
+      { title: `Årsrapport — ${APP_NAME}` },
       {
         name: "description",
         content: "Resultaträkning och balansräkning för räkenskapsåret 1 juli–30 juni.",

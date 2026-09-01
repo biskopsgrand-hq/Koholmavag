@@ -5,6 +5,7 @@ import { signOut } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { OWNER_EMAIL, isApproved, type AccessState } from "@/lib/access";
 import { getMyAccess, requestAccess } from "@/lib/access-fns";
+import { APP_NAME } from "@/lib/brand";
 import { Button } from "@/components/ui/button";
 
 const AccessContext = createContext<AccessState | null>(null);
@@ -121,14 +122,14 @@ function PendingAccess({
 
   return (
     <PendingShell>
-      <p className="text-xs font-medium tracking-widest text-muted uppercase">Privat app</p>
+      <p className="text-sm font-medium text-muted text-balance">{APP_NAME}</p>
       <h1 className="mt-2 font-display text-3xl font-medium tracking-tight text-ink">
         {denied ? "Åtkomst nekad" : "Väntar på godkännande"}
       </h1>
       <p className="mt-3 text-sm leading-relaxed text-muted">
         {denied
-          ? `Du har inte tillgång till Saldo. Kontakta ${OWNER_EMAIL} om det är fel.`
-          : `Saldo är inte öppet för alla. Ett mejl till ${OWNER_EMAIL} måste godkännas innan du kommer in.`}
+          ? `Du har inte tillgång till ${APP_NAME}. Kontakta ${OWNER_EMAIL} om det är fel.`
+          : `${APP_NAME} är inte öppet för alla. Ett mejl till ${OWNER_EMAIL} måste godkännas innan du kommer in.`}
       </p>
       {access?.email ? (
         <p className="mt-3 break-all rounded-lg bg-bg px-3 py-2 text-sm text-ink">{access.email}</p>
@@ -153,7 +154,7 @@ function PendingAccess({
             void onRefresh().finally(() => setChecking(false));
           }}
         >
-          {checking ? "Kollar…" : "Jag är godkänd — öppna Saldo"}
+          {checking ? "Kollar…" : "Jag är godkänd — öppna budgeten"}
         </Button>
       ) : null}
       <p className="mt-4 text-sm text-muted">
@@ -198,7 +199,9 @@ export function AuthPending() {
   return (
     <div className="grid min-h-dvh place-items-center bg-bg">
       <div className="flex flex-col items-center gap-3">
-        <p className="text-xs font-medium tracking-widest text-muted uppercase">Saldo</p>
+        <p className="max-w-xs text-center text-sm font-medium text-balance text-muted">
+          {APP_NAME}
+        </p>
         <div className="h-1.5 w-20 animate-pulse rounded-full bg-surface-2" />
       </div>
     </div>
