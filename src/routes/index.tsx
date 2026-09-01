@@ -2,12 +2,14 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Toaster } from "sonner";
 import { AuthGate } from "@/components/budget/auth-gate";
 import { BudgetApp } from "@/components/budget/budget-app";
+import { BudgetSync } from "@/components/budget/budget-sync";
 
 export const Route = createFileRoute("/")({ component: Home });
 
 function Home() {
   return (
     <AuthGate>
+      <BudgetSync>
       <main className="min-h-dvh overflow-x-clip bg-bg text-ink">
         <BudgetApp />
         <Toaster
@@ -19,6 +21,7 @@ function Home() {
           }}
         />
       </main>
+      </BudgetSync>
     </AuthGate>
   );
 }

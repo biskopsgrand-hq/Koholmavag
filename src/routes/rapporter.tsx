@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Toaster } from "sonner";
 import { AnnualReports } from "@/components/budget/annual-reports";
 import { AuthGate } from "@/components/budget/auth-gate";
+import { BudgetSync } from "@/components/budget/budget-sync";
 import { APP_NAME } from "@/lib/brand";
 
 export const Route = createFileRoute("/rapporter")({
@@ -20,6 +21,7 @@ export const Route = createFileRoute("/rapporter")({
 function ReportsPage() {
   return (
     <AuthGate>
+      <BudgetSync>
       <main className="min-h-dvh overflow-x-clip bg-bg text-ink">
         <AnnualReports />
         <Toaster
@@ -31,6 +33,7 @@ function ReportsPage() {
           }}
         />
       </main>
+      </BudgetSync>
     </AuthGate>
   );
 }
