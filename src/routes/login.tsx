@@ -116,7 +116,7 @@ function LoginScreen() {
           </h1>
           <p className="mt-1 text-sm text-muted">
             {ownerFlow
-              ? `Logga in här i appen. Skriv ett lösenord med minst 8 tecken för ${OWNER_EMAIL} och klicka Öppna.`
+              ? `Skriv ett lösenord med minst 8 tecken för ${OWNER_EMAIL} och klicka Öppna.`
               : mode === "signin"
                 ? "Skriv e-post och lösenord. Google behövs inte."
                 : `Skapa ett konto. Du släpps in först när ${OWNER_EMAIL} godkänt dig via e-post.`}
@@ -323,7 +323,7 @@ function swedishAuthError(message: string): string {
   const lower = message.toLowerCase();
   if (lower.includes("popup")) return "Tillåt popup-fönster för att logga in.";
   if (lower.includes("invalid origin") || lower.includes("unable to verify")) {
-    return "Logga in här i appen, inte via GitHub.";
+    return "Inloggningen kunde inte verifieras. Ladda om sidan och försök igen.";
   }
   if (lower.includes("invalid email or password") || lower.includes("invalid password")) {
     return "Fel e-post eller lösenord. Skriv minst 8 tecken och klicka Öppna.";
