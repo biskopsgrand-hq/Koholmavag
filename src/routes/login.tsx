@@ -95,7 +95,7 @@ function LoginScreen() {
           </h1>
           <p className="mt-1 text-sm text-muted">
             {mode === "signin"
-              ? "Har du redan blivit godkänd? Logga in här."
+              ? `Klicka på Logga in med Google och välj ${OWNER_EMAIL}. Inget lösenord behövs.`
               : `Skapa ett konto. Du släpps in först när ${OWNER_EMAIL} godkänt dig via e-post.`}
           </p>
 
@@ -108,7 +108,7 @@ function LoginScreen() {
                   <Button
                     key={provider.providerId}
                     type="button"
-                    variant="outline"
+                    variant={provider.idp === "google" ? "default" : "outline"}
                     size="lg"
                     className="w-full justify-center"
                     disabled={pending !== null}
@@ -117,7 +117,9 @@ function LoginScreen() {
                     {provider.idp === "google" ? <GoogleMark /> : <XMark />}
                     {pending === provider.providerId
                       ? "Öppnar…"
-                      : `Fortsätt med ${provider.label}`}
+                      : provider.idp === "google"
+                        ? "Logga in med Google"
+                        : `Fortsätt med ${provider.label}`}
                   </Button>
                 ))}
               </div>
