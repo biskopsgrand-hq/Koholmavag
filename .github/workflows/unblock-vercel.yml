@@ -1,0 +1,20 @@
+name: Unblock Vercel
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  unblock:
+    if: github.event.head_commit.author.email == 'grok-export@users.noreply.github.com'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Push a GitHub-account commit
+        run: |
+          git config user.name "biskopsgrand-hq"
+          git config user.email "biskopsgrand@gmail.com"
+          git commit --allow-empty -m "Unblock Vercel deploy"
+          git push
