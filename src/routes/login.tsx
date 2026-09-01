@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { GROK_PROVIDERS, authClient, authEnabled, signIn } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
-import { OWNER_EMAIL } from "@/lib/access";
+import { OWNER_EMAIL, isOwnerEmail } from "@/lib/access";
 import { APP_NAME } from "@/lib/brand";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,12 +25,13 @@ function Login() {
 }
 
 function LoginScreen() {
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [mode, setMode] = useState<"signin" | "signup">("signup");
+  const [name, setName] = useState("Ägare");
+  const [email, setEmail] = useState(OWNER_EMAIL);
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<string | null>(null);
+  const ownerFlow = isOwnerEmail(email);
 
   async function handleProvider(providerId: string) {
     setError(null);
@@ -39,7 +40,11 @@ function LoginScreen() {
       await signIn(providerId, { callbackURL: "/", errorCallbackURL: "/login" });
     } catch (err) {
       setPending(null);
-      setError(err instanceof Error ? swedishAuthError(err.message) : "Inloggningen misslyckades.");
+      setError(
+        err instanceof Error
+          ? swedishAuthError(err.message)
+          : "Google-inloggningen misslyckades. Skapa ett lösenord nedan i stället.",
+      );
     }
   }
 
@@ -47,17 +52,25 @@ function LoginScreen() {
     event.preventDefault();
     setError(null);
     setPending("email");
+    const trimmedEmail = email.trim();
     try {
       if (mode === "signup") {
         const { error: signUpError } = await authClient.signUp.email({
-          email: email.trim(),
+          email: trimmedEmail,
           password,
-          name: name.trim() || email.trim(),
+          name: name.trim() || trimmedEmail,
         });
-        if (signUpError) throw new Error(signUpError.message);
+        if (signUpError) {
+          const message = signUpError.message || "";
+          if (message.toLowerCase().includes("exist") || message.toLowerCase().includes("already")) {
+            setMode("signin");
+            throw new Error("Kontot finns redan. Logga in med ditt lösenord.");
+          }
+          throw new Error(signUpError.message);
+        }
       } else {
         const { error: signInError } = await authClient.signIn.email({
-          email: email.trim(),
+          email: trimmedEmail,
           password,
         });
         if (signInError) throw new Error(signInError.message);
@@ -91,48 +104,21 @@ function LoginScreen() {
 
         <section className="px-5 py-7 sm:px-8 sm:py-10 lg:col-span-3">
           <h1 className="font-display text-3xl font-medium tracking-tight text-ink">
-            {mode === "signin" ? "Logga in" : "Begär tillgång"}
+            {mode === "signin" ? "Logga in" : ownerFlow ? "Skapa lösenord" : "Begär tillgång"}
           </h1>
           <p className="mt-1 text-sm text-muted">
             {mode === "signin"
-              ? `Klicka på Logga in med Google och välj ${OWNER_EMAIL}. Inget lösenord behövs.`
-              : `Skapa ett konto. Du släpps in först när ${OWNER_EMAIL} godkänt dig via e-post.`}
+              ? "Skriv e-post och lösenord. Google behövs inte."
+              : ownerFlow
+                ? `Som ägare skapar du ett lösenord med ${OWNER_EMAIL}. Minst 8 tecken. Sedan kommer du in direkt.`
+                : `Skapa ett konto. Du släpps in först när ${OWNER_EMAIL} godkänt dig via e-post.`}
           </p>
 
           {!authEnabled ? (
             <p className="mt-8 text-sm text-muted">Inloggning är avstängd.</p>
           ) : (
             <>
-              <div className="mt-7 grid gap-2">
-                {GROK_PROVIDERS.map((provider) => (
-                  <Button
-                    key={provider.providerId}
-                    type="button"
-                    variant={provider.idp === "google" ? "default" : "outline"}
-                    size="lg"
-                    className="w-full justify-center"
-                    disabled={pending !== null}
-                    onClick={() => void handleProvider(provider.providerId)}
-                  >
-                    {provider.idp === "google" ? <GoogleMark /> : <XMark />}
-                    {pending === provider.providerId
-                      ? "Öppnar…"
-                      : provider.idp === "google"
-                        ? "Logga in med Google"
-                        : `Fortsätt med ${provider.label}`}
-                  </Button>
-                ))}
-              </div>
-
-              <div className="my-6 flex items-center gap-3">
-                <span className="h-px flex-1 bg-line" />
-                <span className="text-xs font-medium tracking-wide text-muted uppercase">
-                  eller e-post
-                </span>
-                <span className="h-px flex-1 bg-line" />
-              </div>
-
-              <form onSubmit={(event) => void handleEmail(event)} className="grid gap-4">
+              <form onSubmit={(event) => void handleEmail(event)} className="mt-7 grid gap-4">
                 {mode === "signup" ? (
                   <div className="grid gap-2">
                     <Label htmlFor="name">Namn</Label>
@@ -174,23 +160,56 @@ function LoginScreen() {
                     ? "Väntar…"
                     : mode === "signin"
                       ? "Logga in"
-                      : "Begär tillgång"}
+                      : ownerFlow
+                        ? "Spara lösenord och öppna"
+                        : "Begär tillgång"}
                 </Button>
               </form>
 
               <p className="mt-5 text-center text-sm text-muted">
-                {mode === "signin" ? "Inte godkänd ännu?" : "Har du redan ett konto?"}{" "}
+                {mode === "signin" ? "Första gången?" : "Har du redan ett lösenord?"}{" "}
                 <button
                   type="button"
                   className="font-medium text-pine"
                   onClick={() => {
                     setMode(mode === "signin" ? "signup" : "signin");
                     setError(null);
+                    if (mode === "signin") {
+                      setEmail(OWNER_EMAIL);
+                      setName("Ägare");
+                    }
                   }}
                 >
-                  {mode === "signin" ? "Begär tillgång" : "Logga in"}
+                  {mode === "signin" ? "Skapa lösenord" : "Logga in"}
                 </button>
               </p>
+
+              <div className="my-6 flex items-center gap-3">
+                <span className="h-px flex-1 bg-line" />
+                <span className="text-xs font-medium tracking-wide text-muted uppercase">
+                  eller
+                </span>
+                <span className="h-px flex-1 bg-line" />
+              </div>
+
+              <div className="grid gap-2">
+                {GROK_PROVIDERS.map((provider) => (
+                  <Button
+                    key={provider.providerId}
+                    type="button"
+                    variant="outline"
+                    size="lg"
+                    className="w-full justify-center"
+                    disabled={pending !== null}
+                    onClick={() => void handleProvider(provider.providerId)}
+                  >
+                    {provider.idp === "google" ? <GoogleMark /> : <XMark />}
+                    {pending === provider.providerId
+                      ? "Öppnar…"
+                      : `Fortsätt med ${provider.label}`}
+                  </Button>
+                ))}
+              </div>
             </>
           )}
         </section>
