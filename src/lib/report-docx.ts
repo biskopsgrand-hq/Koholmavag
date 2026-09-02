@@ -127,7 +127,7 @@ function documentXml(report: AnnualReport): string {
           border: true,
         }),
     ),
-    paragraph("Likvida medel = ingående saldo 1 juli + årets resultat.", {
+    paragraph("Likvida medel = ingående saldo 1 juli + in- och utbetalningar. Upplupna intäkter ingår inte i kassan.", {
       size: 18,
       color: "6B6458",
       before: 280,

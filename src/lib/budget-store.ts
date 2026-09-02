@@ -17,6 +17,7 @@ export type Transaction = {
   categoryId: string;
   note: string;
   date: string;
+  accrued: boolean;
 };
 
 export type TransactionInput = Omit<Transaction, "id"> & { id?: string };
@@ -201,6 +202,7 @@ export const useBudgetStore = create<BudgetState>()(
               categoryId: input.categoryId,
               note: input.note.trim(),
               date: input.date,
+              accrued: Boolean(input.accrued),
             },
             ...state.transactions,
           ],
@@ -218,6 +220,7 @@ export const useBudgetStore = create<BudgetState>()(
                   categoryId: input.categoryId,
                   note: input.note.trim(),
                   date: input.date,
+                  accrued: Boolean(input.accrued),
                 }
               : tx,
           ),
@@ -378,6 +381,23 @@ export function monthTotals(transactions: Transaction[]) {
     else if (tx.type === "expense") expense += amount;
   }
   return { income, expense, remaining: income - expense };
+}
+
+export function cashMovement(transactions: Transaction[]) {
+  return monthTotals(transactions.filter((tx) => !tx.accrued));
+}
+
+export function accruedTotals(transactions: Transaction[]) {
+  let income = 0;
+  let expense = 0;
+  for (const tx of transactions) {
+    if (!tx.accrued) continue;
+    const amount = Number(tx.amount);
+    if (!Number.isFinite(amount) || amount <= 0) continue;
+    if (tx.type === "income") income += amount;
+    else if (tx.type === "expense") expense += amount;
+  }
+  return { income, expense };
 }
 
 export function spendingByCategory(transactions: Transaction[]) {

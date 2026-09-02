@@ -40,6 +40,7 @@ export function TransactionDialog({ open, onOpenChange, editing, onManageCategor
   const [categoryId, setCategoryId] = useState(defaultCategory(categories, "expense"));
   const [note, setNote] = useState("");
   const [date, setDate] = useState(todayIso());
+  const [accrued, setAccrued] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [newCat, setNewCat] = useState("");
   const [showNewCat, setShowNewCat] = useState(false);
@@ -54,6 +55,7 @@ export function TransactionDialog({ open, onOpenChange, editing, onManageCategor
       setCategoryId(editing.categoryId);
       setNote(editing.note);
       setDate(editing.date);
+      setAccrued(Boolean(editing.accrued));
     } else {
       setType("expense");
       setAmount("");
@@ -61,6 +63,7 @@ export function TransactionDialog({ open, onOpenChange, editing, onManageCategor
       setNote("");
       const today = todayIso();
       setDate(today.startsWith(selectedMonth) ? today : `${selectedMonth}-01`);
+      setAccrued(false);
     }
     setError(null);
     setNewCat("");
@@ -93,7 +96,7 @@ export function TransactionDialog({ open, onOpenChange, editing, onManageCategor
       setError("Ange ett belopp större än 0.");
       return;
     }
-    const payload = { type, amount: parsed, categoryId, note, date };
+    const payload = { type, amount: parsed, categoryId, note, date, accrued };
     if (editing) {
       updateTransaction(editing.id, payload);
       toast("Transaktionen uppdaterades");
@@ -228,6 +231,25 @@ export function TransactionDialog({ open, onOpenChange, editing, onManageCategor
               maxLength={80}
             />
           </div>
+
+          <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-md bg-bg px-3 py-3 shadow-[var(--shadow-border)]">
+            <input
+              type="checkbox"
+              className="mt-1 size-4 shrink-0 accent-pine"
+              checked={accrued}
+              onChange={(e) => setAccrued(e.target.checked)}
+            />
+            <span>
+              <span className="block text-sm font-medium text-ink">
+                {type === "income" ? "Fakturerad, ej betald" : "Kostnad, ej betald"}
+              </span>
+              <span className="mt-0.5 block text-sm text-muted">
+                {type === "income"
+                  ? "Räknas som intäkt och upplupen fordran. Kassan ökar inte förrän pengarna kommer."
+                  : "Räknas som kostnad och upplupen skuld. Kassan minskar inte förrän ni betalar."}
+              </span>
+            </span>
+          </label>
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

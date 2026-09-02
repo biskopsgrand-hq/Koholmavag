@@ -49,6 +49,7 @@ function parseTransaction(raw: unknown): Transaction | null {
     categoryId: String(row.categoryId ?? ""),
     note: String(row.note ?? ""),
     date,
+    accrued: Boolean(row.accrued),
   };
 }
 

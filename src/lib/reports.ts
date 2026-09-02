@@ -7,6 +7,8 @@ import {
 } from "@/lib/format";
 import {
   EMPTY_YEAR_BOOK,
+  accruedTotals,
+  cashMovement,
   monthTotals,
   type BalanceItem,
   type Transaction,
@@ -101,16 +103,28 @@ export function buildAnnualReport(
 ): AnnualReport {
   const yearTx = transactionsInFiscalYear(transactions, year);
   const totals = monthTotals(yearTx);
+  const cashFlow = cashMovement(yearTx);
+  const accrued = accruedTotals(yearTx);
   const resolved = book ?? EMPTY_YEAR_BOOK;
   const openingCash = money(resolved.openingCash);
-  const assets = resolved.assets.map((item) => ({ ...item, amount: money(item.amount) }));
-  const liabilities = resolved.liabilities.map((item) => ({ ...item, amount: money(item.amount) }));
+  const assets = [
+    ...(accrued.income > 0
+      ? [{ id: "accrued-income", name: "Upplupna intäkter", amount: accrued.income }]
+      : []),
+    ...resolved.assets.map((item) => ({ ...item, amount: money(item.amount) })),
+  ];
+  const liabilities = [
+    ...(accrued.expense > 0
+      ? [{ id: "accrued-expense", name: "Upplupna kostnader", amount: accrued.expense }]
+      : []),
+    ...resolved.liabilities.map((item) => ({ ...item, amount: money(item.amount) })),
+  ];
   const assetSum = assets.reduce((sum, item) => sum + item.amount, 0);
   const liabilitySum = liabilities.reduce((sum, item) => sum + item.amount, 0);
-  const cash = openingCash + totals.remaining;
+  const cash = openingCash + cashFlow.remaining;
   const totalAssets = cash + assetSum;
   const equity = totalAssets - liabilitySum;
-  const openingEquity = openingCash + assetSum - liabilitySum;
+  const openingEquity = openingCash + money(resolved.assets.reduce((sum, item) => sum + money(item.amount), 0)) - money(resolved.liabilities.reduce((sum, item) => sum + money(item.amount), 0));
   return {
     year,
     label: fiscalYearLabel(year),

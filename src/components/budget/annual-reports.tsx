@@ -229,7 +229,8 @@ export function AnnualReports() {
             />
           </LedgerSection>
           <p className="mt-4 text-sm text-muted">
-            Likvida medel = ingående saldo 1 juli ({formatKr(report.openingCash)}) + årets resultat.
+            Likvida medel = ingående saldo 1 juli ({formatKr(report.openingCash)}) + in- och utbetalningar.
+            Fakturerat men ej betalt ligger som upplupna intäkter, inte i kassan.
           </p>
         </StatementCard>
 
@@ -266,7 +267,7 @@ export function AnnualReports() {
             amount={assetAmount}
             onName={setAssetName}
             onAmount={setAssetAmount}
-            items={report.assets}
+            items={report.assets.filter((item) => item.id !== "accrued-income")}
             onAdd={() => handleAdd("assets")}
             onRemove={(id) => removeBalanceItem(year, "assets", id)}
             namePlaceholder="Sparkonto, ISK, bostad…"
@@ -277,7 +278,7 @@ export function AnnualReports() {
             amount={debtAmount}
             onName={setDebtName}
             onAmount={setDebtAmount}
-            items={report.liabilities}
+            items={report.liabilities.filter((item) => item.id !== "accrued-expense")}
             onAdd={() => handleAdd("liabilities")}
             onRemove={(id) => removeBalanceItem(year, "liabilities", id)}
             namePlaceholder="Bolån, CSN, kreditkort…"

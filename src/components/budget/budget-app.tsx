@@ -273,6 +273,12 @@ export function BudgetApp() {
                           <span className="mt-0.5 block text-sm text-muted">
                             {cat?.name}
                             <span className="text-subtle"> · {formatDayLabel(tx.date)}</span>
+                            {tx.accrued ? (
+                              <span className="text-subtle">
+                                {" "}
+                                · {tx.type === "income" ? "ej betald" : "ej utbetald"}
+                              </span>
+                            ) : null}
                           </span>
                         </span>
                         <span
