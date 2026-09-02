@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { signOut } from "@/lib/auth/client";
+import { writeSessionUser } from "@/lib/session-user";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { PasswordDialog } from "@/components/budget/password-dialog";
 import { Button } from "@/components/ui/button";
@@ -39,6 +40,7 @@ export function AccountChip() {
         disabled={signingOut}
         onClick={() => {
           setSigningOut(true);
+          writeSessionUser(null);
           void signOut().catch(() => setSigningOut(false));
         }}
       >

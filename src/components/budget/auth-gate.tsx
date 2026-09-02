@@ -6,6 +6,7 @@ import { useCurrentUserState, type AppUser } from "@/lib/auth/use-current-user";
 import { OWNER_EMAIL, asMemberList, isApproved, type AccessState } from "@/lib/access";
 import { getMyAccess, listAccessMembers, requestAccess } from "@/lib/access-fns";
 import { APP_NAME } from "@/lib/brand";
+import { readSessionUser, writeSessionUser } from "@/lib/session-user";
 import { Button } from "@/components/ui/button";
 
 const AccessContext = createContext<AccessState | null>(null);
@@ -18,24 +19,13 @@ export function useAccess(): AccessState | null {
 
 export function AuthGate({ children }: { children: ReactNode }) {
   const { user, isPending } = useCurrentUserState();
-  const [, bump] = useState(0);
 
-  if (user) lastUser = user;
+  if (user) {
+    lastUser = user;
+    writeSessionUser(user);
+  }
 
-  useEffect(() => {
-    if (user || isPending) return;
-    if (!lastUser) {
-      bump((n) => n + 1);
-      return;
-    }
-    const timer = window.setTimeout(() => {
-      lastUser = null;
-      bump((n) => n + 1);
-    }, 4000);
-    return () => window.clearTimeout(timer);
-  }, [user, isPending]);
-
-  const current = user ?? lastUser;
+  const current = user ?? lastUser ?? readSessionUser();
   if (isPending && !current) return <AuthPending />;
   if (!current) {
     return (
@@ -65,6 +55,10 @@ function AccessGate({ children }: { children: ReactNode }) {
         const state = await getMyAccess({ data: {} });
         if (cancelled) return;
         if (state.status === "none" || state.status === "pending") {
+          if (accessCache && isApproved(accessCache.status)) {
+            remember(accessCache);
+            return;
+          }
           const created = await requestAccess({ data: {} });
           if (!cancelled) remember({ ...created, freshRequest: true });
           return;
@@ -253,6 +247,8 @@ function SignOutButton() {
       disabled={signingOut}
       onClick={() => {
         setSigningOut(true);
+        lastUser = null;
+        writeSessionUser(null);
         void signOut().catch(() => setSigningOut(false));
       }}
     >
