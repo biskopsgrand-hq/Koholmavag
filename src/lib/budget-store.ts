@@ -300,8 +300,11 @@ function queueSave() {
     const stuck = window.setTimeout(() => {
       if (gen === saveGen) savePending = false;
     }, 8000);
-    void import("@/lib/budget-fns")
-      .then(({ saveBudget }) => saveBudget({ data: payloadFromState(snapshot) }))
+    void import("@/lib/save-with-session")
+      .then(async ({ withSessionRetry }) => {
+        const { saveBudget } = await import("@/lib/budget-fns");
+        return withSessionRetry(() => saveBudget({ data: payloadFromState(snapshot) }));
+      })
       .then((saved) => {
         if (gen !== saveGen) return;
         applyLedger(saved);
@@ -326,7 +329,8 @@ export async function hydrateSharedBudget(): Promise<void> {
         const merged = mergeLedgers(remote, local);
         applyLedger(merged);
         if (merged.transactions.length > remote.transactions.length) {
-          const saved = await saveBudget({ data: { ...merged, deletedIds: [] } });
+          const { withSessionRetry } = await import("@/lib/save-with-session");
+          const saved = await withSessionRetry(() => saveBudget({ data: { ...merged, deletedIds: [] } }));
           applyLedger(saved);
         }
         return;

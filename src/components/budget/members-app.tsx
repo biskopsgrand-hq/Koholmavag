@@ -51,6 +51,7 @@ import { SELLER } from "@/lib/seller";
 import { loadInvoiceList, saveInvoiceList } from "@/lib/invoices-fns";
 import { currentFiscalYear, fiscalYearLabel, formatKr, parseAmountInput } from "@/lib/format";
 import { useLiveSync } from "@/lib/live-sync";
+import { withSessionRetry } from "@/lib/save-with-session";
 import { cn } from "@/lib/utils";
 
 export function MembersApp() {
@@ -131,15 +132,8 @@ export function MembersApp() {
       }
       void persist(registerRef.current);
     }
-    function onHide() {
-      if (document.visibilityState === "hidden") flush();
-    }
     window.addEventListener("pagehide", flush);
-    document.addEventListener("visibilitychange", onHide);
-    return () => {
-      window.removeEventListener("pagehide", flush);
-      document.removeEventListener("visibilitychange", onHide);
-    };
+    return () => window.removeEventListener("pagehide", flush);
   }, []);
 
   async function persist(next: MemberRegister) {
@@ -155,7 +149,7 @@ export function MembersApp() {
     writeMemberCache(payload);
     savingRef.current = true;
     try {
-      const saved = await saveMembers({ data: payload });
+      const saved = await withSessionRetry(() => saveMembers({ data: payload }));
       const kept: MemberRegister = {
         ...saved,
         members: mergeMemberLists([saved.members, payload.members], KOHOLMA_MEMBERS),
@@ -165,7 +159,9 @@ export function MembersApp() {
       writeMemberCache(kept);
       return kept;
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Kunde inte spara uppgifterna.");
+      writeMemberCache(payload);
+      const authLost = /unauthor|forbidden|not authorized/i.test(err instanceof Error ? err.message : "");
+      toast.error(authLost ? "Kunde inte spara — ladda om sidan och logga in igen." : err instanceof Error ? err.message : "Kunde inte spara uppgifterna.");
       throw err;
     } finally {
       savingRef.current = false;
@@ -176,7 +172,7 @@ export function MembersApp() {
     savingRef.current = true;
     setInvoices(next);
     try {
-      const saved = await saveInvoiceList({ data: next });
+      const saved = await withSessionRetry(() => saveInvoiceList({ data: next }));
       setInvoices(saved);
       return saved;
     } finally {
@@ -241,14 +237,12 @@ export function MembersApp() {
     registerRef.current = next;
     setRegister(next);
     writeMemberCache(next);
+    if (!save) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
-    if (save) {
-      void persist(next).then(() => toast.success("Sparat", { id: "member-save" }));
-      return;
-    }
     saveTimer.current = setTimeout(() => {
-      void persist(registerRef.current);
-    }, 350);
+      saveTimer.current = null;
+      void persist(registerRef.current).then(() => toast.success("Sparat", { id: "member-save" }));
+    }, 200);
   }
 
   async function removeMember(id: string) {

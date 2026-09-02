@@ -17,8 +17,16 @@ const EMPTY_PAYLOAD: BudgetPayload = {
 
 async function requireApproved(userId: string) {
   const access = await getMyAccessForUserId(userId);
-  if (access.status !== "approved") throw new Error("Forbidden");
-  return access;
+  if (access.status === "approved") return access;
+  const sql = await getSql();
+  const rows = await sql<{ status: string }>`
+    select status from access_members
+    where user_id = ${userId} or lower(trim(email)) = ${access.email ?? ""}
+    order by case status when 'approved' then 0 else 1 end
+    limit 1
+  `;
+  if (rows[0]?.status === "approved") return access;
+  throw new Error("Forbidden");
 }
 
 function asNumber(value: unknown, fallback = 0): number {

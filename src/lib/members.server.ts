@@ -16,7 +16,16 @@ const BACKUP_ID = "members-backup";
 
 async function requireApproved(userId: string): Promise<void> {
   const access = await getMyAccessForUserId(userId);
-  if (access.status !== "approved") throw new Error("Forbidden");
+  if (access.status === "approved") return;
+  const sql = await getSql();
+  const rows = await sql<{ status: string }>`
+    select status from access_members
+    where user_id = ${userId} or lower(trim(email)) = ${access.email ?? ""}
+    order by case status when 'approved' then 0 else 1 end
+    limit 1
+  `;
+  if (rows[0]?.status === "approved") return;
+  throw new Error("Forbidden");
 }
 
 function asRecord(raw: unknown): Record<string, unknown> {
