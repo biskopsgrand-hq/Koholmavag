@@ -20,6 +20,7 @@ export const requestAccess = createServerFn({ method: "POST" })
 
 export const listAccessMembers = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
+  .validator(() => ({}))
   .handler(async ({ context }): Promise<AccessMember[]> => {
     const { listMembersForAdmin } = await import("@/lib/access.server");
     return listMembersForAdmin(context.userId);

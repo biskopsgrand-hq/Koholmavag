@@ -9,7 +9,7 @@ import { PasswordDialog } from "@/components/budget/password-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { OWNER_EMAIL, isOwnerEmail, parseAccessStatus, type AccessMember } from "@/lib/access";
+import { OWNER_EMAIL, asMemberList, isOwnerEmail, mergeMemberLists, parseAccessStatus, type AccessMember } from "@/lib/access";
 import { decideAccessMember, inviteAccessMember, listAccessMembers } from "@/lib/access-fns";
 import { APP_NAME } from "@/lib/brand";
 
@@ -45,9 +45,9 @@ function AccessAdmin() {
     let cancelled = false;
     async function load() {
       try {
-        const rows = await listAccessMembers();
+        const rows = await listAccessMembers({ data: {} });
         if (!cancelled) {
-          setMembers(Array.isArray(rows) ? rows : []);
+          setMembers((prev) => mergeMemberLists(prev, asMemberList(rows)));
           setLoadError(null);
         }
       } catch (err) {
@@ -77,7 +77,7 @@ function AccessAdmin() {
     setBusy(memberEmail + status);
     try {
       const rows = await decideAccessMember({ data: { email: memberEmail, status } });
-      setMembers(Array.isArray(rows) ? rows : []);
+      setMembers((prev) => mergeMemberLists(prev, asMemberList(rows)));
       toast(status === "approved" ? "Personen är godkänd." : "Personen är nekad.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Kunde inte spara.");
@@ -90,11 +90,24 @@ function AccessAdmin() {
     event.preventDefault();
     setBusy("invite");
     try {
-      const rows = await inviteAccessMember({ data: { email, name } });
+      const invitedEmail = email.trim();
+      const invitedName = name.trim();
+      const rows = await inviteAccessMember({ data: { email: invitedEmail, name: invitedName } });
       setEmail("");
       setName("");
-      setMembers(Array.isArray(rows) ? rows : []);
-      toast("Personen är förhandsgodkänd.");
+      setMembers((prev) =>
+        mergeMemberLists(prev, [
+          ...asMemberList(rows),
+          {
+            email: invitedEmail.toLowerCase(),
+            name: invitedName || null,
+            status: "approved",
+            requestedAt: new Date().toISOString(),
+            decidedAt: new Date().toISOString(),
+          },
+        ]),
+      );
+      toast(`${invitedName || invitedEmail} är godkänd.`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Kunde inte bjuda in.");
     } finally {

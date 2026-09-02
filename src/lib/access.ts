@@ -46,3 +46,50 @@ function statusRank(status: AccessStatus): number {
 export function strongerAccessStatus(a: AccessStatus, b: AccessStatus): AccessStatus {
   return statusRank(a) >= statusRank(b) ? a : b;
 }
+
+export function asMemberList(value: unknown): AccessMember[] {
+  const raw = Array.isArray(value)
+    ? value
+    : value && typeof value === "object" && Array.isArray((value as { members?: unknown }).members)
+      ? (value as { members: unknown[] }).members
+      : [];
+  const byEmail = new Map<string, AccessMember>();
+  for (const row of raw) {
+    if (!row || typeof row !== "object") continue;
+    const data = row as Record<string, unknown>;
+    const email = normalizeEmail(String(data.email ?? ""));
+    if (!email.includes("@")) continue;
+    const parsed = isOwnerEmail(email) ? "approved" : parseAccessStatus(data.status);
+    byEmail.set(email, {
+      email,
+      name: data.name ? String(data.name) : null,
+      status: parsed === "none" ? "pending" : parsed,
+      requestedAt: String(data.requestedAt ?? data.requested_at ?? ""),
+      decidedAt:
+        data.decidedAt == null && data.decided_at == null
+          ? null
+          : String(data.decidedAt ?? data.decided_at),
+    });
+  }
+  return [...byEmail.values()];
+}
+
+export function mergeMemberLists(
+  previous: AccessMember[] | null | undefined,
+  next: AccessMember[],
+): AccessMember[] {
+  const byEmail = new Map<string, AccessMember>();
+  for (const member of previous ?? []) byEmail.set(normalizeEmail(member.email), member);
+  for (const member of next) {
+    const email = normalizeEmail(member.email);
+    const previousMember = byEmail.get(email);
+    byEmail.set(email, {
+      email,
+      name: member.name || previousMember?.name || null,
+      status: strongerAccessStatus(member.status, previousMember?.status ?? "none"),
+      requestedAt: member.requestedAt || previousMember?.requestedAt || "",
+      decidedAt: member.decidedAt || previousMember?.decidedAt || null,
+    });
+  }
+  return [...byEmail.values()];
+}

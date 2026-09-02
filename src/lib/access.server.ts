@@ -254,11 +254,55 @@ async function requireAdmin(userId: string): Promise<void> {
   }
 }
 
-export async function listMembersForAdmin(userId: string): Promise<AccessMember[]> {
-  await requireAdmin(userId);
-  const sql = await getSql();
-  const byEmail = new Map<string, AccessMember>();
+function toMember(row: {
+  email?: string | null;
+  name?: string | null;
+  status?: string | null;
+  requested_at?: string | null;
+  decided_at?: string | null;
+}): AccessMember | null {
+  const email = normalizeEmail(row.email ?? "");
+  if (!email.includes("@")) return null;
+  const parsed = isOwnerEmail(email) ? "approved" : parseAccessStatus(row.status);
+  return {
+    email,
+    name: row.name ? String(row.name) : null,
+    status: parsed === "none" ? "pending" : parsed,
+    requestedAt: String(row.requested_at ?? ""),
+    decidedAt: row.decided_at ? String(row.decided_at) : null,
+  };
+}
 
+function sortMembers(members: AccessMember[]): AccessMember[] {
+  const order = { pending: 0, approved: 1, denied: 2, none: 3 };
+  return [...members].sort(
+    (a, b) => (order[a.status] ?? 9) - (order[b.status] ?? 9) || a.email.localeCompare(b.email),
+  );
+}
+
+function mergeMembers(...groups: AccessMember[][]): AccessMember[] {
+  const byEmail = new Map<string, AccessMember>();
+  for (const group of groups) {
+    for (const member of group) {
+      const previous = byEmail.get(member.email);
+      if (!previous) {
+        byEmail.set(member.email, member);
+        continue;
+      }
+      byEmail.set(member.email, {
+        email: member.email,
+        name: member.name || previous.name,
+        status: strongerAccessStatus(member.status, previous.status),
+        requestedAt: member.requestedAt || previous.requestedAt,
+        decidedAt: member.decidedAt || previous.decidedAt,
+      });
+    }
+  }
+  return sortMembers([...byEmail.values()]);
+}
+
+async function readMemberRows(): Promise<AccessMember[]> {
+  const sql = await getSql();
   const users = await sql
     .query<{ email: string; name: string | null; requested_at: string }>(
       `select lower(trim(email)) as email, name, "createdAt"::text as requested_at from "user"`,
@@ -267,41 +311,75 @@ export async function listMembersForAdmin(userId: string): Promise<AccessMember[
       console.error("user table read failed", err);
       return [];
     });
-  for (const row of users) {
-    const email = normalizeEmail(row.email ?? "");
-    if (!email.includes("@")) continue;
-    byEmail.set(email, {
-      email,
-      name: row.name,
-      status: isOwnerEmail(email) ? "approved" : "pending",
-      requestedAt: row.requested_at,
-      decidedAt: null,
+  const fromUsers = users.flatMap((row) => {
+    const member = toMember({
+      ...row,
+      status: isOwnerEmail(row.email) ? "approved" : "pending",
     });
-  }
-
-  const members = await sql.query<MemberRow>(
-    `select lower(trim(email)) as email, user_id, name, status, token, requested_at::text, decided_at::text from access_members`,
-  );
-  for (const row of members) {
-    const email = normalizeEmail(row.email ?? "");
-    if (!email.includes("@")) continue;
-    const previous = byEmail.get(email);
-    const status = isOwnerEmail(email)
-      ? "approved"
-      : strongerAccessStatus(parseAccessStatus(row.status), previous?.status ?? "none");
-    byEmail.set(email, {
-      email,
-      name: row.name || previous?.name || null,
-      status: status === "none" ? "pending" : status,
-      requestedAt: row.requested_at || previous?.requestedAt || "",
-      decidedAt: row.decided_at,
-    });
-  }
-
-  return [...byEmail.values()].sort((a, b) => {
-    const order = { pending: 0, approved: 1, denied: 2, none: 3 };
-    return (order[a.status] ?? 9) - (order[b.status] ?? 9) || a.email.localeCompare(b.email);
+    return member ? [member] : [];
   });
+  const rows = await sql
+    .query<{
+      email: string;
+      name: string | null;
+      status: string;
+      requested_at: string;
+      decided_at: string | null;
+    }>(
+      `select lower(trim(email)) as email, name, status, requested_at::text as requested_at, decided_at::text as decided_at from access_members`,
+    )
+    .catch((err) => {
+      console.error("access_members read failed", err);
+      return [];
+    });
+  const fromMembers = rows.flatMap((row) => {
+    const member = toMember(row);
+    return member ? [member] : [];
+  });
+  return mergeMembers(fromUsers, fromMembers);
+}
+
+async function upsertMemberStatus(
+  email: string,
+  status: "approved" | "denied",
+  name?: string,
+): Promise<AccessMember> {
+  const sql = await getSql();
+  await sql.query(`delete from access_members where lower(trim(email)) = $1 and email <> $1`, [email]);
+  const rows = await sql.query<{
+    email: string;
+    name: string | null;
+    status: string;
+    requested_at: string;
+    decided_at: string | null;
+  }>(
+    `insert into access_members (email, user_id, name, status, requested_at, decided_at, decided_by)
+     values (
+       $1,
+       (select id from "user" where lower(trim(email)) = $1 limit 1),
+       coalesce(nullif($2, ''), (select name from "user" where lower(trim(email)) = $1 limit 1), $1),
+       $3,
+       now(),
+       now(),
+       $4
+     )
+     on conflict (email) do update set
+       user_id = coalesce(excluded.user_id, access_members.user_id),
+       name = coalesce(nullif(excluded.name, excluded.email), access_members.name),
+       status = excluded.status,
+       decided_at = now(),
+       decided_by = excluded.decided_by
+     returning lower(trim(email)) as email, name, status, requested_at::text as requested_at, decided_at::text as decided_at`,
+    [email, name?.trim() || "", status, OWNER_EMAIL],
+  );
+  const saved = toMember(rows[0] ?? { email, name: name || null, status });
+  if (!saved) throw new Error("Kunde inte spara personen.");
+  return saved;
+}
+
+export async function listMembersForAdmin(userId: string): Promise<AccessMember[]> {
+  await requireAdmin(userId);
+  return readMemberRows();
 }
 
 export async function decideMemberForAdmin(
@@ -314,61 +392,16 @@ export async function decideMemberForAdmin(
   if (isOwnerEmail(normalized) && status !== "approved") {
     throw new Error("Ägaren kan inte nekas.");
   }
-  const sql = await getSql();
-  const updated = await sql<{ email: string }>`
-    update access_members
-    set status = ${status},
-        decided_at = now(),
-        decided_by = ${OWNER_EMAIL},
-        user_id = coalesce(
-          user_id,
-          (select id from "user" where lower(email) = ${normalized} limit 1)
-        ),
-        name = coalesce(
-          name,
-          (select name from "user" where lower(email) = ${normalized} limit 1)
-        )
-    where lower(email) = ${normalized}
-    returning email
-  `;
-  if (!updated[0]) {
-    await sql`
-      insert into access_members (email, user_id, name, status, decided_at, decided_by)
-      values (
-        ${normalized},
-        (select id from "user" where lower(email) = ${normalized} limit 1),
-        coalesce((select name from "user" where lower(email) = ${normalized} limit 1), ${normalized}),
-        ${status},
-        now(),
-        ${OWNER_EMAIL}
-      )
-    `;
-  }
-  return listMembersForAdmin(userId);
+  const saved = await upsertMemberStatus(normalized, status);
+  return mergeMembers(await readMemberRows(), [saved]);
 }
 
 export async function inviteMemberForAdmin(userId: string, email: string, name: string): Promise<AccessMember[]> {
   await requireAdmin(userId);
   const normalized = normalizeEmail(email);
   if (!normalized.includes("@")) throw new Error("Ogiltig e-post.");
-  const sql = await getSql();
-  await sql`
-    insert into access_members (email, user_id, name, status, decided_at, decided_by)
-    values (
-      ${normalized},
-      (select id from "user" where lower(email) = ${normalized} limit 1),
-      ${name || null},
-      'approved',
-      now(),
-      ${OWNER_EMAIL}
-    )
-    on conflict (email) do update set
-      name = coalesce(excluded.name, access_members.name),
-      status = 'approved',
-      decided_at = now(),
-      decided_by = ${OWNER_EMAIL}
-  `;
-  return listMembersForAdmin(userId);
+  const saved = await upsertMemberStatus(normalized, "approved", name);
+  return mergeMembers(await readMemberRows(), [saved]);
 }
 
 export async function peekAccessToken(token: string): Promise<{ email: string; name: string | null; status: AccessStatus } | null> {

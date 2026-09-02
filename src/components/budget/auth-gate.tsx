@@ -3,7 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { RedirectToSignIn } from "@/lib/auth/gates";
 import { signOut } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
-import { OWNER_EMAIL, isApproved, type AccessState } from "@/lib/access";
+import { OWNER_EMAIL, asMemberList, isApproved, type AccessState } from "@/lib/access";
 import { getMyAccess, listAccessMembers, requestAccess } from "@/lib/access-fns";
 import { APP_NAME } from "@/lib/brand";
 import { Button } from "@/components/ui/button";
@@ -238,8 +238,10 @@ export function AdminNav() {
     let cancelled = false;
     async function load() {
       try {
-        const rows = await listAccessMembers();
-        if (!cancelled) setPendingCount(rows.filter((row) => row.status === "pending").length);
+        const rows = await listAccessMembers({ data: {} });
+        if (!cancelled) {
+          setPendingCount(asMemberList(rows).filter((row) => row.status === "pending").length);
+        }
       } catch {
         /* ignore */
       }
