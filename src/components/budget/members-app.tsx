@@ -27,10 +27,11 @@ import {
 } from "@/lib/members";
 import { loadMembers, saveMembers } from "@/lib/members-fns";
 import { readMemberCache, writeMemberCache } from "@/lib/members-cache";
-import { downloadAllInvoicePdfs, downloadInvoiceZip, downloadSavedInvoice, mailSavedInvoice } from "@/lib/invoice-mail";
+import { downloadAllInvoicePdfs, downloadInvoiceZip, downloadSavedInvoice } from "@/lib/invoice-mail";
 import {
   dueInDays,
   invoiceFromMember,
+  invoiceGmailLink,
   invoiceTotals,
   makeOcr,
   nextCustomerNo,
@@ -40,6 +41,7 @@ import {
   type Invoice,
   type VatRate,
 } from "@/lib/invoices";
+import { SELLER } from "@/lib/seller";
 import { loadInvoiceList, saveInvoiceList } from "@/lib/invoices-fns";
 import { currentFiscalYear, fiscalYearLabel, formatKr, parseAmountInput } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -58,6 +60,7 @@ export function MembersApp() {
   const [invoiceFilter, setInvoiceFilter] = useState<"all" | "unpaid" | "paid">("all");
   const [selected, setSelected] = useState<string[]>([]);
   const [bulkQueue, setBulkQueue] = useState<Invoice[] | null>(null);
+  const [mailStep, setMailStep] = useState<Invoice | null>(null);
 
   useEffect(() => {
     void Promise.all([loadMembers({ data: {} }), loadInvoiceList({ data: {} })])
@@ -206,11 +209,11 @@ export function MembersApp() {
       return;
     }
     try {
-      await mailSavedInvoice(invoice);
-      toast("Gmail öppnas som koholmavagen@gmail.com. Bifoga den nerladdade PDF:en och skicka.");
+      await downloadSavedInvoice(invoice);
+      setMailStep(invoice);
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
-      toast.error("Kunde inte öppna mejlet.");
+      toast.error("Kunde inte skapa PDF-fakturan.");
     }
   }
 
@@ -562,12 +565,19 @@ export function MembersApp() {
       ) : null}
 
       {openInvoice ? (
-        <SavedInvoiceDialog invoice={openInvoice} onClose={() => setOpenInvoice(null)} />
+        <SavedInvoiceDialog
+          invoice={openInvoice}
+          onClose={() => setOpenInvoice(null)}
+          onMail={(invoice) => {
+            setOpenInvoice(null);
+            void sendInvoiceMail(invoice);
+          }}
+        />
       ) : null}
 
-      {bulkQueue ? (
-        <BulkMailDialog invoices={bulkQueue} onClose={() => setBulkQueue(null)} />
-      ) : null}
+      {mailStep ? <MailStepDialog invoice={mailStep} onClose={() => setMailStep(null)} /> : null}
+
+      {bulkQueue ? <BulkMailDialog invoices={bulkQueue} onClose={() => setBulkQueue(null)} /> : null}
     </div>
   );
 }
@@ -812,25 +822,13 @@ function InvoiceFormDialog({
 function SavedInvoiceDialog({
   invoice,
   onClose,
+  onMail,
 }: {
   invoice: Invoice;
   onClose: () => void;
+  onMail: (invoice: Invoice) => void;
 }) {
-  const [working, setWorking] = useState(false);
   const totals = invoiceTotals(invoice);
-
-  async function sendPdf() {
-    setWorking(true);
-    try {
-      await mailSavedInvoice(invoice);
-      toast("Gmail öppnas som koholmavagen@gmail.com. Bifoga den nerladdade PDF:en och skicka.");
-    } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") return;
-      toast.error("Kunde inte skapa PDF-fakturan.");
-    } finally {
-      setWorking(false);
-    }
-  }
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -849,27 +847,24 @@ function SavedInvoiceDialog({
           Exkl. moms {formatKr(totals.net)} · Moms {invoice.vatRate} % {formatKr(totals.vat)}
         </p>
         <DialogFooter>
-          <Button type="button" variant="outline" disabled={working} onClick={onClose}>
+          <Button type="button" variant="outline" onClick={onClose}>
             Stäng
           </Button>
           <Button
             type="button"
             variant="outline"
-            disabled={working}
             onClick={() => {
-              setWorking(true);
               void downloadSavedInvoice(invoice)
                 .then(() => toast("PDF:en laddades ner."))
-                .catch(() => toast.error("Kunde inte skapa PDF."))
-                .finally(() => setWorking(false));
+                .catch(() => toast.error("Kunde inte skapa PDF."));
             }}
           >
             <FileDown />
             Ladda ner PDF
           </Button>
-          <Button type="button" disabled={working || !invoice.email.includes("@")} onClick={() => void sendPdf()}>
+          <Button type="button" disabled={!invoice.email.includes("@")} onClick={() => onMail(invoice)}>
             <Mail />
-            {working ? "Skapar PDF…" : "Maila PDF"}
+            Maila
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -893,9 +888,9 @@ function BulkMailDialog({
   async function sendCurrent() {
     setWorking(true);
     try {
-      await mailSavedInvoice(invoice);
-      toast(`Gmail öppnas till ${invoice.name} från koholmavagen@gmail.com. Bifoga PDF:en.`);
-      if (index + 1 < invoices.length) setIndex(index + 1);
+      await downloadSavedInvoice(invoice);
+      window.open(invoiceGmailLink(invoice), "_blank", "noopener");
+      toast("Välj koholmavagen@gmail.com i Google, bifoga PDF:en och klicka Skicka.");
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
       toast.error("Kunde inte öppna mejlet.");
@@ -914,7 +909,7 @@ function BulkMailDialog({
           </DialogDescription>
         </DialogHeader>
         <p className="text-sm leading-relaxed text-ink">
-          Mejlet öppnas i Gmail som koholmavagen@gmail.com till {current.email}. Bifoga PDF:en och skicka, klicka sedan Nästa.
+          Appen skickar inte mejlet själv. Öppna Gmail som {SELLER.email}, bifoga PDF:en och klicka Skicka.
         </p>
         <p className="text-sm text-muted">
           {current.property || current.address || "Ingen fastighet"} · {formatKr(invoiceTotals(current).total)}
@@ -940,13 +935,58 @@ function BulkMailDialog({
           </Button>
           {index + 1 < invoices.length ? (
             <Button type="button" variant="outline" onClick={() => setIndex(index + 1)}>
-              Hoppa över
+              Nästa
             </Button>
           ) : (
             <Button type="button" variant="outline" onClick={onClose}>
               Klar
             </Button>
           )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function MailStepDialog({
+  invoice,
+  onClose,
+}: {
+  invoice: Invoice;
+  onClose: () => void;
+}) {
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Skicka från {SELLER.email}</DialogTitle>
+          <DialogDescription>Appen skickar inte mejlet själv. Ni skickar det i Gmail.</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-2 text-sm text-ink">
+          <p>
+            <span className="text-muted">Från </span>
+            {SELLER.email}
+          </p>
+          <p>
+            <span className="text-muted">Till </span>
+            {invoice.email}
+          </p>
+          <p>
+            <span className="text-muted">Ämne </span>
+            Faktura {invoice.number}
+          </p>
+          <p className="text-muted">
+            PDF:en är nerladdad. Välj kontot {SELLER.email} hos Google, bifoga PDF:en och klicka Skicka.
+          </p>
+        </div>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose}>
+            Avbryt
+          </Button>
+          <Button type="button" onClick={() => window.open(invoiceGmailLink(invoice), "_blank", "noopener")}>
+            <Mail />
+            Öppna Gmail som {SELLER.email}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -157,7 +157,7 @@ export function invoiceMailBody(invoice: Invoice): string {
 }
 
 export function invoiceGmailLink(invoice: Invoice): string {
-  const params = new URLSearchParams({
+  const compose = new URLSearchParams({
     view: "cm",
     fs: "1",
     tf: "1",
@@ -166,7 +166,8 @@ export function invoiceGmailLink(invoice: Invoice): string {
     su: invoiceMailSubject(invoice),
     body: invoiceMailBody(invoice),
   });
-  return `https://mail.google.com/mail/?${params.toString()}`;
+  const gmail = `https://mail.google.com/mail/?${compose.toString()}`;
+  return `https://accounts.google.com/AccountChooser?Email=${encodeURIComponent(SELLER.email)}&continue=${encodeURIComponent(gmail)}`;
 }
 
 export function invoiceMailtoLink(invoice: Invoice): string {
