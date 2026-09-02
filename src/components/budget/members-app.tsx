@@ -19,7 +19,6 @@ import { Label } from "@/components/ui/label";
 import { rowsFromFile } from "@/lib/import-sheet";
 import {
   EMPTY_REGISTER,
-  invoiceBody,
   memberFee,
   mergeMembers,
   rowsToMembers,
@@ -27,24 +26,37 @@ import {
   type MemberRegister,
 } from "@/lib/members";
 import { loadMembers, saveMembers } from "@/lib/members-fns";
-import { downloadAllInvoicePdfs, downloadInvoicePdf, mailInvoicePdf } from "@/lib/invoice-mail";
+import { downloadAllInvoicePdfs, downloadSavedInvoice, mailSavedInvoice } from "@/lib/invoice-mail";
+import {
+  invoiceFromMember,
+  invoiceTotals,
+  nextInvoiceNumber,
+  VAT_RATES,
+  type Invoice,
+  type VatRate,
+} from "@/lib/invoices";
+import { loadInvoiceList, saveInvoiceList } from "@/lib/invoices-fns";
 import { currentFiscalYear, fiscalYearLabel, formatKr, parseAmountInput } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export function MembersApp() {
   const year = currentFiscalYear();
   const [register, setRegister] = useState<MemberRegister>(EMPTY_REGISTER);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [ready, setReady] = useState(false);
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<AssociationMember | null>(null);
   const [creating, setCreating] = useState(false);
-  const [invoiceFor, setInvoiceFor] = useState<AssociationMember | null>(null);
+  const [draftInvoice, setDraftInvoice] = useState<Invoice | null>(null);
+  const [openInvoice, setOpenInvoice] = useState<Invoice | null>(null);
   const [busy, setBusy] = useState(false);
+  const [invoiceFilter, setInvoiceFilter] = useState<"all" | "unpaid" | "paid">("all");
 
   useEffect(() => {
-    void loadMembers({ data: {} })
-      .then((rows) => {
-        setRegister(rows);
+    void Promise.all([loadMembers({ data: {} }), loadInvoiceList({ data: {} })])
+      .then(([members, rows]) => {
+        setRegister(members);
+        setInvoices(rows);
         setReady(true);
       })
       .catch(() => {
@@ -57,6 +69,13 @@ export function MembersApp() {
     setRegister(next);
     const saved = await saveMembers({ data: next });
     setRegister(saved);
+    return saved;
+  }
+
+  async function persistInvoices(next: Invoice[]) {
+    setInvoices(next);
+    const saved = await saveInvoiceList({ data: next });
+    setInvoices(saved);
     return saved;
   }
 
@@ -108,6 +127,69 @@ export function MembersApp() {
     toast("Medlemmen togs bort.");
   }
 
+  function startInvoice(member?: AssociationMember) {
+    if (member) {
+      setDraftInvoice(invoiceFromMember(member, register, year, nextInvoiceNumber(invoices, year)));
+      return;
+    }
+    setDraftInvoice({
+      id: crypto.randomUUID(),
+      number: nextInvoiceNumber(invoices, year),
+      memberId: null,
+      name: "",
+      address: "",
+      email: "",
+      property: "",
+      description: `Årsavgift ${fiscalYearLabel(year)}`,
+      amount: register.defaultFee,
+      vatRate: 0,
+      dueDate: register.dueDate,
+      issuedAt: new Date().toISOString(),
+      paid: false,
+      paidAt: null,
+      year,
+    });
+  }
+
+  async function saveInvoice(invoice: Invoice) {
+    if (!invoice.name.trim() || invoice.amount <= 0) {
+      toast.error("Ange person och belopp.");
+      return;
+    }
+    const exists = invoices.some((row) => row.id === invoice.id);
+    const next = exists
+      ? invoices.map((row) => (row.id === invoice.id ? invoice : row))
+      : [invoice, ...invoices];
+    await persistInvoices(next);
+    setDraftInvoice(null);
+    toast(`Faktura ${invoice.number} är sparad.`);
+  }
+
+  async function togglePaid(invoice: Invoice) {
+    const paid = !invoice.paid;
+    await persistInvoices(
+      invoices.map((row) =>
+        row.id === invoice.id
+          ? { ...row, paid, paidAt: paid ? new Date().toISOString() : null }
+          : row,
+      ),
+    );
+  }
+
+  async function removeInvoice(id: string) {
+    await persistInvoices(invoices.filter((row) => row.id !== id));
+    toast("Fakturan togs bort.");
+  }
+
+  const visibleInvoices = invoices.filter((invoice) => {
+    if (invoiceFilter === "paid") return invoice.paid;
+    if (invoiceFilter === "unpaid") return !invoice.paid;
+    return true;
+  });
+  const unpaidTotal = invoices
+    .filter((invoice) => !invoice.paid)
+    .reduce((sum, invoice) => sum + invoiceTotals(invoice).total, 0);
+
   if (!ready) {
     return (
       <main className="grid min-h-dvh place-items-center bg-bg px-4">
@@ -122,7 +204,8 @@ export function MembersApp() {
         <div className="min-w-0">
           <BrandLockup page="Medlemsregister" />
           <p className="mt-1 text-sm text-muted">
-            {register.members.length} medlemmar · {formatKr(totalFee)} i årsavgift {fiscalYearLabel(year)}
+            {register.members.length} medlemmar · {invoices.filter((row) => !row.paid).length} obetalda fakturor
+            {unpaidTotal > 0 ? ` · ${formatKr(unpaidTotal)}` : ""}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:justify-end">
@@ -161,6 +244,10 @@ export function MembersApp() {
           <Button type="button" variant="outline" onClick={() => setCreating(true)}>
             <Plus />
             Ny medlem
+          </Button>
+          <Button type="button" variant="outline" onClick={() => startInvoice()}>
+            <Plus />
+            Ny faktura
           </Button>
           <Button
             type="button"
@@ -226,6 +313,67 @@ export function MembersApp() {
 
       <section className="mt-6 rounded-2xl bg-surface p-5 shadow-[var(--shadow-border)] sm:p-6">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="font-display text-xl font-medium">Fakturor</h2>
+          <div className="flex flex-wrap gap-2">
+            {([
+              ["all", "Alla"],
+              ["unpaid", "Obetalda"],
+              ["paid", "Betalda"],
+            ] as const).map(([id, label]) => (
+              <Button
+                key={id}
+                type="button"
+                variant={invoiceFilter === id ? "default" : "outline"}
+                onClick={() => setInvoiceFilter(id)}
+              >
+                {label}
+              </Button>
+            ))}
+          </div>
+        </div>
+        {visibleInvoices.length === 0 ? (
+          <p className="text-sm text-muted">Inga fakturor ännu. Skapa en från en medlem eller med Ny faktura.</p>
+        ) : (
+          <ul className="divide-y divide-line">
+            {visibleInvoices.map((invoice) => {
+              const totals = invoiceTotals(invoice);
+              return (
+                <li key={invoice.id} className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="font-medium text-ink">
+                      {invoice.number} · {invoice.name}
+                    </p>
+                    <p className="truncate text-sm text-muted">
+                      {invoice.address || invoice.property || "Ingen adress"} · moms {invoice.vatRate} % · {formatKr(totals.total)}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      type="button"
+                      variant={invoice.paid ? "default" : "outline"}
+                      onClick={() => void togglePaid(invoice)}
+                    >
+                      {invoice.paid ? "Betald" : "Obetald"}
+                    </Button>
+                    <Button variant="outline" onClick={() => setOpenInvoice(invoice)}>
+                      PDF
+                    </Button>
+                    <Button variant="outline" size="icon-sm" onClick={() => setDraftInvoice(invoice)} aria-label="Redigera faktura">
+                      <Pencil />
+                    </Button>
+                    <Button variant="outline" size="icon-sm" onClick={() => void removeInvoice(invoice.id)} aria-label="Ta bort faktura">
+                      <Trash2 />
+                    </Button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+
+      <section className="mt-6 rounded-2xl bg-surface p-5 shadow-[var(--shadow-border)] sm:p-6">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="font-display text-xl font-medium">Medlemmar</h2>
           <Input
             value={query}
@@ -249,12 +397,7 @@ export function MembersApp() {
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-sm tabular-nums text-ink">{formatKr(memberFee(member, register.defaultFee))}</span>
-                  <Button
-                    variant="outline"
-                    disabled={!member.email.includes("@")}
-                    onClick={() => setInvoiceFor(member)}
-                  >
-                    <Mail />
+                  <Button variant="outline" onClick={() => startInvoice(member)}>
                     Faktura
                   </Button>
                   <Button variant="outline" size="icon-sm" onClick={() => setEditing(member)} aria-label="Redigera">
@@ -282,12 +425,21 @@ export function MembersApp() {
         onSave={(member) => void saveMember(member)}
       />
 
-      {invoiceFor ? (
-        <InvoiceDialog
-          member={invoiceFor}
-          register={register}
-          year={year}
-          onClose={() => setInvoiceFor(null)}
+      {draftInvoice ? (
+        <InvoiceFormDialog
+          invoice={draftInvoice}
+          members={register.members}
+          onClose={() => setDraftInvoice(null)}
+          onSave={(invoice) => void saveInvoice(invoice)}
+        />
+      ) : null}
+
+      {openInvoice ? (
+        <SavedInvoiceDialog
+          invoice={openInvoice}
+          payment={register.payment}
+          message={register.message}
+          onClose={() => setOpenInvoice(null)}
         />
       ) : null}
     </div>
@@ -387,24 +539,142 @@ function MemberDialog({
   );
 }
 
-function InvoiceDialog({
-  member,
-  register,
-  year,
+function InvoiceFormDialog({
+  invoice,
+  members,
+  onClose,
+  onSave,
+}: {
+  invoice: Invoice;
+  members: AssociationMember[];
+  onClose: () => void;
+  onSave: (invoice: Invoice) => void;
+}) {
+  const [draft, setDraft] = useState(invoice);
+  const totals = invoiceTotals(draft);
+
+  useEffect(() => {
+    setDraft(invoice);
+  }, [invoice]);
+
+  function pickMember(id: string) {
+    const member = members.find((row) => row.id === id);
+    if (!member) return;
+    setDraft({
+      ...draft,
+      memberId: member.id,
+      name: member.name,
+      address: member.address,
+      email: member.email,
+      property: member.property,
+      amount: member.fee || draft.amount,
+    });
+  }
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    onSave({
+      ...draft,
+      name: draft.name.trim(),
+      address: draft.address.trim(),
+      email: draft.email.trim().toLowerCase(),
+      property: draft.property.trim(),
+      description: draft.description.trim(),
+    });
+  }
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{invoice.number}</DialogTitle>
+          <DialogDescription>Person, adress, belopp och moms sparas på fakturan.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={submit} className="grid gap-3">
+          {members.length > 0 ? (
+            <div className="grid gap-2">
+              <Label>Från medlem</Label>
+              <select
+                className="h-11 rounded-md border border-line bg-bg px-3 text-sm text-ink"
+                value={draft.memberId ?? ""}
+                onChange={(event) => pickMember(event.target.value)}
+              >
+                <option value="">Välj eller fyll i för hand</option>
+                {members.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
+          <Field label="Person" value={draft.name} onChange={(name) => setDraft({ ...draft, name })} />
+          <Field label="Adress" value={draft.address} onChange={(address) => setDraft({ ...draft, address })} />
+          <Field label="E-post" value={draft.email} onChange={(email) => setDraft({ ...draft, email })} />
+          <Field label="Fastighet" value={draft.property} onChange={(property) => setDraft({ ...draft, property })} />
+          <Field
+            label="Beskrivning"
+            value={draft.description}
+            onChange={(description) => setDraft({ ...draft, description })}
+          />
+          <Field
+            label="Belopp exkl. moms (kr)"
+            value={draft.amount ? String(draft.amount) : ""}
+            onChange={(amount) => setDraft({ ...draft, amount: parseAmountInput(amount) ?? 0 })}
+          />
+          <div className="grid gap-2">
+            <Label>Momssats</Label>
+            <div className="flex flex-wrap gap-2">
+              {VAT_RATES.map((rate) => (
+                <Button
+                  key={rate}
+                  type="button"
+                  variant={draft.vatRate === rate ? "default" : "outline"}
+                  onClick={() => setDraft({ ...draft, vatRate: rate as VatRate })}
+                >
+                  {rate} %
+                </Button>
+              ))}
+            </div>
+          </div>
+          <Field
+            label="Förfallodag"
+            value={draft.dueDate}
+            onChange={(dueDate) => setDraft({ ...draft, dueDate })}
+          />
+          <p className="text-sm text-muted">
+            Moms {formatKr(totals.vat)} · Att betala {formatKr(totals.total)}
+          </p>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>
+              Avbryt
+            </Button>
+            <Button type="submit">Spara faktura</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function SavedInvoiceDialog({
+  invoice,
+  payment,
+  message,
   onClose,
 }: {
-  member: AssociationMember;
-  register: MemberRegister;
-  year: number;
+  invoice: Invoice;
+  payment: string;
+  message: string;
   onClose: () => void;
 }) {
   const [working, setWorking] = useState(false);
-  const body = invoiceBody(member, register, year);
+  const totals = invoiceTotals(invoice);
 
   async function sendPdf() {
     setWorking(true);
     try {
-      const mode = await mailInvoicePdf(member, register, year);
+      const mode = await mailSavedInvoice(invoice, payment, message);
       toast(
         mode === "shared"
           ? "Välj e-post i delningsmenyn. PDF:en följer med."
@@ -422,14 +692,18 @@ function InvoiceDialog({
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Faktura {member.name}</DialogTitle>
+          <DialogTitle>{invoice.number}</DialogTitle>
           <DialogDescription>
-            {formatKr(memberFee(member, register.defaultFee))} för {fiscalYearLabel(year)} · PDF
+            {invoice.name} · {formatKr(totals.total)} · {invoice.paid ? "Betald" : "Obetald"}
           </DialogDescription>
         </DialogHeader>
-        <pre className={cn("max-h-64 overflow-auto rounded-lg bg-bg p-4 text-sm whitespace-pre-wrap text-ink")}>
-          {body}
-        </pre>
+        <p className="text-sm leading-relaxed text-ink">
+          {invoice.address || "Ingen adress"}
+          <br />
+          {invoice.description}
+          <br />
+          Exkl. moms {formatKr(totals.net)} · Moms {invoice.vatRate} % {formatKr(totals.vat)}
+        </p>
         <DialogFooter>
           <Button type="button" variant="outline" disabled={working} onClick={onClose}>
             Stäng
@@ -440,7 +714,7 @@ function InvoiceDialog({
             disabled={working}
             onClick={() => {
               setWorking(true);
-              void downloadInvoicePdf(member, register, year)
+              void downloadSavedInvoice(invoice, payment, message)
                 .then(() => toast("PDF:en laddades ner."))
                 .catch(() => toast.error("Kunde inte skapa PDF."))
                 .finally(() => setWorking(false));
@@ -449,7 +723,7 @@ function InvoiceDialog({
             <FileDown />
             Ladda ner PDF
           </Button>
-          <Button type="button" disabled={working || !member.email.includes("@")} onClick={() => void sendPdf()}>
+          <Button type="button" disabled={working || !invoice.email.includes("@")} onClick={() => void sendPdf()}>
             <Mail />
             {working ? "Skapar PDF…" : "Maila PDF"}
           </Button>
