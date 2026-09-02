@@ -11,6 +11,7 @@ const EMPTY_PAYLOAD: BudgetPayload = {
   categories: DEFAULT_CATEGORIES,
   transactions: [],
   yearBooks: {},
+  deletedIds: [],
 };
 
 async function requireApproved(userId: string): Promise<void> {
@@ -69,10 +70,20 @@ function parseYearBooks(raw: unknown): Record<string, YearBook> {
   return books;
 }
 
+function parseDeletedIds(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const ids = raw.map((id) => String(id)).filter((id) => id.length > 0 && !id.startsWith("seed-"));
+  return [...new Set(ids)].slice(0, 4000);
+}
+
 function parsePayload(raw: unknown): BudgetPayload {
   const data = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const deletedIds = parseDeletedIds(data.deletedIds);
+  const deleted = new Set(deletedIds);
   const transactions = Array.isArray(data.transactions)
-    ? data.transactions.map(parseTransaction).filter((tx): tx is Transaction => tx !== null)
+    ? data.transactions
+        .map(parseTransaction)
+        .filter((tx): tx is Transaction => tx !== null && !deleted.has(tx.id))
     : [];
   return {
     monthlyBudget: Math.max(0, asNumber(data.monthlyBudget)),
@@ -81,6 +92,26 @@ function parsePayload(raw: unknown): BudgetPayload {
       : DEFAULT_CATEGORIES,
     transactions,
     yearBooks: parseYearBooks(data.yearBooks),
+    deletedIds,
+  };
+}
+
+function mergePayloads(base: BudgetPayload, incoming: BudgetPayload): BudgetPayload {
+  const deletedIds = parseDeletedIds([...(base.deletedIds ?? []), ...(incoming.deletedIds ?? [])]);
+  const deleted = new Set(deletedIds);
+  const byId = new Map<string, Transaction>();
+  for (const tx of base.transactions) {
+    if (!deleted.has(tx.id)) byId.set(tx.id, tx);
+  }
+  for (const tx of incoming.transactions) {
+    if (!deleted.has(tx.id)) byId.set(tx.id, tx);
+  }
+  return {
+    monthlyBudget: incoming.monthlyBudget || base.monthlyBudget,
+    categories: incoming.categories.length > 0 ? incoming.categories : base.categories,
+    transactions: [...byId.values()],
+    yearBooks: { ...base.yearBooks, ...incoming.yearBooks },
+    deletedIds,
   };
 }
 
@@ -96,8 +127,12 @@ export async function loadSharedBudget(userId: string): Promise<LoadedBudget> {
 
 export async function saveSharedBudget(userId: string, payload: BudgetPayload): Promise<BudgetPayload> {
   await requireApproved(userId);
-  const next = parsePayload(payload);
+  const incoming = parsePayload(payload);
   const sql = await getSql();
+  const rows = await sql<{ payload: unknown }>`
+    select payload from budget_ledger where id = ${LEDGER_ID} limit 1
+  `;
+  const next = rows[0] ? mergePayloads(parsePayload(rows[0].payload), incoming) : incoming;
   await sql.query(
     `insert into budget_ledger (id, payload, updated_at)
      values ($1, $2::jsonb, now())

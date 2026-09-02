@@ -97,104 +97,83 @@ function payloadFromState(state: Pick<BudgetState, "monthlyBudget" | "categories
     categories: state.categories,
     transactions: state.transactions,
     yearBooks: state.yearBooks,
+    deletedIds: [...deletedIds],
   };
 }
 
-function stripDemoTransactions(transactions: Transaction[]): Transaction[] {
-  return transactions.filter((tx) => !tx.id.startsWith("seed-"));
-}
-
-function stripDemoBooks(books: Record<string, YearBook>): Record<string, YearBook> {
-  const next: Record<string, YearBook> = {};
-  for (const [year, book] of Object.entries(books)) {
-    next[year] = {
-      openingCash: book.openingCash,
-      annualBudget: book.annualBudget ?? 0,
-      assets: book.assets.filter((item) => !item.id.startsWith("seed-")),
-      liabilities: book.liabilities.filter((item) => !item.id.startsWith("seed-")),
-    };
-  }
-  return next;
+function applyLedger(
+  payload: {
+    monthlyBudget: number;
+    categories: Category[];
+    transactions: Transaction[];
+    yearBooks: Record<string, YearBook>;
+    deletedIds?: string[];
+  },
+) {
+  for (const id of payload.deletedIds ?? []) deletedIds.add(id);
+  useBudgetStore.setState({
+    monthlyBudget: payload.monthlyBudget,
+    categories: payload.categories.length > 0 ? payload.categories : DEFAULT_CATEGORIES,
+    transactions: payload.transactions.filter((tx) => !deletedIds.has(tx.id)),
+    yearBooks: normalizeYearBooks(payload.yearBooks),
+    ready: true,
+  });
 }
 
 let saveTimer = 0;
 let savePending = false;
+let saveGen = 0;
 let hydratePromise: Promise<void> | null = null;
+const deletedIds = new Set<string>();
 
 function queueSave() {
   if (typeof window === "undefined") return;
+  const state = useBudgetStore.getState();
+  if (!state.ready) return;
   savePending = true;
+  const gen = ++saveGen;
   window.clearTimeout(saveTimer);
   saveTimer = window.setTimeout(() => {
-    const state = useBudgetStore.getState();
-    if (!state.ready) {
+    const snapshot = useBudgetStore.getState();
+    if (!snapshot.ready) {
       savePending = false;
       return;
     }
     void import("@/lib/budget-fns")
-      .then(({ saveBudget }) => saveBudget({ data: payloadFromState(state) }))
+      .then(({ saveBudget }) => saveBudget({ data: payloadFromState(snapshot) }))
+      .then((saved) => {
+        if (gen !== saveGen) return;
+        applyLedger(saved);
+      })
       .catch((err) => console.error("budget save failed", err))
       .finally(() => {
-        savePending = false;
+        if (gen === saveGen) savePending = false;
       });
   }, 400);
 }
 
-function waitForLocalPersist(): Promise<void> {
-  return new Promise((resolve) => {
-    if (useBudgetStore.persist.hasHydrated()) {
-      resolve();
-      return;
-    }
-    const unsub = useBudgetStore.persist.onFinishHydration(() => {
-      unsub();
-      resolve();
-    });
-    window.setTimeout(resolve, 800);
-  });
-}
-
 export async function hydrateSharedBudget(): Promise<void> {
-  if (!hydratePromise) {
-    hydratePromise = (async () => {
-      await waitForLocalPersist();
-      const { loadBudget, saveBudget } = await import("@/lib/budget-fns");
-      const remote = await loadBudget({ data: {} });
-      const local = useBudgetStore.getState();
-      if (!remote.existed) {
-        const transactions = stripDemoTransactions(local.transactions);
-        const yearBooks = stripDemoBooks(local.yearBooks);
-        const next = {
-          monthlyBudget: transactions.length > 0 ? local.monthlyBudget : 0,
-          categories: local.categories.length > 0 ? local.categories : DEFAULT_CATEGORIES,
-          transactions,
-          yearBooks,
-        };
-        const hasBooks = Object.values(yearBooks).some(
-          (book) =>
-            book.openingCash ||
-            book.annualBudget ||
-            book.assets.length ||
-            book.liabilities.length,
-        );
-        if (transactions.length > 0 || hasBooks) {
-          await saveBudget({ data: next });
-        }
-        useBudgetStore.setState({ ...next, ready: true });
+  if (hydratePromise) return hydratePromise;
+  hydratePromise = (async () => {
+    const { loadBudget } = await import("@/lib/budget-fns");
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      try {
+        const remote = await loadBudget({ data: {} });
+        applyLedger(remote);
         return;
+      } catch (err) {
+        lastError = err;
+        await new Promise((resolve) => window.setTimeout(resolve, 400 * (attempt + 1)));
       }
-      useBudgetStore.setState({
-        monthlyBudget: remote.monthlyBudget,
-        categories: remote.categories,
-        transactions: remote.transactions,
-        yearBooks: normalizeYearBooks(remote.yearBooks),
-        ready: true,
-      });
-    })().catch((err) => {
-      console.error("budget hydrate failed", err);
-      useBudgetStore.setState({ ready: true });
+    }
+    console.error("budget hydrate failed", lastError);
+    useBudgetStore.setState({
+      transactions: [],
+      yearBooks: {},
+      ready: true,
     });
-  }
+  })();
   return hydratePromise;
 }
 
@@ -203,16 +182,10 @@ export async function refreshSharedBudget(): Promise<void> {
   try {
     const { loadBudget } = await import("@/lib/budget-fns");
     const remote = await loadBudget({ data: {} });
-    if (!remote.existed || savePending) return;
-    useBudgetStore.setState({
-      monthlyBudget: remote.monthlyBudget,
-      categories: remote.categories,
-      transactions: remote.transactions,
-      yearBooks: normalizeYearBooks(remote.yearBooks),
-      ready: true,
-    });
+    if (savePending) return;
+    applyLedger(remote);
   } catch {
-    /* keep local snapshot */
+    /* keep current snapshot until next refresh */
   }
 }
 
@@ -263,6 +236,7 @@ export const useBudgetStore = create<BudgetState>()(
         queueSave();
       },
       deleteTransaction: (id) => {
+        deletedIds.add(id);
         set((state) => ({
           transactions: state.transactions.filter((tx) => tx.id !== id),
         }));
@@ -374,34 +348,8 @@ export const useBudgetStore = create<BudgetState>()(
       },
     }),
     {
-      name: "saldo-budget-v1",
-      merge: (persisted, current) => {
-        const p = (persisted ?? {}) as Partial<BudgetState> & {
-          savingsGoal?: { target?: number };
-        };
-        const { savingsGoal, ready: _ready, ...rest } = p;
-        const fromNew = typeof rest.monthlyBudget === "number" && rest.monthlyBudget > 0
-          ? rest.monthlyBudget
-          : undefined;
-        const fromOld =
-          typeof savingsGoal?.target === "number" && savingsGoal.target > 0
-            ? savingsGoal.target
-            : undefined;
-        return {
-          ...current,
-          ...rest,
-          ready: false,
-          monthlyBudget: fromNew ?? fromOld ?? current.monthlyBudget,
-          categories:
-            Array.isArray(p.categories) && p.categories.length > 0
-              ? p.categories
-              : current.categories,
-          yearBooks:
-            p.yearBooks && typeof p.yearBooks === "object" && !Array.isArray(p.yearBooks)
-              ? normalizeYearBooks(p.yearBooks)
-              : current.yearBooks,
-        };
-      },
+      name: "koholma-ui-v1",
+      partialize: (state) => ({ selectedMonth: state.selectedMonth }),
     },
   ),
 );

@@ -6,6 +6,7 @@ export type BudgetPayload = {
   categories: Category[];
   transactions: Transaction[];
   yearBooks: Record<string, YearBook>;
+  deletedIds?: string[];
 };
 
 export type LoadedBudget = BudgetPayload & { existed: boolean };
