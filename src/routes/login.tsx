@@ -245,7 +245,18 @@ async function completeEmailSignIn(email: string, password: string): Promise<voi
   if (!sessionUser) {
     throw new Error("Inloggningen gick igenom men sessionen sattes inte. Ladda om sidan och försök igen.");
   }
-  window.location.assign("/");
+  window.location.assign(nextPath());
+}
+
+function nextPath(): string {
+  if (typeof window === "undefined") return "/";
+  try {
+    if (sessionStorage.getItem("koholma-pending-invoice")) return "/medlemmar";
+  } catch {
+    /* ignore */
+  }
+  const next = new URLSearchParams(window.location.search).get("next");
+  return next && next.startsWith("/") ? next : "/";
 }
 
 function swedishAuthError(message: string): string {

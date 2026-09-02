@@ -49,7 +49,8 @@ import {
 } from "@/lib/invoices";
 import { SELLER } from "@/lib/seller";
 import { loadInvoiceList, saveInvoiceList } from "@/lib/invoices-fns";
-import { loadMailStatus, saveMailPassword, sendInvoiceMail as postInvoiceMail } from "@/lib/mail-fns";
+import { loadMailStatus, saveMailPassword } from "@/lib/mail-fns";
+import { postInvoiceMail, rememberPendingInvoice, takePendingInvoice } from "@/lib/invoice-send";
 import { currentFiscalYear, fiscalYearLabel, formatKr, parseAmountInput } from "@/lib/format";
 import { useLiveSync } from "@/lib/live-sync";
 import { withSessionRetry } from "@/lib/save-with-session";
@@ -103,6 +104,8 @@ export function MembersApp() {
         setInvoices(rows);
         setMailReady(mail.configured);
         setReady(true);
+        const pending = takePendingInvoice();
+        if (pending) void sendInvoiceMail(pending);
       })
       .catch(() => {
         const cached = readMemberCache();
@@ -350,18 +353,19 @@ export function MembersApp() {
     toast("Skickar faktura med PDF från koholmavagen@gmail.com…", { id: "invoice-mail" });
     try {
       await saveInvoice(invoice, true);
-      await withSessionRetry(() => postInvoiceMail({ data: invoice }));
+      await withSessionRetry(() => postInvoiceMail(invoice));
       setDraftInvoice(null);
       setMailStep(null);
       toast.success(`Skickad till ${invoice.email} från koholmavagen@gmail.com med PDF.`, { id: "invoice-mail" });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Kunde inte skicka.";
-      toast.error(
-        /unauthor|forbidden|not authorized/i.test(message)
-          ? "Inloggningen släppte. Ladda om, logga in och skicka igen."
-          : message,
-        { id: "invoice-mail" },
-      );
+      if (/unauthor|forbidden|not authorized/i.test(message)) {
+        rememberPendingInvoice(invoice);
+        toast.error("Inloggningen släppte. Logga in, sen skickas fakturan automatiskt.");
+        window.setTimeout(() => window.location.assign("/login?next=/medlemmar"), 600);
+        return;
+      }
+      toast.error(message, { id: "invoice-mail" });
     } finally {
       setBusy(false);
     }
@@ -403,7 +407,7 @@ export function MembersApp() {
     let ok = 0;
     try {
       for (const invoice of queue) {
-        await withSessionRetry(() => postInvoiceMail({ data: invoice }));
+        await withSessionRetry(() => postInvoiceMail(invoice));
         ok += 1;
         toast.success(`Skickade ${ok} av ${queue.length} med PDF.`, { id: "bulk-mail" });
       }

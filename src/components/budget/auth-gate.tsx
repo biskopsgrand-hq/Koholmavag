@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { RedirectToSignIn } from "@/lib/auth/gates";
-import { signOut } from "@/lib/auth/client";
+import { signOut, authClient } from "@/lib/auth/client";
 import { useCurrentUserState, type AppUser } from "@/lib/auth/use-current-user";
 import { OWNER_EMAIL, asMemberList, isApproved, type AccessState } from "@/lib/access";
 import { getMyAccess, listAccessMembers, requestAccess } from "@/lib/access-fns";
@@ -24,6 +24,19 @@ export function AuthGate({ children }: { children: ReactNode }) {
     lastUser = user;
     writeSessionUser(user);
   }
+
+  useEffect(() => {
+    const tick = () => {
+      if (document.visibilityState === "visible") void authClient.getSession().catch(() => undefined);
+    };
+    tick();
+    const timer = window.setInterval(tick, 120000);
+    document.addEventListener("visibilitychange", tick);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", tick);
+    };
+  }, []);
 
   const current = user ?? lastUser ?? readSessionUser();
   if (isPending && !current) return <AuthPending />;
