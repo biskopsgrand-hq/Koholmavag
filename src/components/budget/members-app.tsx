@@ -36,7 +36,7 @@ import { loadMembers, saveMembers } from "@/lib/members-fns";
 import { readMemberCache, writeMemberCache } from "@/lib/members-cache";
 import { loadMailStatus, saveMailPassword } from "@/lib/mail-fns";
 import { postInvoiceMail, rememberSendToken } from "@/lib/invoice-send";
-import { downloadAllInvoicePdfs, downloadInvoiceZip, downloadSavedInvoice, openInvoiceGmail } from "@/lib/invoice-mail";
+import { downloadAllInvoicePdfs, downloadInvoiceZip, downloadSavedInvoice } from "@/lib/invoice-mail";
 import {
   dueInDays,
   invoiceFromMember,
@@ -644,7 +644,7 @@ export function MembersApp() {
                     </Button>
                     <Button type="button" onClick={() => void sendInvoiceMail(invoice)}>
                       <Mail />
-                      Maila
+                      Skicka med PDF
                     </Button>
                     <Button variant="outline" onClick={() => setOpenInvoice(invoice)}>
                       PDF
@@ -694,7 +694,7 @@ export function MembersApp() {
             </Button>
             <Button type="button" disabled={selectedWithEmail.length === 0} onClick={() => void startBulkMail()}>
               <Mail />
-              Maila markerade{selectedWithEmail.length > 0 ? ` (${selectedWithEmail.length})` : ""}
+              Skicka PDF till markerade{selectedWithEmail.length > 0 ? ` (${selectedWithEmail.length})` : ""}
             </Button>
             <Button
               type="button"
@@ -1135,7 +1135,7 @@ function SavedInvoiceDialog({
           </Button>
           <Button type="button" disabled={!invoice.email.includes("@")} onClick={() => onMail(invoice)}>
             <Mail />
-            Maila från {SELLER.email}
+            Skicka med PDF
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1157,7 +1157,11 @@ function BulkMailDialog({
   const invoice = current;
 
   function sendCurrent() {
-    openInvoiceGmail(invoice);
+    setWorking(true);
+    void postInvoiceMail(invoice)
+      .then(() => toast.success("Skickad med PDF från koholmavagen@gmail.com."))
+      .catch((err) => toast.error(err instanceof Error ? err.message : "Kunde inte skicka."))
+      .finally(() => setWorking(false));
   }
 
   return (
@@ -1272,7 +1276,11 @@ function MailStepDialog({
           </Button>
           <Button
             type="button"
-            onClick={() => openInvoiceGmail(invoice)}
+            onClick={() => {
+              void postInvoiceMail(invoice)
+                .then(() => toast.success("Skickad med PDF från koholmavagen@gmail.com."))
+                .catch((err) => toast.error(err instanceof Error ? err.message : "Kunde inte skicka."));
+            }}
           >
             <Mail />
             Öppna Gmail som {SELLER.email}

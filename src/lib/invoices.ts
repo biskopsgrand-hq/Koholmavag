@@ -160,12 +160,11 @@ export function invoicePdfUrl(invoice: Invoice): string {
   return `${origin}/api/faktura/${encodeURIComponent(invoice.id)}`;
 }
 
-export function invoiceMailBody(invoice: Invoice, pdfUrl = invoicePdfUrl(invoice)): string {
+export function invoiceMailBody(invoice: Invoice): string {
   return [
     invoiceBodyText(invoice),
     "",
-    "Faktura som PDF:",
-    pdfUrl,
+    "Fakturan skickas som bifogad PDF.",
     "",
     "Med vänlig hälsning",
     SELLER.name,

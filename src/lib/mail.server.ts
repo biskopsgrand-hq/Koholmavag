@@ -24,6 +24,10 @@ function cleanPass(value: string): string {
   return value.replace(/\s+/g, "").trim();
 }
 
+function escapeHtml(value: string): string {
+  return value.replace(/&/g, "&").replace(/</g, "<").replace(/>/g, ">");
+}
+
 function newSendToken(): string {
   return `kv-${crypto.randomUUID().replaceAll("-", "")}`;
 }
@@ -115,21 +119,24 @@ export async function sendInvoiceWithPdf(_userId: string | null, invoice: Invoic
     throw new Error("Ange Gmail-app-lösenord under Fakturauppgifter för att skicka med PDF.");
   }
   const pdf = await buildInvoicePdf(invoice);
-  const copy = Buffer.from(pdf);
-  const body = `${invoiceBodyText(invoice)}\n\nFakturan är bifogad som PDF.\n\nMed vänlig hälsning\n${SELLER.name}\n${SELLER.email}`;
+  const bytes = Buffer.from(pdf.buffer, pdf.byteOffset, pdf.byteLength);
+  if (bytes.length < 1000) throw new Error("PDF:en kunde inte skapas.");
+  const body = `${invoiceBodyText(invoice)}\n\nFakturan är bifogad som PDF-fil.\n\nMed vänlig hälsning\n${SELLER.name}\n${SELLER.email}`;
+  const filename = invoiceFileName(invoice).endsWith(".pdf") ? invoiceFileName(invoice) : `${invoiceFileName(invoice)}.pdf`;
   const mail = {
     from: `"${SELLER.name}" <${SELLER.email}>`,
     to: invoice.email,
     replyTo: SELLER.email,
     subject: invoiceMailSubject(invoice),
     text: body,
-    html: `<pre style="font-family:Georgia,serif;white-space:pre-wrap">${body.replace(/&/g, "&").replace(/</g, "<")}</pre><p>Fakturan finns som bifogad PDF.</p>`,
+    html: `<div style="font-family:Georgia,serif;white-space:pre-wrap">${escapeHtml(body)}</div><p><strong>PDF-fakturan är bifogad detta mejl.</strong></p>`,
     messageId: `<faktura-${invoice.id}-${Date.now()}@koholmavagen>`,
     headers: { "X-Koholma-Invoice": invoice.id },
     attachments: [
       {
-        filename: invoiceFileName(invoice),
-        content: copy,
+        filename,
+        content: bytes.toString("base64"),
+        encoding: "base64" as const,
         contentType: "application/pdf",
         contentDisposition: "attachment" as const,
       },
