@@ -1,53 +1,47 @@
 import { zipSync } from "fflate";
 import {
   invoiceFromMember,
+  invoiceGmailAppLink,
   invoiceGmailLink,
-  invoiceMailBody,
-  invoiceMailSubject,
   nextCustomerNo,
   nextInvoiceNumber,
   type Invoice,
 } from "@/lib/invoices";
 import { buildInvoicePdf, downloadPdf, invoiceFileName } from "@/lib/invoice-pdf";
 import type { AssociationMember, MemberRegister } from "@/lib/members";
-import { SELLER } from "@/lib/seller";
 
-function pdfFile(bytes: Uint8Array, filename: string): File {
-  const copy = new ArrayBuffer(bytes.byteLength);
-  new Uint8Array(copy).set(bytes);
-  return new File([copy], filename, { type: "application/pdf" });
-}
-
-export function openInvoiceGmail(invoice: Invoice) {
-  const href = invoiceGmailLink(invoice);
+function clickHref(href: string, newTab = false) {
   const link = document.createElement("a");
   link.href = href;
-  link.target = "_blank";
-  link.rel = "noopener noreferrer";
+  if (newTab) {
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+  }
   document.body.appendChild(link);
   link.click();
   link.remove();
 }
 
-export async function shareInvoiceWithPdf(invoice: Invoice): Promise<"shared" | "gmail"> {
-  const bytes = await buildInvoicePdf(invoice);
-  const filename = invoiceFileName(invoice);
-  const file = pdfFile(bytes, filename);
-  const payload = {
-    files: [file],
-    title: invoiceMailSubject(invoice),
-    text: `Från: ${SELLER.email}\nTill: ${invoice.email}\n\n${invoiceMailBody(invoice)}`,
-  };
-  if (navigator.canShare?.(payload)) {
-    try {
-      await navigator.share(payload);
-      return "shared";
-    } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") return "shared";
-    }
+export function openInvoiceGmail(invoice: Invoice) {
+  clickHref(invoiceGmailLink(invoice), true);
+}
+
+function openGmailAppThenWeb(invoice: Invoice) {
+  const mobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  if (mobile) {
+    clickHref(invoiceGmailAppLink(invoice));
+    window.setTimeout(() => {
+      if (document.visibilityState === "visible") openInvoiceGmail(invoice);
+    }, 900);
+    return;
   }
-  downloadPdf(bytes, filename);
   openInvoiceGmail(invoice);
+}
+
+export async function shareInvoiceWithPdf(invoice: Invoice): Promise<"gmail"> {
+  const bytes = await buildInvoicePdf(invoice);
+  downloadPdf(bytes, invoiceFileName(invoice));
+  openGmailAppThenWeb(invoice);
   return "gmail";
 }
 

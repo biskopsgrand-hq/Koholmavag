@@ -176,6 +176,11 @@ export function invoiceGmailLink(invoice: Invoice): string {
   return chooser.toString();
 }
 
-export function invoiceMailtoLink(invoice: Invoice): string {
-  return `mailto:${encodeURIComponent(invoice.email)}?subject=${encodeURIComponent(invoiceMailSubject(invoice))}&body=${encodeURIComponent(invoiceMailBody(invoice))}`;
+export function invoiceGmailAppLink(invoice: Invoice): string {
+  const params = new URLSearchParams({
+    to: invoice.email,
+    subject: invoiceMailSubject(invoice),
+    body: invoiceMailBody(invoice).slice(0, 1800),
+  });
+  return `googlegmail://co?${params.toString()}`;
 }

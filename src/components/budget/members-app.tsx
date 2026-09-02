@@ -324,12 +324,7 @@ export function MembersApp() {
       const result = await shareInvoiceWithPdf(invoice);
       await saveInvoice(invoice);
       setDraftInvoice(null);
-      toast.success(
-        result === "shared"
-          ? "Välj Gmail och koholmavagen@gmail.com. PDF:en följer med."
-          : "PDF:en laddades ner. Bifoga den i Gmail innan du skickar.",
-        { id: "invoice-mail" },
-      );
+      toast.success("PDF:en laddades ner. Gmail öppnas — tryck gemet och bifoga PDF:en. Avsändare koholmavagen@gmail.com.", { id: "invoice-mail" });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Kunde inte skapa PDF.", { id: "invoice-mail" });
     }
@@ -1077,12 +1072,8 @@ function BulkMailDialog({
   function sendCurrent() {
     setWorking(true);
     void shareInvoiceWithPdf(invoice)
-      .then((result) => {
-        toast.success(
-          result === "shared"
-            ? "Välj Gmail och koholmavagen@gmail.com. PDF:en följer med."
-            : "PDF:en laddades ner. Bifoga den i Gmail innan du skickar.",
-        );
+      .then(() => {
+        toast.success("PDF:en laddades ner. Gmail öppnas — tryck gemet och bifoga PDF:en. Avsändare koholmavagen@gmail.com.");
       })
       .catch(() => toast.error("Kunde inte skapa PDF."))
       .finally(() => setWorking(false));
@@ -1098,7 +1089,7 @@ function BulkMailDialog({
           </DialogDescription>
         </DialogHeader>
         <p className="text-sm leading-relaxed text-ink">
-          Appen kan inte lägga PDF:en i Gmail själv via webben. Välj Gmail i delningsmenyn så följer PDF:en med, och välj avsändaren {SELLER.email}.
+          PDF:en laddas ner och Gmail öppnas. Tryck gemet i Gmail, välj PDF:en och avsändaren {SELLER.email}.
         </p>
         <p className="text-sm text-muted">
           {current.property || current.address || "Ingen fastighet"} · {formatKr(invoiceTotals(current).total)}
@@ -1182,7 +1173,7 @@ function MailStepDialog({
             Faktura {invoice.number}
           </p>
           <p className="text-muted">
-            Välj Gmail i delningsmenyn så följer PDF:en med. Avsändare: {SELLER.email}.
+            PDF:en laddas ner och Gmail-appen öppnas. Tryck gemet och bifoga PDF:en. Avsändare: {SELLER.email}.
           </p>
         </div>
         <DialogFooter>
@@ -1202,12 +1193,8 @@ function MailStepDialog({
             type="button"
             onClick={() => {
               void shareInvoiceWithPdf(invoice)
-                .then((result) => {
-                  toast.success(
-                    result === "shared"
-                      ? "Välj Gmail och koholmavagen@gmail.com. PDF:en följer med."
-                      : "PDF:en laddades ner. Bifoga den i Gmail innan du skickar.",
-                  );
+                .then(() => {
+                  toast.success("PDF:en laddades ner. Gmail öppnas — tryck gemet och bifoga PDF:en. Avsändare koholmavagen@gmail.com.");
                 })
                 .catch(() => toast.error("Kunde inte skapa PDF."));
             }}
