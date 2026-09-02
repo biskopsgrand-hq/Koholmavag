@@ -4,6 +4,7 @@ import type { BudgetPayload, LoadedBudget } from "@/lib/budget-types";
 
 export const loadBudget = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
+  .validator(() => ({}))
   .handler(async ({ context }): Promise<LoadedBudget> => {
     const { loadSharedBudget } = await import("@/lib/budget.server");
     return loadSharedBudget(context.userId);

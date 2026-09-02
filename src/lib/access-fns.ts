@@ -4,6 +4,7 @@ import type { AccessMember, AccessState } from "@/lib/access";
 
 export const getMyAccess = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
+  .validator(() => ({}))
   .handler(async ({ context }): Promise<AccessState> => {
     const { getMyAccessForUserId } = await import("@/lib/access.server");
     return getMyAccessForUserId(context.userId);

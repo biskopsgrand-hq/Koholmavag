@@ -8,6 +8,7 @@ import { APP_NAME } from "@/lib/brand";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { AuthPending } from "@/components/budget/auth-gate";
 
 export const Route = createFileRoute("/login")({
   component: Login,
@@ -20,7 +21,8 @@ export const Route = createFileRoute("/login")({
 });
 
 function Login() {
-  const { user } = useCurrentUserState();
+  const { user, isPending } = useCurrentUserState();
+  if (isPending) return <AuthPending />;
   if (user) return <Navigate to="/" />;
   return <LoginScreen />;
 }
@@ -226,11 +228,20 @@ async function completeEmailSignIn(email: string, password: string): Promise<voi
     if (typeof value === "string") token = value;
   }
   keepPreviewSession(token);
-  try {
-    await authClient.getSession();
-    if (!isOwnerEmail(email)) await requestAccess();
-  } catch {
-    /* next page load will recover */
+  const result = await authClient.getSession();
+  const sessionUser =
+    result && typeof result === "object" && "data" in result
+      ? (result.data as { user?: { id: string } } | null)?.user
+      : (result as { user?: { id: string } } | null)?.user;
+  if (!sessionUser) {
+    throw new Error("Inloggningen gick igenom men sessionen sattes inte. Ladda om sidan och försök igen.");
+  }
+  if (!isOwnerEmail(email)) {
+    try {
+      await requestAccess();
+    } catch {
+      /* AuthGate retries after redirect */
+    }
   }
   window.location.assign("/");
 }
@@ -242,7 +253,7 @@ function swedishAuthError(message: string): string {
     return "Inloggningen kunde inte verifieras. Ladda om sidan och försök igen.";
   }
   if (lower.includes("invalid email or password") || lower.includes("invalid password")) {
-    return "Fel e-post eller lösenord. Skriv minst 8 tecken och klicka Öppna.";
+    return "Fel e-post eller lösenord.";
   }
   if (lower.includes("exist") || lower.includes("already")) {
     return "Det finns redan ett konto med den e-postadressen.";

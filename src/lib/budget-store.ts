@@ -127,7 +127,7 @@ export async function hydrateSharedBudget(): Promise<void> {
     hydratePromise = (async () => {
       await waitForLocalPersist();
       const { loadBudget, saveBudget } = await import("@/lib/budget-fns");
-      const remote = await loadBudget();
+      const remote = await loadBudget({ data: {} });
       const local = useBudgetStore.getState();
       if (!remote.existed) {
         const transactions = stripDemoTransactions(local.transactions);
@@ -165,7 +165,7 @@ export async function hydrateSharedBudget(): Promise<void> {
 export async function refreshSharedBudget(): Promise<void> {
   try {
     const { loadBudget } = await import("@/lib/budget-fns");
-    const remote = await loadBudget();
+    const remote = await loadBudget({ data: {} });
     if (!remote.existed) return;
     useBudgetStore.setState({
       monthlyBudget: remote.monthlyBudget,

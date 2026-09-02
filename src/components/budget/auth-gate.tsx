@@ -17,16 +17,6 @@ export function useAccess(): AccessState | null {
 
 export function AuthGate({ children }: { children: ReactNode }) {
   const { user, isPending } = useCurrentUserState();
-  const [seenUser, setSeenUser] = useState(Boolean(user));
-
-  useEffect(() => {
-    if (user) setSeenUser(true);
-  }, [user]);
-
-  if (isPending && (user || seenUser || accessCache)) {
-    if (user || accessCache) return <AccessGate>{children}</AccessGate>;
-    return <AuthPending />;
-  }
   if (isPending) return <AuthPending />;
   if (!user) {
     return (
@@ -53,7 +43,7 @@ function AccessGate({ children }: { children: ReactNode }) {
     let attempts = 0;
     async function load() {
       try {
-        const state = await getMyAccess();
+        const state = await getMyAccess({ data: {} });
         if (cancelled) return;
         if (state.status === "none") {
           const created = await requestAccess();
@@ -63,20 +53,11 @@ function AccessGate({ children }: { children: ReactNode }) {
         remember(state);
       } catch (err: unknown) {
         if (cancelled) return;
-        const message = err instanceof Error ? err.message : "";
-        if (message === "Unauthorized" || message.includes("cross-site")) {
-          attempts += 1;
-          if (accessCache && isApproved(accessCache.status) && attempts < 4) {
-            window.setTimeout(() => {
-              if (!cancelled) void load();
-            }, 400 * attempts);
-            return;
-          }
-          if (accessCache && isApproved(accessCache.status)) {
-            setAccess(accessCache);
-            return;
-          }
-          setError("session");
+        attempts += 1;
+        if (attempts < 5) {
+          window.setTimeout(() => {
+            if (!cancelled) void load();
+          }, 300 * attempts);
           return;
         }
         console.error("access check failed", err);
@@ -84,7 +65,7 @@ function AccessGate({ children }: { children: ReactNode }) {
           setAccess(accessCache);
           return;
         }
-        setError("Kunde inte kontrollera behörighet.");
+        setError("Kunde inte kontrollera behörighet. Ladda om sidan.");
       }
     }
     void load();
@@ -96,7 +77,7 @@ function AccessGate({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (access?.status !== "pending") return;
     const timer = window.setInterval(() => {
-      getMyAccess()
+      getMyAccess({ data: {} })
         .then((state) => {
           remember({
             ...state,
@@ -111,10 +92,16 @@ function AccessGate({ children }: { children: ReactNode }) {
 
   if (error === "session") {
     return (
-      <>
-        <AuthPending />
-        <RedirectToSignIn />
-      </>
+      <PendingShell>
+        <h1 className="font-display text-3xl font-medium tracking-tight text-ink">Kunde inte läsa inloggningen</h1>
+        <p className="mt-2 text-sm text-muted">Du är inloggad, men sidan kunde inte läsa behörigheten. Ladda om och försök igen.</p>
+        <div className="mt-6 flex flex-wrap gap-2">
+          <Button type="button" onClick={() => window.location.reload()}>
+            Ladda om
+          </Button>
+          <SignOutButton />
+        </div>
+      </PendingShell>
     );
   }
   if (!access && !error) return <AuthPending />;
@@ -133,7 +120,7 @@ function AccessGate({ children }: { children: ReactNode }) {
         <PendingAccess
           access={access}
           onRefresh={async () => {
-            const state = await getMyAccess();
+            const state = await getMyAccess({ data: {} });
             remember({ ...state, freshRequest: false });
           }}
         />
