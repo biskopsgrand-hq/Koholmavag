@@ -486,10 +486,8 @@ export function applySeedPhones(members: AssociationMember[], seed: AssociationM
       zip,
       city,
       postal: formatPostal(zip, city),
-      email: base.email.trim() || hit.email,
       phone: base.phone.trim() || hit.phone,
       property: base.property.trim() || hit.property,
-      name: base.name.trim() || hit.name,
     };
     if (
       updated.zip !== member.zip ||

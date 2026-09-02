@@ -51,7 +51,7 @@ function asMember(raw: unknown): AssociationMember | null {
   const fee = Number(row.fee);
   const mapped: AssociationMember = {
     id: String(row.id ?? crypto.randomUUID()),
-    name: name || property || email || "Medlem",
+    name,
     email,
     property,
     address: String(row.address ?? "").trim(),
@@ -65,8 +65,7 @@ function asMember(raw: unknown): AssociationMember | null {
     note: String(row.note ?? "").trim(),
   };
   const filled = ensurePostal(mapped);
-  if (filled.phone || filled.address || filled.email || filled.zip || filled.city || filled.postal) return filled;
-  return repairMember(filled);
+  return filled;
 }
 
 function parseRegister(raw: unknown): MemberRegister {

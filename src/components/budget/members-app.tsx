@@ -233,6 +233,23 @@ export function MembersApp() {
     toast("Medlemmen är sparad.");
   }
 
+  function patchRegister(patch: Partial<MemberRegister>) {
+    const next: MemberRegister = {
+      ...registerRef.current,
+      ...patch,
+      listId: registerRef.current.listId || KOHOLMA_LIST_ID,
+    };
+    registerRef.current = next;
+    setRegister(next);
+    writeMemberCache(next);
+    dirtyRef.current = true;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      saveTimer.current = null;
+      void persist(registerRef.current).then(() => toast.success("Sparat", { id: "member-save" }));
+    }, 400);
+  }
+
   function patchMember(id: string, patch: Partial<AssociationMember>, save = false) {
     const current = registerRef.current;
     const next: MemberRegister = {
@@ -247,9 +264,7 @@ export function MembersApp() {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
       saveTimer.current = null;
-      void persist(registerRef.current).then(() => {
-        if (save) toast.success("Sparat", { id: "member-save" });
-      });
+      void persist(registerRef.current).then(() => toast.success("Sparat", { id: "member-save" }));
     }, save ? 150 : 450);
   }
 
@@ -493,28 +508,28 @@ export function MembersApp() {
           <Field
             label="Årsavgift (kr)"
             value={register.defaultFee ? String(register.defaultFee) : ""}
-            onChange={(value) => setRegister({ ...register, defaultFee: parseAmountInput(value) ?? 0 })}
-            onBlur={() => void persist(register)}
+            onChange={(value) => patchRegister({ defaultFee: parseAmountInput(value) ?? 0 })}
+            onBlur={() => void persist(registerRef.current).then(() => toast.success("Sparat", { id: "member-save" }))}
           />
           <Field
             label="Förfallodag"
             value={register.dueDate}
-            onChange={(value) => setRegister({ ...register, dueDate: value })}
-            onBlur={() => void persist(register)}
+            onChange={(value) => patchRegister({ dueDate: value })}
+            onBlur={() => void persist(registerRef.current).then(() => toast.success("Sparat", { id: "member-save" }))}
             placeholder="t.ex. 15 oktober 2026"
           />
           <Field
             label="Betalning"
             value={register.payment}
-            onChange={(value) => setRegister({ ...register, payment: value })}
-            onBlur={() => void persist(register)}
+            onChange={(value) => patchRegister({ payment: value })}
+            onBlur={() => void persist(registerRef.current).then(() => toast.success("Sparat", { id: "member-save" }))}
             placeholder="Bankgiro / plusgiro"
           />
           <Field
             label="Meddelande i mejlet"
             value={register.message}
-            onChange={(value) => setRegister({ ...register, message: value })}
-            onBlur={() => void persist(register)}
+            onChange={(value) => patchRegister({ message: value })}
+            onBlur={() => void persist(registerRef.current).then(() => toast.success("Sparat", { id: "member-save" }))}
           />
         </div>
       </section>
