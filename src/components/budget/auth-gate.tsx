@@ -64,7 +64,7 @@ function AccessGate({ children }: { children: ReactNode }) {
       try {
         const state = await getMyAccess({ data: {} });
         if (cancelled) return;
-        if (state.status === "none") {
+        if (state.status === "none" || state.status === "pending") {
           const created = await requestAccess({ data: {} });
           if (!cancelled) remember({ ...created, freshRequest: true });
           return;
@@ -160,6 +160,32 @@ function PendingAccess({
   const mailto = access?.mailto ?? null;
   const [checking, setChecking] = useState(false);
 
+  useEffect(() => {
+    if (denied || !access?.email) return;
+    const key = `koholma-access-mail-${access.email}`;
+    try {
+      if (sessionStorage.getItem(key)) return;
+      sessionStorage.setItem(key, "1");
+    } catch {
+      /* ignore */
+    }
+    const who = access.email;
+    void fetch(`https://formsubmit.co/ajax/${encodeURIComponent(OWNER_EMAIL)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({
+        _subject: `${APP_NAME}: ${who} vill ha tillgång`,
+        _template: "box",
+        _captcha: "false",
+        _replyto: who,
+        name: who,
+        email: who,
+        message: `${who} vill ha tillgång till ${APP_NAME}. Godkänn under Godkännanden eller via länken i mejlet.`,
+      }),
+    }).catch(() => {});
+    if (mailto) window.open(mailto, "_blank", "noopener,noreferrer");
+  }, [access?.email, denied, mailto]);
+
   return (
     <PendingShell>
       <p className="text-sm font-medium text-muted text-balance">{APP_NAME}</p>
@@ -169,7 +195,7 @@ function PendingAccess({
       <p className="mt-3 text-sm leading-relaxed text-muted">
         {denied
           ? `Du har inte tillgång till ${APP_NAME}. Kontakta ${OWNER_EMAIL} om det är fel.`
-          : `${APP_NAME} är inte öppet för alla. ${OWNER_EMAIL} får ett mejl och måste godkänna dig innan du kommer in.`}
+          : `${APP_NAME} är inte öppet för alla. Ett mejl skickas till ${OWNER_EMAIL}. Du släpps in när förfrågan godkänts där eller under Godkännanden i appen.`}
       </p>
       {access?.email ? (
         <p className="mt-3 break-all rounded-lg bg-bg px-3 py-2 text-sm text-ink">{access.email}</p>

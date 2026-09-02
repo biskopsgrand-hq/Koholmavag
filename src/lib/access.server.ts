@@ -223,7 +223,15 @@ export async function requestAccessForUserId(userId: string): Promise<AccessStat
   }
   if (existing && parseAccessStatus(existing.status) === "pending") {
     const token = await ensurePendingToken(existing);
-    return pendingState(existing.email, existing.name || profile.name, token, false);
+    await rememberMember({
+      email: profile.email,
+      name: existing.name || profile.name,
+      status: "pending",
+      requestedAt: existing.requested_at || new Date().toISOString(),
+      decidedAt: null,
+    });
+    await notifyOwner(profile.name, profile.email, token);
+    return pendingState(existing.email, existing.name || profile.name, token, true);
   }
 
   const token = existing?.token || newToken();
@@ -262,19 +270,26 @@ export async function requestAccessForUserId(userId: string): Promise<AccessStat
   if (parseAccessStatus(saved?.status) === "denied") {
     return closedState({ status: "denied", email: profile.email });
   }
-  const approveUrl = `${publicOrigin()}/api/godkann?token=${encodeURIComponent(token)}`;
-  void import("@/lib/notify-owner.server")
-    .then(({ notifyOwnerOfAccessRequest }) =>
-      notifyOwnerOfAccessRequest({
-        name: profile.name,
-        email: profile.email,
-        approveUrl,
-      }),
-    )
-    .catch((err) => {
-      console.error("owner access notification failed", err);
-    });
+  await rememberMember({
+    email: profile.email,
+    name: profile.name,
+    status: "pending",
+    requestedAt: new Date().toISOString(),
+    decidedAt: null,
+  });
+  await notifyOwner(profile.name, profile.email, token);
   return pendingState(profile.email, profile.name, token, true);
+}
+
+async function notifyOwner(name: string | null, email: string, token: string): Promise<void> {
+  const origin = publicOrigin() || "https://www.koholmavag.com";
+  const approveUrl = `${origin}/api/godkann?token=${encodeURIComponent(token)}`;
+  try {
+    const { notifyOwnerOfAccessRequest } = await import("@/lib/notify-owner.server");
+    await notifyOwnerOfAccessRequest({ name, email, approveUrl });
+  } catch (err) {
+    console.error("owner access notification failed", err);
+  }
 }
 
 async function requireAdmin(userId: string): Promise<void> {
