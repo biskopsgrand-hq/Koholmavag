@@ -68,7 +68,7 @@ export function MembersApp() {
     void Promise.all([loadMembers({ data: {} }), loadInvoiceList({ data: {} })])
       .then(async ([members, rows]) => {
         let register = members;
-        if (register.listId !== KOHOLMA_LIST_ID) {
+        if (register.members.length < 5 && register.listId !== KOHOLMA_LIST_ID) {
           register = await saveMembers({
             data: {
               ...EMPTY_REGISTER,
@@ -77,6 +77,10 @@ export function MembersApp() {
               deletedIds: ["__all__"],
               listId: KOHOLMA_LIST_ID,
             },
+          });
+        } else if (register.listId !== KOHOLMA_LIST_ID) {
+          register = await saveMembers({
+            data: { ...register, listId: KOHOLMA_LIST_ID, deletedIds: register.deletedIds ?? [] },
           });
         }
         if (register.members.length === 0) {
@@ -165,9 +169,13 @@ export function MembersApp() {
   function patchMember(id: string, patch: Partial<AssociationMember>, save = false) {
     setRegister((current) => {
       const members = current.members.map((row) => (row.id === id ? { ...row, ...patch } : row));
-      const next = { ...current, members };
+      const next = { ...current, members, listId: current.listId || KOHOLMA_LIST_ID };
       writeMemberCache(next);
-      if (save) queueMicrotask(() => void persist(next));
+      if (save) {
+        queueMicrotask(() => {
+          void persist(next).then(() => toast("Sparat"));
+        });
+      }
       return next;
     });
   }

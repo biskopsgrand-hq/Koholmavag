@@ -49,6 +49,7 @@ function asMember(raw: unknown): AssociationMember | null {
     fee: Number.isFinite(fee) && fee > 0 ? Math.round(fee) : 0,
     note: String(row.note ?? "").trim(),
   };
+  if (mapped.phone || mapped.address || mapped.email) return mapped;
   return repairMember(mapped);
 }
 
@@ -108,7 +109,7 @@ export async function saveMemberRegister(userId: string, incoming: MemberRegiste
   const parsed = parseRegister(incoming);
   const existing = await readRow(REGISTER_ID);
   const fallback = existing.members.length > 0 ? existing : await readRow(BACKUP_ID);
-  const replaceAll = parsed.deletedIds.includes("__all__") || (parsed.listId && parsed.listId !== fallback.listId && parsed.members.length > 0);
+  const replaceAll = parsed.deletedIds.includes("__all__");
   if (replaceAll) {
     const next: MemberRegister = {
       ...EMPTY_REGISTER,
@@ -130,7 +131,12 @@ export async function saveMemberRegister(userId: string, incoming: MemberRegiste
     dueDate: parsed.dueDate || fallback.dueDate,
     payment: parsed.payment || fallback.payment,
     message: parsed.message || fallback.message,
+    listId: parsed.listId || fallback.listId || "",
     deletedIds: deleted,
+    members: mergeMembers(fallback.members, parsed.members).filter(
+      (member) => !deletedSet.has(member.id),
+    ),
+  };
     members: mergeMembers(fallback.members, parsed.members).filter(
       (member) => !deletedSet.has(member.id),
     ),
