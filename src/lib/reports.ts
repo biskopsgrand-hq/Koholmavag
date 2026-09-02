@@ -40,13 +40,21 @@ export type AnnualReport = {
   openingEquity: number;
 };
 
+function money(value: unknown): number {
+  const amount = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(amount) ? amount : 0;
+}
+
 export function transactionsInFiscalYear(
   transactions: Transaction[],
   startYear: number,
 ): Transaction[] {
   const start = `${startYear}-07-01`;
   const end = `${startYear + 1}-06-30`;
-  return transactions.filter((tx) => tx.date >= start && tx.date <= end);
+  return transactions.filter((tx) => {
+    const date = String(tx.date ?? "").slice(0, 10);
+    return date >= start && date <= end;
+  });
 }
 
 export function yearsFromData(
@@ -74,7 +82,7 @@ function linesFor(
   const map = new Map<string, number>();
   for (const tx of transactions) {
     if (tx.type !== type) continue;
-    map.set(tx.categoryId, (map.get(tx.categoryId) ?? 0) + tx.amount);
+    map.set(tx.categoryId, (map.get(tx.categoryId) ?? 0) + money(tx.amount));
   }
   return [...map.entries()]
     .map(([categoryId, amount]) => ({
@@ -94,14 +102,15 @@ export function buildAnnualReport(
   const yearTx = transactionsInFiscalYear(transactions, year);
   const totals = monthTotals(yearTx);
   const resolved = book ?? EMPTY_YEAR_BOOK;
-  const openingCash = resolved.openingCash;
-  const assets = resolved.assets;
-  const liabilities = resolved.liabilities;
+  const openingCash = money(resolved.openingCash);
+  const assets = resolved.assets.map((item) => ({ ...item, amount: money(item.amount) }));
+  const liabilities = resolved.liabilities.map((item) => ({ ...item, amount: money(item.amount) }));
   const assetSum = assets.reduce((sum, item) => sum + item.amount, 0);
   const liabilitySum = liabilities.reduce((sum, item) => sum + item.amount, 0);
   const cash = openingCash + totals.remaining;
   const totalAssets = cash + assetSum;
   const equity = totalAssets - liabilitySum;
+  const openingEquity = openingCash + assetSum - liabilitySum;
   return {
     year,
     label: fiscalYearLabel(year),
@@ -120,6 +129,6 @@ export function buildAnnualReport(
     liabilitySum,
     totalAssets,
     equity,
-    openingEquity: equity - totals.remaining,
+    openingEquity,
   };
 }

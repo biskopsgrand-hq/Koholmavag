@@ -8,8 +8,8 @@ import { Label } from "@/components/ui/label";
 import { AccountChip } from "@/components/budget/account-chip";
 import { AdminNav } from "@/components/budget/auth-gate";
 import { BrandLockup } from "@/components/budget/brand-lockup";
-import { currentFiscalYear, formatKr, parseAmountInput, parseMoneyInput } from "@/lib/format";
-import { buildAnnualReport, yearsFromData } from "@/lib/reports";
+import { currentFiscalYear, fiscalYearLabel, formatKr, parseAmountInput, parseMoneyInput } from "@/lib/format";
+import { buildAnnualReport, transactionsInFiscalYear, yearsFromData } from "@/lib/reports";
 import { reportToDocx } from "@/lib/report-docx";
 import { useBudgetStore, type BalanceItem } from "@/lib/budget-store";
 import { cn } from "@/lib/utils";
@@ -23,6 +23,7 @@ export function AnnualReports() {
   const removeBalanceItem = useBudgetStore((s) => s.removeBalanceItem);
 
   const [year, setYear] = useState(currentFiscalYear());
+  const [pickedYear, setPickedYear] = useState(false);
   const [openingDraft, setOpeningDraft] = useState<string | null>(null);
   const [assetName, setAssetName] = useState("");
   const [assetAmount, setAssetAmount] = useState("");
@@ -34,9 +35,36 @@ export function AnnualReports() {
     [transactions, yearBooks],
   );
 
+  useEffect(() => {
+    if (pickedYear || transactions.length === 0) return;
+    const ranked = years
+      .map((candidate) => ({
+        candidate,
+        count: transactionsInFiscalYear(transactions, candidate).length,
+      }))
+      .filter((row) => row.count > 0)
+      .sort((a, b) => b.count - a.count || b.candidate - a.candidate);
+    if (ranked[0] && ranked[0].candidate !== year) setYear(ranked[0].candidate);
+  }, [pickedYear, transactions, year, years]);
+
   const report = useMemo(
     () => buildAnnualReport(year, transactions, categories, yearBooks[String(year)]),
     [year, transactions, categories, yearBooks],
+  );
+  const yearTx = useMemo(
+    () => transactionsInFiscalYear(transactions, year),
+    [transactions, year],
+  );
+  const otherYears = useMemo(
+    () =>
+      years
+        .filter((candidate) => candidate !== year)
+        .map((candidate) => ({
+          year: candidate,
+          count: transactionsInFiscalYear(transactions, candidate).length,
+        }))
+        .filter((row) => row.count > 0),
+    [years, year, transactions],
   );
 
   const openingValue = openingDraft ?? String(report.openingCash);
@@ -109,7 +137,14 @@ export function AnnualReports() {
               Budget
             </Link>
           </Button>
-          <YearNav year={year} years={years} onChange={setYear} />
+          <YearNav
+            year={year}
+            years={years}
+            onChange={(next) => {
+              setPickedYear(true);
+              setYear(next);
+            }}
+          />
         </div>
       </header>
 
@@ -130,6 +165,16 @@ export function AnnualReports() {
 
       <div className="flex flex-col gap-6">
         <StatementCard title={`Resultaträkning ${report.label}`}>
+          <p className="text-sm text-muted">
+            {yearTx.length === 0
+              ? `Inga poster med datum ${report.periodLabel}. Byt räkenskapsår eller kontrollera datum på transaktionerna.`
+              : `${yearTx.length} poster med datum ${report.periodLabel}.`}
+          </p>
+          {otherYears.length > 0 ? (
+            <p className="text-sm text-muted">
+              {otherYears.map((row) => `${row.count} poster i ${fiscalYearLabel(row.year)}`).join(" · ")}
+            </p>
+          ) : null}
           <LedgerSection label="Intäkter">
             {report.incomeLines.length === 0 ? (
               <EmptyRow text="Inga intäkter under räkenskapsåret." />

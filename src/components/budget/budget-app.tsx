@@ -36,6 +36,8 @@ import { CategoriesDialog } from "@/components/budget/categories-dialog";
 import { TransactionDialog } from "@/components/budget/transaction-dialog";
 import { categoryById, type Category } from "@/lib/categories";
 import {
+  fiscalYearFromIso,
+  fiscalYearLabel,
   formatDayLabel,
   formatKr,
   formatMonthLabel,
@@ -129,6 +131,9 @@ export function BudgetApp() {
         <div className="flex flex-col gap-4 lg:col-span-5">
           <section className="rounded-2xl bg-surface p-5 shadow-[var(--shadow-border)] sm:p-6">
             <p className="text-sm text-muted">Kvar i {formatMonthLabel(selectedMonth).toLowerCase()}</p>
+            <p className="text-xs text-subtle">
+              Räkenskapsår {fiscalYearLabel(fiscalYearFromIso(`${selectedMonth}-01`))} (1 jul–30 jun)
+            </p>
             <p
               className={cn(
                 "mt-2 font-display text-5xl leading-none font-medium tracking-tight whitespace-nowrap tabular-nums sm:text-6xl",

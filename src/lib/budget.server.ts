@@ -23,18 +23,62 @@ function asNumber(value: unknown, fallback = 0): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
+function parseItems(raw: unknown): { id: string; name: string; amount: number }[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const row = item as Record<string, unknown>;
+    const amount = asNumber(row.amount);
+    const name = String(row.name ?? "").trim();
+    if (!name || amount <= 0) return [];
+    return [{ id: String(row.id ?? `${name}-${amount}`), name, amount }];
+  });
+}
+
+function parseTransaction(raw: unknown): Transaction | null {
+  if (!raw || typeof raw !== "object") return null;
+  const row = raw as Record<string, unknown>;
+  const type = row.type === "income" || row.type === "expense" ? row.type : null;
+  const amount = asNumber(row.amount);
+  const date = String(row.date ?? "").slice(0, 10);
+  if (!type || amount <= 0 || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+  return {
+    id: String(row.id ?? `${type}-${date}-${amount}`),
+    type,
+    amount,
+    categoryId: String(row.categoryId ?? ""),
+    note: String(row.note ?? ""),
+    date,
+  };
+}
+
+function parseYearBooks(raw: unknown): Record<string, YearBook> {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const books: Record<string, YearBook> = {};
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (!/^\d{4}$/.test(key)) continue;
+    const row = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+    books[key] = {
+      openingCash: Math.max(0, asNumber(row.openingCash)),
+      assets: parseItems(row.assets),
+      liabilities: parseItems(row.liabilities),
+    };
+  }
+  return books;
+}
+
 function parsePayload(raw: unknown): BudgetPayload {
   const data = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const transactions = Array.isArray(data.transactions)
+    ? data.transactions.map(parseTransaction).filter((tx): tx is Transaction => tx !== null)
+    : [];
   return {
     monthlyBudget: Math.max(0, asNumber(data.monthlyBudget)),
     categories: Array.isArray(data.categories) && data.categories.length > 0
       ? (data.categories as Category[])
       : DEFAULT_CATEGORIES,
-    transactions: Array.isArray(data.transactions) ? (data.transactions as Transaction[]) : [],
-    yearBooks:
-      data.yearBooks && typeof data.yearBooks === "object" && !Array.isArray(data.yearBooks)
-        ? (data.yearBooks as Record<string, YearBook>)
-        : {},
+    transactions,
+    yearBooks: parseYearBooks(data.yearBooks),
   };
 }
 

@@ -372,8 +372,10 @@ export function monthTotals(transactions: Transaction[]) {
   let income = 0;
   let expense = 0;
   for (const tx of transactions) {
-    if (tx.type === "income") income += tx.amount;
-    else expense += tx.amount;
+    const amount = Number(tx.amount);
+    if (!Number.isFinite(amount) || amount <= 0) continue;
+    if (tx.type === "income") income += amount;
+    else if (tx.type === "expense") expense += amount;
   }
   return { income, expense, remaining: income - expense };
 }
@@ -382,7 +384,9 @@ export function spendingByCategory(transactions: Transaction[]) {
   const map = new Map<string, number>();
   for (const tx of transactions) {
     if (tx.type !== "expense") continue;
-    map.set(tx.categoryId, (map.get(tx.categoryId) ?? 0) + tx.amount);
+    const amount = Number(tx.amount);
+    if (!Number.isFinite(amount) || amount <= 0) continue;
+    map.set(tx.categoryId, (map.get(tx.categoryId) ?? 0) + amount);
   }
   return [...map.entries()]
     .map(([categoryId, amount]) => ({ categoryId, amount }))
