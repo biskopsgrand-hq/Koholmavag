@@ -260,7 +260,7 @@ export function AdminNav() {
       <Link to="/godkannanden">
         Godkännanden
         {pendingCount > 0 ? (
-          <span className="ml-1 rounded-full bg-clay px-1.5 py-0.5 text-[11px] font-semibold text-white">
+          <span className="ml-1 rounded-full bg-clay px-1.5 py-0.5 text-xs font-semibold text-destructive-foreground">
             {pendingCount}
           </span>
         ) : null}

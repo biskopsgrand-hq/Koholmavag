@@ -31,9 +31,40 @@ function AccessAdminPage() {
   );
 }
 
+const DIRECTORY_KEY = "koholma-directory-v1";
+
+function readLocalDirectory(): AccessMember[] {
+  try {
+    return asMemberList(JSON.parse(window.localStorage.getItem(DIRECTORY_KEY) || "[]"));
+  } catch {
+    return [];
+  }
+}
+
+function writeLocalDirectory(members: AccessMember[]) {
+  try {
+    window.localStorage.setItem(DIRECTORY_KEY, JSON.stringify(members));
+  } catch {
+    /* ignore */
+  }
+}
+
+function rememberMembers(
+  previous: AccessMember[] | null | undefined,
+  next: AccessMember[],
+): AccessMember[] {
+  const merged = mergeMemberLists(mergeMemberLists(readLocalDirectory(), previous ?? []), next);
+  writeLocalDirectory(merged);
+  return merged;
+}
+
 function AccessAdmin() {
   const access = useAccess();
-  const [members, setMembers] = useState<AccessMember[] | null>(null);
+  const [members, setMembers] = useState<AccessMember[] | null>(() => {
+    if (typeof window === "undefined") return null;
+    const local = readLocalDirectory();
+    return local.length > 0 ? local : null;
+  });
   const [loadError, setLoadError] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
@@ -47,7 +78,7 @@ function AccessAdmin() {
       try {
         const rows = await listAccessMembers({ data: {} });
         if (!cancelled) {
-          setMembers((prev) => mergeMemberLists(prev, asMemberList(rows)));
+          setMembers((prev) => rememberMembers(prev, asMemberList(rows)));
           setLoadError(null);
         }
       } catch (err) {
@@ -77,7 +108,7 @@ function AccessAdmin() {
     setBusy(memberEmail + status);
     try {
       const rows = await decideAccessMember({ data: { email: memberEmail, status } });
-      setMembers((prev) => mergeMemberLists(prev, asMemberList(rows)));
+      setMembers((prev) => rememberMembers(prev, asMemberList(rows)));
       toast(status === "approved" ? "Personen är godkänd." : "Personen är nekad.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Kunde inte spara.");
@@ -96,7 +127,7 @@ function AccessAdmin() {
       setEmail("");
       setName("");
       setMembers((prev) =>
-        mergeMemberLists(prev, [
+        rememberMembers(prev, [
           ...asMemberList(rows),
           {
             email: invitedEmail.toLowerCase(),

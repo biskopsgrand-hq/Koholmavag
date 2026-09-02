@@ -145,7 +145,11 @@ export async function hydrateSharedBudget(): Promise<void> {
           yearBooks,
         };
         const hasBooks = Object.values(yearBooks).some(
-          (book) => book.openingCash || book.assets.length || book.liabilities.length,
+          (book) =>
+            book.openingCash ||
+            book.annualBudget ||
+            book.assets.length ||
+            book.liabilities.length,
         );
         if (transactions.length > 0 || hasBooks) {
           await saveBudget({ data: next });

@@ -4,6 +4,7 @@ import { getSql } from "@/lib/db";
 import { APP_NAME } from "@/lib/brand";
 import {
   OWNER_EMAIL,
+  asMemberList,
   isOwnerEmail,
   normalizeEmail,
   parseAccessStatus,
@@ -161,17 +162,25 @@ export async function getMyAccessForUserId(userId: string): Promise<AccessState>
   if (!profile) return closedState();
   if (isOwnerEmail(profile.email)) return upsertOwner(userId, profile.name);
   const member = await memberForUser(userId, profile.email);
-  if (!member) return closedState({ email: profile.email });
-  const status = parseAccessStatus(member.status);
-  if (status === "approved") {
-    const sql = await getSql();
-    await sql`
-      update access_members
-      set user_id = ${userId}, name = ${member.name || profile.name}
-      where lower(trim(email)) = ${normalizeEmail(member.email)} or user_id = ${userId}
-    `;
+  const listed = (await readDirectory()).find((row) => row.email === profile.email);
+  if ((listed && listed.status === "approved") || parseAccessStatus(member?.status) === "approved") {
+    try {
+      const sql = await getSql();
+      await sql`
+        insert into access_members (email, user_id, name, status, decided_at, decided_by)
+        values (${profile.email}, ${userId}, ${member?.name || listed?.name || profile.name}, 'approved', now(), ${OWNER_EMAIL})
+        on conflict (email) do update set
+          user_id = excluded.user_id,
+          name = coalesce(excluded.name, access_members.name),
+          status = 'approved'
+      `;
+    } catch (err) {
+      console.error("approved member sync failed", err);
+    }
     return closedState({ status: "approved", email: profile.email });
   }
+  if (!member) return closedState({ email: profile.email });
+  const status = parseAccessStatus(member.status);
   if (status === "pending") {
     const token = await ensurePendingToken(member);
     return pendingState(profile.email, member.name || profile.name, token, false);
@@ -185,12 +194,18 @@ export async function requestAccessForUserId(userId: string): Promise<AccessStat
   if (isOwnerEmail(profile.email)) return upsertOwner(userId, profile.name);
 
   const existing = await memberForUser(userId, profile.email);
-  if (existing && parseAccessStatus(existing.status) === "approved") {
+  const listed = (await readDirectory()).find((row) => row.email === profile.email);
+  if (
+    parseAccessStatus(existing?.status) === "approved" ||
+    listed?.status === "approved"
+  ) {
+    const saved = await upsertMemberStatus(profile.email, "approved", profile.name);
+    await rememberMember({ ...saved, name: saved.name || profile.name });
     const sql = await getSql();
     await sql`
       update access_members
       set user_id = ${userId}, name = ${profile.name}
-      where lower(trim(email)) = ${normalizeEmail(existing.email)} or user_id = ${userId}
+      where lower(trim(email)) = ${profile.email}
     `;
     return closedState({ status: "approved", email: profile.email });
   }
@@ -301,6 +316,41 @@ function mergeMembers(...groups: AccessMember[][]): AccessMember[] {
   return sortMembers([...byEmail.values()]);
 }
 
+const DIRECTORY_ID = "directory";
+
+async function readDirectory(): Promise<AccessMember[]> {
+  const sql = await getSql();
+  const rows = await sql
+    .query<{ payload: unknown }>(`select payload from budget_ledger where id = $1 limit 1`, [DIRECTORY_ID])
+    .catch(() => []);
+  const payload = rows[0]?.payload;
+  if (Array.isArray(payload)) return asMemberList(payload);
+  if (payload && typeof payload === "object") {
+    return asMemberList((payload as { members?: unknown }).members ?? payload);
+  }
+  return [];
+}
+
+async function writeDirectory(members: AccessMember[]): Promise<void> {
+  const sql = await getSql();
+  await sql.query(
+    `insert into budget_ledger (id, payload, updated_at)
+     values ($1, $2::jsonb, now())
+     on conflict (id) do update set payload = excluded.payload, updated_at = now()`,
+    [DIRECTORY_ID, JSON.stringify({ members })],
+  );
+}
+
+async function rememberMember(member: AccessMember): Promise<AccessMember[]> {
+  const directory = mergeMembers(await readDirectory(), [member]);
+  try {
+    await writeDirectory(directory);
+  } catch (err) {
+    console.error("directory write failed", err);
+  }
+  return directory;
+}
+
 async function readMemberRows(): Promise<AccessMember[]> {
   const sql = await getSql();
   const users = await sql
@@ -336,7 +386,7 @@ async function readMemberRows(): Promise<AccessMember[]> {
     const member = toMember(row);
     return member ? [member] : [];
   });
-  return mergeMembers(fromUsers, fromMembers);
+  return mergeMembers(fromUsers, fromMembers, await readDirectory());
 }
 
 async function upsertMemberStatus(
@@ -344,37 +394,38 @@ async function upsertMemberStatus(
   status: "approved" | "denied",
   name?: string,
 ): Promise<AccessMember> {
-  const sql = await getSql();
-  await sql.query(`delete from access_members where lower(trim(email)) = $1 and email <> $1`, [email]);
-  const rows = await sql.query<{
-    email: string;
-    name: string | null;
-    status: string;
-    requested_at: string;
-    decided_at: string | null;
-  }>(
-    `insert into access_members (email, user_id, name, status, requested_at, decided_at, decided_by)
-     values (
-       $1,
-       (select id from "user" where lower(trim(email)) = $1 limit 1),
-       coalesce(nullif($2, ''), (select name from "user" where lower(trim(email)) = $1 limit 1), $1),
-       $3,
-       now(),
-       now(),
-       $4
-     )
-     on conflict (email) do update set
-       user_id = coalesce(excluded.user_id, access_members.user_id),
-       name = coalesce(nullif(excluded.name, excluded.email), access_members.name),
-       status = excluded.status,
-       decided_at = now(),
-       decided_by = excluded.decided_by
-     returning lower(trim(email)) as email, name, status, requested_at::text as requested_at, decided_at::text as decided_at`,
-    [email, name?.trim() || "", status, OWNER_EMAIL],
-  );
-  const saved = toMember(rows[0] ?? { email, name: name || null, status });
-  if (!saved) throw new Error("Kunde inte spara personen.");
-  return saved;
+  const fallback: AccessMember = {
+    email,
+    name: name?.trim() || null,
+    status,
+    requestedAt: new Date().toISOString(),
+    decidedAt: new Date().toISOString(),
+  };
+  try {
+    const sql = await getSql();
+    await sql.query(`delete from access_members where lower(trim(email)) = $1 and email <> $1`, [email]);
+    const rows = await sql.query<{
+      email: string;
+      name: string | null;
+      status: string;
+      requested_at: string;
+      decided_at: string | null;
+    }>(
+      `insert into access_members (email, name, status, decided_at, decided_by)
+       values ($1, nullif($2, ''), $3, now(), $4)
+       on conflict (email) do update set
+         name = coalesce(nullif(excluded.name, ''), access_members.name),
+         status = excluded.status,
+         decided_at = now(),
+         decided_by = excluded.decided_by
+       returning lower(trim(email)) as email, name, status, requested_at::text as requested_at, decided_at::text as decided_at`,
+      [email, name?.trim() || "", status, OWNER_EMAIL],
+    );
+    return toMember(rows[0] ?? fallback) ?? fallback;
+  } catch (err) {
+    console.error("access_members upsert failed", err);
+    return fallback;
+  }
 }
 
 export async function listMembersForAdmin(userId: string): Promise<AccessMember[]> {
@@ -393,7 +444,8 @@ export async function decideMemberForAdmin(
     throw new Error("Ägaren kan inte nekas.");
   }
   const saved = await upsertMemberStatus(normalized, status);
-  return mergeMembers(await readMemberRows(), [saved]);
+  const directory = await rememberMember(saved);
+  return mergeMembers(await readMemberRows(), directory, [saved]);
 }
 
 export async function inviteMemberForAdmin(userId: string, email: string, name: string): Promise<AccessMember[]> {
@@ -401,7 +453,8 @@ export async function inviteMemberForAdmin(userId: string, email: string, name: 
   const normalized = normalizeEmail(email);
   if (!normalized.includes("@")) throw new Error("Ogiltig e-post.");
   const saved = await upsertMemberStatus(normalized, "approved", name);
-  return mergeMembers(await readMemberRows(), [saved]);
+  const directory = await rememberMember(saved);
+  return mergeMembers(await readMemberRows(), directory, [saved]);
 }
 
 export async function peekAccessToken(token: string): Promise<{ email: string; name: string | null; status: AccessStatus } | null> {
@@ -439,6 +492,13 @@ export async function applyAccessToken(
         )
     where token = ${token}
   `;
+  await rememberMember({
+    email: normalizeEmail(current.email),
+    name: current.name,
+    status: decision,
+    requestedAt: "",
+    decidedAt: new Date().toISOString(),
+  });
   return { ...current, status: decision };
 }
 
