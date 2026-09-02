@@ -34,7 +34,9 @@ import {
 import { KOHOLMA_MEMBERS } from "@/lib/members-seed";
 import { loadMembers, saveMembers } from "@/lib/members-fns";
 import { readMemberCache, writeMemberCache } from "@/lib/members-cache";
-import { downloadAllInvoicePdfs, downloadInvoiceZip, downloadSavedInvoice, shareInvoiceWithPdf } from "@/lib/invoice-mail";
+import { loadMailStatus, saveMailPassword } from "@/lib/mail-fns";
+import { postInvoiceMail } from "@/lib/invoice-send";
+import { downloadAllInvoicePdfs, downloadInvoiceZip, downloadSavedInvoice, openInvoiceGmail } from "@/lib/invoice-mail";
 import {
   dueInDays,
   invoiceFromMember,
@@ -49,8 +51,6 @@ import {
 } from "@/lib/invoices";
 import { SELLER } from "@/lib/seller";
 import { loadInvoiceList, saveInvoiceList } from "@/lib/invoices-fns";
-import { loadMailStatus, saveMailPassword } from "@/lib/mail-fns";
-import { postInvoiceMail, rememberPendingInvoice, takePendingInvoice } from "@/lib/invoice-send";
 import { currentFiscalYear, fiscalYearLabel, formatKr, parseAmountInput } from "@/lib/format";
 import { useLiveSync } from "@/lib/live-sync";
 import { withSessionRetry } from "@/lib/save-with-session";
@@ -104,8 +104,6 @@ export function MembersApp() {
         setInvoices(rows);
         setMailReady(mail.configured);
         setReady(true);
-        const pending = takePendingInvoice();
-        if (pending) void sendInvoiceMail(pending);
       })
       .catch(() => {
         const cached = readMemberCache();
@@ -352,20 +350,16 @@ export function MembersApp() {
     setBusy(true);
     toast("Skickar faktura med PDF från koholmavagen@gmail.com…", { id: "invoice-mail" });
     try {
-      await saveInvoice(invoice, true);
-      await withSessionRetry(() => postInvoiceMail(invoice));
+      await saveInvoice(invoice, true).catch(() => undefined);
+      await postInvoiceMail(invoice);
       setDraftInvoice(null);
       setMailStep(null);
       toast.success(`Skickad till ${invoice.email} från koholmavagen@gmail.com med PDF.`, { id: "invoice-mail" });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Kunde inte skicka.";
-      if (/unauthor|forbidden|not authorized/i.test(message)) {
-        rememberPendingInvoice(invoice);
-        toast.error("Inloggningen släppte. Logga in, sen skickas fakturan automatiskt.");
-        window.setTimeout(() => window.location.assign("/login?next=/medlemmar"), 600);
-        return;
-      }
-      toast.error(message, { id: "invoice-mail" });
+    } catch {
+      openInvoiceGmail(invoice);
+      setMailStep(invoice);
+      setDraftInvoice(null);
+      toast("Gmail öppnas som koholmavagen@gmail.com. Skicka mejlet där — PDF-länken ligger i texten.", { id: "invoice-mail" });
     } finally {
       setBusy(false);
     }
@@ -407,7 +401,7 @@ export function MembersApp() {
     let ok = 0;
     try {
       for (const invoice of queue) {
-        await withSessionRetry(() => postInvoiceMail(invoice));
+        await postInvoiceMail(invoice);
         ok += 1;
         toast.success(`Skickade ${ok} av ${queue.length} med PDF.`, { id: "bulk-mail" });
       }
@@ -1163,13 +1157,7 @@ function BulkMailDialog({
   const invoice = current;
 
   function sendCurrent() {
-    setWorking(true);
-    void shareInvoiceWithPdf(invoice)
-      .then(() => {
-        toast.success("Gmail öppnas som koholmavagen@gmail.com. PDF-länken ligger i mejlet.");
-      })
-      .catch(() => toast.error("Kunde inte skapa PDF."))
-      .finally(() => setWorking(false));
+    openInvoiceGmail(invoice);
   }
 
   return (
@@ -1284,13 +1272,7 @@ function MailStepDialog({
           </Button>
           <Button
             type="button"
-            onClick={() => {
-              void shareInvoiceWithPdf(invoice)
-                .then(() => {
-                  toast.success("Gmail öppnas som koholmavagen@gmail.com. PDF-länken ligger i mejlet.");
-                })
-                .catch(() => toast.error("Kunde inte skapa PDF."));
-            }}
+            onClick={() => openInvoiceGmail(invoice)}
           >
             <Mail />
             Öppna Gmail som {SELLER.email}
