@@ -31,24 +31,125 @@ export const EMPTY_REGISTER: MemberRegister = {
   message: "",
 };
 
-const NAME_KEYS = ["namn", "name", "medlem", "förnamn", "fulltnamn"];
-const EMAIL_KEYS = ["e-post", "epost", "email", "mail", "e_post"];
-const PROPERTY_KEYS = ["fastighet", "fastighetsbeteckning", "beteckning", "property", "lägenhet"];
-const ADDRESS_KEYS = ["adress", "address", "gata", "postadress"];
-const SHARE_KEYS = ["andel", "andelstal", "share", "andel %"];
-const FEE_KEYS = ["avgift", "årsavgift", "fee", "belopp", "kr"];
+const NAME_KEYS = ["namn", "name", "medlem", "förnamn", "efternamn", "fulltnamn", "ägare", "lagfaren", "kontaktperson", "kontakt", "person", "innehavare"];
+const EMAIL_KEYS = ["e-post", "epost", "e post", "email", "e-mail", "mailadress"];
+const PROPERTY_KEYS = ["fastighetsbeteckning", "fastighet", "beteckning", "property", "lägenhet", "tomt"];
+const ADDRESS_KEYS = ["adress", "address", "gata", "postadress", "gatuadress"];
+const POSTAL_KEYS = ["postnr", "postnummer", "postkod", "zip"];
+const CITY_KEYS = ["ort", "stad", "postort", "city"];
+const SHARE_KEYS = ["andelstal", "andel", "share"];
+const FEE_KEYS = ["årsavgift", "avgift", "belopp", "fee"];
 const NOTE_KEYS = ["notering", "note", "kommentar", "anteckning"];
+const CUSTOMER_KEYS = ["kundnr", "kundnummer", "kund nr", "customer"];
+const HEADER_WORDS = [
+  "fastighetsbeteckning",
+  "namn",
+  "ägare",
+  "andel",
+  "adress",
+  "e-post",
+  "email",
+  "kundnr",
+  "avgift",
+];
 
 function normHeader(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
+function headerMatches(header: string, keys: string[]): boolean {
+  const h = normHeader(header).replace(/[_./]+/g, " ");
+  return keys.some((key) => h === key || h.startsWith(`${key} `) || h.endsWith(` ${key}`) || h.includes(` ${key} `) || (key.length >= 5 && h.includes(key)));
+}
+
 function pick(row: Record<string, string>, keys: string[]): string {
-  for (const key of keys) {
-    const found = Object.entries(row).find(([header]) => normHeader(header) === key || normHeader(header).includes(key));
-    if (found?.[1]) return found[1].trim();
+  for (const [header, value] of Object.entries(row)) {
+    if (headerMatches(header, keys) && value.trim()) return value.trim();
   }
   return "";
+}
+
+function columnValues(row: Record<string, string>): string[] {
+  return Object.values(row).map((value) => String(value ?? "").trim());
+}
+
+export function looksLikeProperty(value: string): boolean {
+  return /\d+\s*:\s*\d+/.test(value) || /^koholma\b/i.test(value.trim());
+}
+
+export function looksLikePerson(value: string): boolean {
+  const text = value.trim();
+  if (text.length < 3 || text.includes("@") || looksLikeProperty(text) || /^\d+([.,]\d+)?$/.test(text)) return false;
+  if (HEADER_WORDS.includes(normHeader(text))) return false;
+  return /[a-zA-ZåäöÅÄÖ]/.test(text);
+}
+
+function looksLikeHeaderRow(value: string): boolean {
+  return HEADER_WORDS.includes(normHeader(value));
+}
+
+function looksLikeEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
+export function repairMember(member: AssociationMember): AssociationMember | null {
+  let name = member.name.trim();
+  let email = member.email.trim();
+  let property = member.property.trim();
+  let address = member.address.trim();
+  const share = member.share;
+  const extra: string[] = [];
+
+  if (looksLikeHeaderRow(name) && looksLikeProperty(email) && looksLikePerson(property)) {
+    name = property;
+    property = email;
+    email = "";
+  }
+  if (looksLikeHeaderRow(name) || looksLikeHeaderRow(property)) return null;
+
+  if (email && !looksLikeEmail(email)) {
+    extra.push(email);
+    email = "";
+  }
+  if (looksLikeProperty(name) && looksLikePerson(property)) {
+    const swap = name;
+    name = property;
+    property = swap;
+  }
+  if (looksLikeProperty(name)) {
+    const person = extra.find(looksLikePerson);
+    if (person) {
+      extra.splice(extra.indexOf(person), 1);
+      if (!looksLikeProperty(property)) property = name;
+      name = person;
+    }
+  }
+  if (!looksLikeProperty(property)) {
+    const found = extra.find(looksLikeProperty);
+    if (found) {
+      extra.splice(extra.indexOf(found), 1);
+      if (looksLikePerson(property) && !looksLikePerson(name)) name = property;
+      property = found;
+    }
+  }
+  if (!looksLikePerson(name)) {
+    const person = extra.find(looksLikePerson);
+    if (person) {
+      extra.splice(extra.indexOf(person), 1);
+      name = person;
+    }
+  }
+  if (!address) address = extra.filter((item) => !looksLikeProperty(item) && !/^\d+([.,]\d+)?$/.test(item)).join(", ");
+
+  if (!name && !email && !property) return null;
+  return {
+    ...member,
+    name: name || property || email || "Medlem",
+    email: looksLikeEmail(email) ? email.toLowerCase() : "",
+    property,
+    address,
+    share: share > 0 ? share : 1,
+  };
 }
 
 function splitCsvLine(line: string, delimiter: string): string[] {
@@ -77,18 +178,32 @@ function splitCsvLine(line: string, delimiter: string): string[] {
   return cells.map((cell) => cell.trim());
 }
 
+function detectDelimiter(headerLine: string): string {
+  const options: { d: string; n: number }[] = [
+    { d: ";", n: (headerLine.match(/;/g) ?? []).length },
+    { d: "\t", n: (headerLine.match(/\t/g) ?? []).length },
+    { d: ",", n: (headerLine.match(/,/g) ?? []).length },
+  ];
+  options.sort((a, b) => b.n - a.n);
+  return options[0] && options[0].n > 0 ? options[0].d : ";";
+}
+
 export function parseCsvText(text: string): Record<string, string>[] {
   const cleaned = text.replace(/^\uFEFF/, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
   const lines = cleaned.split("\n").filter((line) => line.trim().length > 0);
-  if (lines.length < 2) return [];
-  const headerLine = lines[0]!;
-  const delimiter = (headerLine.match(/;/g)?.length ?? 0) > (headerLine.match(/,/g)?.length ?? 0) ? ";" : ",";
-  const headers = splitCsvLine(headerLine, delimiter);
-  return lines.slice(1).map((line) => {
+  if (lines.length === 0) return [];
+  const delimiter = detectDelimiter(lines[0]!);
+  const first = splitCsvLine(lines[0]!, delimiter);
+  const hasHeader = first.some((cell) => HEADER_WORDS.includes(normHeader(cell)) || headerMatches(cell, NAME_KEYS) || headerMatches(cell, PROPERTY_KEYS));
+  const headers = hasHeader
+    ? first.map((cell, index) => cell || `kolumn${index + 1}`)
+    : first.map((_, index) => (index === 0 ? "Fastighetsbeteckning" : index === 1 ? "Namn" : index === 2 ? "Andel" : `kolumn${index + 1}`));
+  const body = hasHeader ? lines.slice(1) : lines;
+  return body.map((line) => {
     const cells = splitCsvLine(line, delimiter);
     const row: Record<string, string> = {};
     headers.forEach((header, index) => {
-      row[header || `kolumn${index + 1}`] = cells[index] ?? "";
+      row[header] = cells[index] ?? "";
     });
     return row;
   });
@@ -100,28 +215,34 @@ function parseShare(raw: string): number {
 }
 
 function parseFee(raw: string): number {
-  const n = Number(raw.replace(/\s/g, "").replace("kr", "").replace("SEK", "").replace(",", "."));
+  const n = Number(raw.replace(/\s/g, "").replace(/kr|sek/ig, "").replace(",", "."));
   return Number.isFinite(n) && n > 0 ? Math.round(n) : 0;
 }
 
 export function rowsToMembers(rows: Record<string, string>[]): AssociationMember[] {
   const members: AssociationMember[] = [];
   for (const row of rows) {
-    const name = pick(row, NAME_KEYS) || pick(row, ["kolumn1"]);
-    const email = pick(row, EMAIL_KEYS).toLowerCase();
-    const property = pick(row, PROPERTY_KEYS);
-    if (!name && !email && !property) continue;
-    members.push({
+    const values = columnValues(row);
+    const propertyPick = pick(row, PROPERTY_KEYS) || values.find(looksLikeProperty) || "";
+    const emailPick = pick(row, EMAIL_KEYS) || values.find(looksLikeEmail) || "";
+    const namePick =
+      pick(row, NAME_KEYS) ||
+      values.find((value) => looksLikePerson(value) && value !== propertyPick && value !== emailPick) ||
+      "";
+    const postal = [pick(row, POSTAL_KEYS), pick(row, CITY_KEYS)].filter(Boolean).join(" ");
+    const address = [pick(row, ADDRESS_KEYS), postal].filter(Boolean).join(", ");
+    const repaired = repairMember({
       id: crypto.randomUUID(),
-      name: name || property || email || "Medlem",
-      email,
-      property,
-      address: pick(row, ADDRESS_KEYS),
-      customerNo: pick(row, ["kundnr", "kundnummer", "customer"]),
-      share: parseShare(pick(row, SHARE_KEYS)),
+      name: namePick,
+      email: emailPick,
+      property: propertyPick,
+      address,
+      customerNo: pick(row, CUSTOMER_KEYS),
+      share: parseShare(pick(row, SHARE_KEYS) || values.find((value) => /^\d+([.,]\d+)?$/.test(value)) || ""),
       fee: parseFee(pick(row, FEE_KEYS)),
       note: pick(row, NOTE_KEYS),
     });
+    if (repaired) members.push(repaired);
   }
   return members;
 }
@@ -166,7 +287,6 @@ export function invoiceBody(
     register.dueDate ? `Förfallodag: ${register.dueDate}` : null,
     member.property ? `Referens: ${member.property}` : `Referens: ${member.name}`,
     register.payment ? `Betalning: ${register.payment}` : null,
-    register.message ? "" : null,
     register.message || null,
     "",
     "Med vänlig hälsning",

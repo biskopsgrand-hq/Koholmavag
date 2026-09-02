@@ -21,6 +21,7 @@ import {
   EMPTY_REGISTER,
   memberFee,
   mergeMembers,
+  repairMember,
   rowsToMembers,
   type AssociationMember,
   type MemberRegister,
@@ -65,6 +66,13 @@ export function MembersApp() {
     void Promise.all([loadMembers({ data: {} }), loadInvoiceList({ data: {} })])
       .then(async ([members, rows]) => {
         let register = members;
+        const repaired = members.members.map(repairMember).filter((row): row is NonNullable<typeof row> => row !== null);
+        if (
+          repaired.length !== members.members.length ||
+          repaired.some((row, index) => row.name !== members.members[index]?.name || row.property !== members.members[index]?.property)
+        ) {
+          register = await saveMembers({ data: { ...members, members: repaired } });
+        }
         if (register.members.length === 0) {
           const cached = readMemberCache();
           if (cached) {
@@ -125,7 +133,12 @@ export function MembersApp() {
         ...register,
         members: mergeMembers(register.members, incoming),
       });
-      toast(`Läste in ${incoming.length} rader. Registret har ${next.members.length} medlemmar.`);
+      toast(
+        `Läste in ${incoming.length} medlemmar, t.ex. ${incoming
+          .slice(0, 2)
+          .map((row) => `${row.name} (${row.property || "utan fastighet"})`)
+          .join(", ")}.`,
+      );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Kunde inte läsa filen.");
     } finally {

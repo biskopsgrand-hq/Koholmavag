@@ -1,5 +1,12 @@
 import { parseCsvText } from "@/lib/members";
 
+async function readCsvText(file: File): Promise<string> {
+  const buffer = await file.arrayBuffer();
+  const utf8 = new TextDecoder("utf-8").decode(buffer);
+  if (!utf8.includes("\uFFFD")) return utf8;
+  return new TextDecoder("windows-1252").decode(buffer);
+}
+
 export async function rowsFromFile(file: File): Promise<Record<string, string>[]> {
   const name = file.name.toLowerCase();
   if (name.endsWith(".xlsx") || name.endsWith(".xls")) {
@@ -12,6 +19,5 @@ export async function rowsFromFile(file: File): Promise<Record<string, string>[]
     if (!sheet) return [];
     return XLSX.utils.sheet_to_json<Record<string, string>>(sheet, { defval: "", raw: false });
   }
-  const text = await file.text();
-  return parseCsvText(text);
+  return parseCsvText(await readCsvText(file));
 }

@@ -3,6 +3,7 @@ import { getMyAccessForUserId } from "@/lib/access.server";
 import {
   EMPTY_REGISTER,
   mergeMembers,
+  repairMember,
   type AssociationMember,
   type MemberRegister,
 } from "@/lib/members";
@@ -36,7 +37,7 @@ function asMember(raw: unknown): AssociationMember | null {
   if (!name && !email && !property) return null;
   const share = Number(row.share);
   const fee = Number(row.fee);
-  return {
+  const mapped: AssociationMember = {
     id: String(row.id ?? crypto.randomUUID()),
     name: name || property || email || "Medlem",
     email,
@@ -47,6 +48,7 @@ function asMember(raw: unknown): AssociationMember | null {
     fee: Number.isFinite(fee) && fee > 0 ? Math.round(fee) : 0,
     note: String(row.note ?? "").trim(),
   };
+  return repairMember(mapped);
 }
 
 function parseRegister(raw: unknown): MemberRegister {
