@@ -155,8 +155,22 @@ export function invoiceMailSubject(invoice: Invoice): string {
   return `Faktura ${invoice.number} ${SELLER.name}`;
 }
 
-export function invoiceMailBody(invoice: Invoice): string {
-  return `${invoiceBodyText(invoice)}\n\nFakturan i PDF bifogas detta mejl.\n\nMed vänlig hälsning\n${SELLER.name}\n${SELLER.email}`;
+export function invoicePdfUrl(invoice: Invoice): string {
+  const origin = typeof window !== "undefined" ? window.location.origin : "https://www.koholmavag.com";
+  return `${origin}/api/faktura/${encodeURIComponent(invoice.id)}`;
+}
+
+export function invoiceMailBody(invoice: Invoice, pdfUrl = invoicePdfUrl(invoice)): string {
+  return [
+    invoiceBodyText(invoice),
+    "",
+    "Faktura som PDF:",
+    pdfUrl,
+    "",
+    "Med vänlig hälsning",
+    SELLER.name,
+    SELLER.email,
+  ].join("\n");
 }
 
 export function invoiceGmailLink(invoice: Invoice): string {

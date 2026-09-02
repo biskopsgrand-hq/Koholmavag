@@ -1,7 +1,6 @@
 import { zipSync } from "fflate";
 import {
   invoiceFromMember,
-  invoiceGmailAppLink,
   invoiceGmailLink,
   nextCustomerNo,
   nextInvoiceNumber,
@@ -26,22 +25,8 @@ export function openInvoiceGmail(invoice: Invoice) {
   clickHref(invoiceGmailLink(invoice), true);
 }
 
-function openGmailAppThenWeb(invoice: Invoice) {
-  const mobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-  if (mobile) {
-    clickHref(invoiceGmailAppLink(invoice));
-    window.setTimeout(() => {
-      if (document.visibilityState === "visible") openInvoiceGmail(invoice);
-    }, 900);
-    return;
-  }
-  openInvoiceGmail(invoice);
-}
-
 export async function shareInvoiceWithPdf(invoice: Invoice): Promise<"gmail"> {
-  const bytes = await buildInvoicePdf(invoice);
-  downloadPdf(bytes, invoiceFileName(invoice));
-  openGmailAppThenWeb(invoice);
+  openInvoiceGmail(invoice);
   return "gmail";
 }
 

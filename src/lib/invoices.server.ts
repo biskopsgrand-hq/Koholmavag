@@ -49,6 +49,27 @@ function asInvoice(raw: unknown): Invoice | null {
   };
 }
 
+export async function findInvoiceById(id: string): Promise<Invoice | null> {
+  const needle = String(id ?? "").trim();
+  if (!needle) return null;
+  const sql = await getSql();
+  const rows = await sql.query<{ payload: unknown }>(
+    `select payload from budget_ledger where id = $1 limit 1`,
+    [INVOICES_ID],
+  );
+  let parsed: unknown = rows[0]?.payload;
+  if (typeof parsed === "string") {
+    try {
+      parsed = JSON.parse(parsed);
+    } catch {
+      parsed = {};
+    }
+  }
+  const data = parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : {};
+  const list = Array.isArray(data.invoices) ? data.invoices : Array.isArray(parsed) ? parsed : [];
+  return list.map(asInvoice).find((row): row is Invoice => row !== null && row.id === needle) ?? null;
+}
+
 export async function loadInvoices(userId: string): Promise<Invoice[]> {
   await requireApproved(userId);
   const sql = await getSql();
