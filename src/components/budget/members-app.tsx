@@ -574,7 +574,14 @@ export function MembersApp() {
                       setMailPass("");
                       toast.success("Utskick med PDF är kopplat.");
                     })
-                    .catch((err) => toast.error(err instanceof Error ? err.message : "Kunde inte spara."));
+                    .catch((err) => {
+                      const message = err instanceof Error ? err.message : "Kunde inte spara.";
+                      toast.error(
+                        /unauthor|forbidden|not authorized/i.test(message)
+                          ? "Inloggningen släppte. Ladda om sidan, logga in och spara lösenordet igen."
+                          : message,
+                      );
+                    });
                 }}
               >
                 Spara lösenord

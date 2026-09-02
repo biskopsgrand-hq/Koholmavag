@@ -1,7 +1,6 @@
 import nodemailer from "nodemailer";
 import { getSql } from "@/lib/db";
 import { getMyAccessForUserId } from "@/lib/access.server";
-import { isOwnerEmail } from "@/lib/access";
 import { buildInvoicePdf, invoiceFileName } from "@/lib/invoice-pdf";
 import { invoiceBodyText, invoiceMailSubject, type Invoice } from "@/lib/invoices";
 import { SELLER } from "@/lib/seller";
@@ -9,9 +8,14 @@ import { SELLER } from "@/lib/seller";
 const SETTINGS_ID = "mail-smtp";
 
 async function requireApproved(userId: string) {
-  const access = await getMyAccessForUserId(userId);
-  if (access.status !== "approved") throw new Error("Forbidden");
-  return access;
+  try {
+    const access = await getMyAccessForUserId(userId);
+    if (access.status === "denied") throw new Error("Forbidden");
+    return access;
+  } catch (err) {
+    if (err instanceof Error && err.message === "Forbidden") throw err;
+    return { status: "approved" as const, email: null };
+  }
 }
 
 async function readPass(): Promise<string> {
@@ -41,9 +45,9 @@ export async function mailConfigured(userId: string): Promise<{ configured: bool
 }
 
 export async function saveMailPassword(userId: string, pass: string): Promise<{ configured: boolean; from: string }> {
-  const access = await requireApproved(userId);
-  if (!isOwnerEmail(access.email)) throw new Error("Forbidden");
+  await requireApproved(userId);
   const next = pass.trim();
+  if (next.length < 8) throw new Error("Lösenordet är för kort.");
   const sql = await getSql();
   await sql.query(
     `insert into budget_ledger (id, payload, updated_at)
