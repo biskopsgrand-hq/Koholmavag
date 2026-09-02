@@ -15,9 +15,10 @@ const EMPTY_PAYLOAD: BudgetPayload = {
   deletedIds: [],
 };
 
-async function requireApproved(userId: string): Promise<void> {
+async function requireApproved(userId: string) {
   const access = await getMyAccessForUserId(userId);
   if (access.status !== "approved") throw new Error("Forbidden");
+  return access;
 }
 
 function asNumber(value: unknown, fallback = 0): number {

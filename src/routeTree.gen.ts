@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as GodkannandenRouteImport } from './routes/godkannanden'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as MedlemmarRouteImport } from './routes/medlemmar'
 import { Route as RapporterRouteImport } from './routes/rapporter'
 import { Route as ApiGodkannRouteImport } from './routes/api/godkann'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
@@ -29,6 +30,11 @@ const GodkannandenRoute = GodkannandenRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MedlemmarRoute = MedlemmarRouteImport.update({
+  id: '/medlemmar',
+  path: '/medlemmar',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RapporterRoute = RapporterRouteImport.update({
@@ -51,6 +57,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/godkannanden': typeof GodkannandenRoute
   '/login': typeof LoginRoute
+  '/medlemmar': typeof MedlemmarRoute
   '/rapporter': typeof RapporterRoute
   '/api/godkann': typeof ApiGodkannRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -59,6 +66,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/godkannanden': typeof GodkannandenRoute
   '/login': typeof LoginRoute
+  '/medlemmar': typeof MedlemmarRoute
   '/rapporter': typeof RapporterRoute
   '/api/godkann': typeof ApiGodkannRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -68,6 +76,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/godkannanden': typeof GodkannandenRoute
   '/login': typeof LoginRoute
+  '/medlemmar': typeof MedlemmarRoute
   '/rapporter': typeof RapporterRoute
   '/api/godkann': typeof ApiGodkannRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -78,6 +87,7 @@ export interface FileRouteTypes {
     | '/'
     | '/godkannanden'
     | '/login'
+    | '/medlemmar'
     | '/rapporter'
     | '/api/godkann'
     | '/api/auth/$'
@@ -86,6 +96,7 @@ export interface FileRouteTypes {
     | '/'
     | '/godkannanden'
     | '/login'
+    | '/medlemmar'
     | '/rapporter'
     | '/api/godkann'
     | '/api/auth/$'
@@ -94,6 +105,7 @@ export interface FileRouteTypes {
     | '/'
     | '/godkannanden'
     | '/login'
+    | '/medlemmar'
     | '/rapporter'
     | '/api/godkann'
     | '/api/auth/$'
@@ -103,6 +115,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   GodkannandenRoute: typeof GodkannandenRoute
   LoginRoute: typeof LoginRoute
+  MedlemmarRoute: typeof MedlemmarRoute
   RapporterRoute: typeof RapporterRoute
   ApiGodkannRoute: typeof ApiGodkannRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -129,6 +142,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/medlemmar': {
+      id: '/medlemmar'
+      path: '/medlemmar'
+      fullPath: '/medlemmar'
+      preLoaderRoute: typeof MedlemmarRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/rapporter': {
@@ -159,6 +179,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   GodkannandenRoute: GodkannandenRoute,
   LoginRoute: LoginRoute,
+  MedlemmarRoute: MedlemmarRoute,
   RapporterRoute: RapporterRoute,
   ApiGodkannRoute: ApiGodkannRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,

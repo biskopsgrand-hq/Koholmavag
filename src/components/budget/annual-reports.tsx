@@ -137,6 +137,9 @@ export function AnnualReports() {
               Budget
             </Link>
           </Button>
+          <Button variant="outline" asChild>
+            <Link to="/medlemmar">Medlemmar</Link>
+          </Button>
           <YearNav
             year={year}
             years={years}

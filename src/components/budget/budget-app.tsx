@@ -124,6 +124,9 @@ export function BudgetApp() {
             Kategorier
           </Button>
           <Button variant="outline" asChild>
+            <Link to="/medlemmar">Medlemmar</Link>
+          </Button>
+          <Button variant="outline" asChild>
             <Link to="/rapporter">Rapporter</Link>
           </Button>
           <MonthNav
