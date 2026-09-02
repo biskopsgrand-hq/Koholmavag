@@ -1,5 +1,6 @@
 import { useEffect, type ReactNode } from "react";
 import { hydrateSharedBudget, refreshSharedBudget, useBudgetStore } from "@/lib/budget-store";
+import { useLiveSync } from "@/lib/live-sync";
 
 export function BudgetSync({ children }: { children: ReactNode }) {
   const ready = useBudgetStore((s) => s.ready);
@@ -8,23 +9,7 @@ export function BudgetSync({ children }: { children: ReactNode }) {
     void hydrateSharedBudget();
   }, []);
 
-  useEffect(() => {
-    function onFocus() {
-      if (document.visibilityState === "hidden") return;
-      void refreshSharedBudget();
-    }
-    window.addEventListener("focus", onFocus);
-    document.addEventListener("visibilitychange", onFocus);
-    const timer = window.setInterval(() => {
-      if (document.visibilityState === "hidden") return;
-      void refreshSharedBudget();
-    }, 8000);
-    return () => {
-      window.removeEventListener("focus", onFocus);
-      document.removeEventListener("visibilitychange", onFocus);
-      window.clearInterval(timer);
-    };
-  }, []);
+  useLiveSync(() => refreshSharedBudget(), 4000);
 
   if (!ready) {
     return (

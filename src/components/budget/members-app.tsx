@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link } from "@tanstack/react-router";
 import { FileDown, Mail, Pencil, Plus, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
@@ -50,6 +50,7 @@ import {
 import { SELLER } from "@/lib/seller";
 import { loadInvoiceList, saveInvoiceList } from "@/lib/invoices-fns";
 import { currentFiscalYear, fiscalYearLabel, formatKr, parseAmountInput } from "@/lib/format";
+import { useLiveSync } from "@/lib/live-sync";
 import { cn } from "@/lib/utils";
 
 export function MembersApp() {
@@ -69,6 +70,7 @@ export function MembersApp() {
   const [mailStep, setMailStep] = useState<Invoice | null>(null);
   const registerRef = useRef(register);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const savingRef = useRef(false);
   registerRef.current = register;
 
   useEffect(() => {
@@ -111,6 +113,21 @@ export function MembersApp() {
       });
   }, []);
 
+  const pullShared = useCallback(async () => {
+    if (!ready || savingRef.current || saveTimer.current) return;
+    try {
+      const [members, rows] = await Promise.all([loadMembers({ data: {} }), loadInvoiceList({ data: {} })]);
+      if (savingRef.current || saveTimer.current) return;
+      setRegister(members);
+      writeMemberCache(members);
+      setInvoices(rows);
+    } catch {
+      /* keep current until next pull */
+    }
+  }, [ready]);
+
+  useLiveSync(pullShared, 4000);
+
   useEffect(() => {
     function flush() {
       if (saveTimer.current) {
@@ -141,6 +158,7 @@ export function MembersApp() {
     registerRef.current = payload;
     setRegister(payload);
     writeMemberCache(payload);
+    savingRef.current = true;
     try {
       const saved = await saveMembers({ data: payload });
       const kept: MemberRegister = {
@@ -154,14 +172,21 @@ export function MembersApp() {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Kunde inte spara uppgifterna.");
       throw err;
+    } finally {
+      savingRef.current = false;
     }
   }
 
   async function persistInvoices(next: Invoice[]) {
+    savingRef.current = true;
     setInvoices(next);
-    const saved = await saveInvoiceList({ data: next });
-    setInvoices(saved);
-    return saved;
+    try {
+      const saved = await saveInvoiceList({ data: next });
+      setInvoices(saved);
+      return saved;
+    } finally {
+      savingRef.current = false;
+    }
   }
 
   const visible = useMemo(() => {

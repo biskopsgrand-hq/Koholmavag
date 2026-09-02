@@ -269,6 +269,9 @@ function queueSave() {
       savePending = false;
       return;
     }
+    const stuck = window.setTimeout(() => {
+      if (gen === saveGen) savePending = false;
+    }, 8000);
     void import("@/lib/budget-fns")
       .then(({ saveBudget }) => saveBudget({ data: payloadFromState(snapshot) }))
       .then((saved) => {
@@ -277,6 +280,7 @@ function queueSave() {
       })
       .catch((err) => console.error("budget save failed", err))
       .finally(() => {
+        window.clearTimeout(stuck);
         if (gen === saveGen) savePending = false;
       });
   }, 400);
@@ -290,18 +294,6 @@ export async function hydrateSharedBudget(): Promise<void> {
     for (let attempt = 0; attempt < 6; attempt += 1) {
       try {
         const remote = await loadBudget({ data: {} });
-        if (remote.transactions.length > 0) {
-          applyLedger(remote);
-          return;
-        }
-        const recovered = readAllLocalLedgers();
-        if (recovered) {
-          applyLedger(recovered);
-          const { saveBudget } = await import("@/lib/budget-fns");
-          const saved = await saveBudget({ data: { ...recovered, deletedIds: [] } });
-          applyLedger(saved);
-          return;
-        }
         applyLedger(remote);
         return;
       } catch (err) {
@@ -340,7 +332,6 @@ export async function refreshSharedBudget(): Promise<void> {
     const { loadBudget } = await import("@/lib/budget-fns");
     const remote = await loadBudget({ data: {} });
     if (savePending) return;
-    if (remote.transactions.length === 0) return;
     applyLedger(remote);
   } catch {
     /* keep current snapshot until next refresh */
