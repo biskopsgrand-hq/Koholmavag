@@ -12,6 +12,7 @@ export const getMyAccess = createServerFn({ method: "POST" })
 
 export const requestAccess = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
+  .validator(() => ({}))
   .handler(async ({ context }): Promise<AccessState> => {
     const { requestAccessForUserId } = await import("@/lib/access.server");
     return requestAccessForUserId(context.userId);

@@ -1,10 +1,7 @@
 import { useEffect, type ReactNode } from "react";
-import { AuthPending } from "@/components/budget/auth-gate";
-import { hydrateSharedBudget, refreshSharedBudget, useBudgetStore } from "@/lib/budget-store";
+import { hydrateSharedBudget, refreshSharedBudget } from "@/lib/budget-store";
 
 export function BudgetSync({ children }: { children: ReactNode }) {
-  const ready = useBudgetStore((s) => s.ready);
-
   useEffect(() => {
     void hydrateSharedBudget();
   }, []);
@@ -27,6 +24,5 @@ export function BudgetSync({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  if (!ready) return <AuthPending />;
   return children;
 }

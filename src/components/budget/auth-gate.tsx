@@ -46,7 +46,7 @@ function AccessGate({ children }: { children: ReactNode }) {
         const state = await getMyAccess({ data: {} });
         if (cancelled) return;
         if (state.status === "none") {
-          const created = await requestAccess();
+          const created = await requestAccess({ data: {} });
           if (!cancelled) remember({ ...created, freshRequest: true });
           return;
         }

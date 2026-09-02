@@ -67,7 +67,7 @@ function LoginScreen() {
         }
         try {
           await authClient.getSession();
-          await requestAccess();
+          await requestAccess({ data: {} });
         } catch {
           /* AuthGate retries after redirect */
         }
@@ -235,13 +235,6 @@ async function completeEmailSignIn(email: string, password: string): Promise<voi
       : (result as { user?: { id: string } } | null)?.user;
   if (!sessionUser) {
     throw new Error("Inloggningen gick igenom men sessionen sattes inte. Ladda om sidan och försök igen.");
-  }
-  if (!isOwnerEmail(email)) {
-    try {
-      await requestAccess();
-    } catch {
-      /* AuthGate retries after redirect */
-    }
   }
   window.location.assign("/");
 }

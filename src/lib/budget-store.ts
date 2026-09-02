@@ -119,6 +119,7 @@ function waitForLocalPersist(): Promise<void> {
       unsub();
       resolve();
     });
+    window.setTimeout(resolve, 800);
   });
 }
 

@@ -94,7 +94,20 @@ async function memberByEmail(email: string): Promise<MemberRow | null> {
   const rows = await sql<MemberRow>`
     select email, user_id, name, status, token, requested_at::text, decided_at::text
     from access_members
-    where lower(email) = ${email}
+    where lower(trim(email)) = ${email}
+    order by case status when 'approved' then 0 when 'pending' then 1 else 2 end
+    limit 1
+  `;
+  return rows[0] ?? null;
+}
+
+async function memberForUser(userId: string, email: string): Promise<MemberRow | null> {
+  const sql = await getSql();
+  const rows = await sql<MemberRow>`
+    select email, user_id, name, status, token, requested_at::text, decided_at::text
+    from access_members
+    where lower(trim(email)) = ${email} or user_id = ${userId}
+    order by case status when 'approved' then 0 when 'pending' then 1 else 2 end
     limit 1
   `;
   return rows[0] ?? null;
@@ -147,22 +160,23 @@ export async function getMyAccessForUserId(userId: string): Promise<AccessState>
   const profile = await profileForUserId(userId);
   if (!profile) return closedState();
   if (isOwnerEmail(profile.email)) return upsertOwner(userId, profile.name);
-  const member = await memberByEmail(profile.email);
+  const member = await memberForUser(userId, profile.email);
   if (!member) return closedState({ email: profile.email });
-  if (member.status === "approved") {
+  const status = parseAccessStatus(member.status);
+  if (status === "approved") {
     const sql = await getSql();
     await sql`
       update access_members
       set user_id = ${userId}, name = ${member.name || profile.name}
-      where email = ${profile.email}
+      where lower(trim(email)) = ${normalizeEmail(member.email)} or user_id = ${userId}
     `;
     return closedState({ status: "approved", email: profile.email });
   }
-  if (member.status === "pending") {
+  if (status === "pending") {
     const token = await ensurePendingToken(member);
     return pendingState(profile.email, member.name || profile.name, token, false);
   }
-  return closedState({ status: member.status, email: profile.email });
+  return closedState({ status, email: profile.email });
 }
 
 export async function requestAccessForUserId(userId: string): Promise<AccessState> {
@@ -170,17 +184,17 @@ export async function requestAccessForUserId(userId: string): Promise<AccessStat
   if (!profile) return closedState();
   if (isOwnerEmail(profile.email)) return upsertOwner(userId, profile.name);
 
-  const existing = await memberByEmail(profile.email);
-  if (existing?.status === "approved") {
+  const existing = await memberForUser(userId, profile.email);
+  if (existing && parseAccessStatus(existing.status) === "approved") {
     const sql = await getSql();
     await sql`
       update access_members
       set user_id = ${userId}, name = ${profile.name}
-      where email = ${profile.email}
+      where lower(trim(email)) = ${normalizeEmail(existing.email)} or user_id = ${userId}
     `;
     return closedState({ status: "approved", email: profile.email });
   }
-  if (existing?.status === "pending") {
+  if (existing && parseAccessStatus(existing.status) === "pending") {
     const token = await ensurePendingToken(existing);
     return pendingState(existing.email, existing.name || profile.name, token, false);
   }
@@ -193,12 +207,31 @@ export async function requestAccessForUserId(userId: string): Promise<AccessStat
     on conflict (email) do update set
       user_id = excluded.user_id,
       name = excluded.name,
-      status = 'pending',
-      token = excluded.token,
-      requested_at = now(),
-      decided_at = null,
-      decided_by = null
+      status = case
+        when access_members.status = 'approved' then 'approved'
+        else 'pending'
+      end,
+      token = case
+        when access_members.status = 'approved' then access_members.token
+        else excluded.token
+      end,
+      requested_at = case
+        when access_members.status = 'approved' then access_members.requested_at
+        else now()
+      end,
+      decided_at = case
+        when access_members.status = 'approved' then access_members.decided_at
+        else null
+      end,
+      decided_by = case
+        when access_members.status = 'approved' then access_members.decided_by
+        else null
+      end
   `;
+  const saved = await memberForUser(userId, profile.email);
+  if (parseAccessStatus(saved?.status) === "approved") {
+    return closedState({ status: "approved", email: profile.email });
+  }
   const approveUrl = `${publicOrigin()}/api/godkann?token=${encodeURIComponent(token)}`;
   void import("@/lib/notify-owner.server")
     .then(({ notifyOwnerOfAccessRequest }) =>
