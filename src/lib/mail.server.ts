@@ -118,6 +118,8 @@ export async function sendInvoiceWithPdf(_userId: string | null, invoice: Invoic
   if (!settings.pass) {
     throw new Error("Ange Gmail-app-lösenord under Fakturauppgifter för att skicka med PDF.");
   }
+  const { publishInvoice } = await import("@/lib/invoices.server");
+  await publishInvoice(invoice);
   const pdf = await buildInvoicePdf(invoice);
   const bytes = Buffer.from(pdf.buffer, pdf.byteOffset, pdf.byteLength);
   if (bytes.length < 1000) throw new Error("PDF:en kunde inte skapas.");

@@ -49,25 +49,52 @@ function asInvoice(raw: unknown): Invoice | null {
   };
 }
 
-export async function findInvoiceById(id: string): Promise<Invoice | null> {
-  const needle = String(id ?? "").trim();
-  if (!needle) return null;
-  const sql = await getSql();
-  const rows = await sql.query<{ payload: unknown }>(
-    `select payload from budget_ledger where id = $1 limit 1`,
-    [INVOICES_ID],
-  );
-  let parsed: unknown = rows[0]?.payload;
-  if (typeof parsed === "string") {
+function parsePayload(raw: unknown): unknown {
+  if (typeof raw === "string") {
     try {
-      parsed = JSON.parse(parsed);
+      return JSON.parse(raw);
     } catch {
-      parsed = {};
+      return {};
     }
   }
-  const data = parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : {};
-  const list = Array.isArray(data.invoices) ? data.invoices : Array.isArray(parsed) ? parsed : [];
-  return list.map(asInvoice).find((row): row is Invoice => row !== null && row.id === needle) ?? null;
+  return raw;
+}
+
+export async function publishInvoice(invoice: Invoice): Promise<Invoice | null> {
+  const next = asInvoice(invoice);
+  if (!next) return null;
+  const sql = await getSql();
+  await sql.query(
+    `insert into budget_ledger (id, payload, updated_at)
+     values ($1, $2::jsonb, now())
+     on conflict (id) do update set payload = excluded.payload, updated_at = now()`,
+    [`invoice:${next.id}`, JSON.stringify(next)],
+  );
+  return next;
+}
+
+export async function findInvoiceById(id: string): Promise<Invoice | null> {
+  const needle = decodeURIComponent(String(id ?? "").trim());
+  if (!needle) return null;
+  const sql = await getSql();
+  const direct = await sql.query<{ payload: unknown }>(
+    `select payload from budget_ledger where id = $1 limit 1`,
+    [`invoice:${needle}`],
+  );
+  const published = asInvoice(parsePayload(direct[0]?.payload));
+  if (published) return published;
+  for (const rowId of [INVOICES_ID, "invoices-backup"]) {
+    const rows = await sql.query<{ payload: unknown }>(
+      `select payload from budget_ledger where id = $1 limit 1`,
+      [rowId],
+    );
+    const parsed = parsePayload(rows[0]?.payload);
+    const data = parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : {};
+    const list = Array.isArray(data.invoices) ? data.invoices : Array.isArray(parsed) ? parsed : [];
+    const hit = list.map(asInvoice).find((row): row is Invoice => row !== null && row.id === needle);
+    if (hit) return hit;
+  }
+  return null;
 }
 
 export async function loadInvoices(userId: string): Promise<Invoice[]> {
@@ -110,5 +137,8 @@ export async function saveInvoices(userId: string, invoices: Invoice[]): Promise
      on conflict (id) do update set payload = excluded.payload, updated_at = now()`,
     [INVOICES_ID, JSON.stringify({ invoices: next })],
   );
+  for (const invoice of next) {
+    await publishInvoice(invoice);
+  }
   return next;
 }
