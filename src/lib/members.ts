@@ -7,6 +7,7 @@ export type AssociationMember = {
   email: string;
   property: string;
   address: string;
+  phone: string;
   customerNo: string;
   share: number;
   fee: number;
@@ -40,6 +41,7 @@ const CITY_KEYS = ["ort", "stad", "postort", "city"];
 const SHARE_KEYS = ["andelstal", "andel", "share"];
 const FEE_KEYS = ["årsavgift", "avgift", "belopp", "fee"];
 const NOTE_KEYS = ["notering", "note", "kommentar", "anteckning"];
+const PHONE_KEYS = ["telefon", "tel", "mobil", "phone", "cellphone", "mobilnr"];
 const CUSTOMER_KEYS = ["kundnr", "kundnummer", "kund nr", "customer"];
 const HEADER_WORDS = [
   "fastighetsbeteckning",
@@ -49,6 +51,7 @@ const HEADER_WORDS = [
   "adress",
   "e-post",
   "email",
+  "telefon",
   "kundnr",
   "avgift",
 ];
@@ -73,6 +76,22 @@ function columnValues(row: Record<string, string>): string[] {
   return Object.values(row).map((value) => String(value ?? "").trim());
 }
 
+export function tidyText(value: string): string {
+  return value
+    .replace(/\u00a0/g, " ")
+    .replace(/[\t\f\v]+/g, " ")
+    .replace(/\|/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(/(?:\s*,\s*)+/g, ", ")
+    .replace(/^[\s,;]+|[\s,;]+$/g, "")
+    .trim();
+}
+
+function looksLikePhone(value: string): boolean {
+  const digits = value.replace(/\D/g, "");
+  return digits.length >= 8 && digits.length <= 15 && /^[+0-9][\d\s()/.-]*$/.test(value.trim());
+}
+
 export function looksLikeProperty(value: string): boolean {
   return /\d+\s*:\s*\d+/.test(value) || /^koholma\b/i.test(value.trim());
 }
@@ -93,10 +112,11 @@ function looksLikeEmail(value: string): boolean {
 }
 
 export function repairMember(member: AssociationMember): AssociationMember | null {
-  let name = member.name.trim();
-  let email = member.email.trim();
-  let property = member.property.trim();
-  let address = member.address.trim();
+  let name = tidyText(member.name);
+  let email = tidyText(member.email);
+  let property = tidyText(member.property);
+  let address = tidyText(member.address);
+  let phone = tidyText(member.phone ?? "");
   const share = member.share;
   const extra: string[] = [];
 
@@ -110,6 +130,10 @@ export function repairMember(member: AssociationMember): AssociationMember | nul
   if (email && !looksLikeEmail(email)) {
     extra.push(email);
     email = "";
+  }
+  if (looksLikePhone(name) && !looksLikePerson(name)) {
+    extra.push(name);
+    name = "";
   }
   if (looksLikeProperty(name) && looksLikePerson(property)) {
     const swap = name;
@@ -139,16 +163,45 @@ export function repairMember(member: AssociationMember): AssociationMember | nul
       name = person;
     }
   }
-  if (!address) address = extra.filter((item) => !looksLikeProperty(item) && !/^\d+([.,]\d+)?$/.test(item)).join(", ");
+  if (!phone) {
+    const found = extra.find(looksLikePhone);
+    if (found) {
+      extra.splice(extra.indexOf(found), 1);
+      phone = found;
+    }
+  }
+  if (!looksLikeEmail(email)) {
+    const found = extra.find(looksLikeEmail);
+    if (found) {
+      extra.splice(extra.indexOf(found), 1);
+      email = found;
+    }
+  }
+  if (!address) {
+    address = extra
+      .filter((item) => looksLikePerson(item) === false && !looksLikeProperty(item) && !looksLikePhone(item) && !looksLikeEmail(item) && !/^\d+([.,]\d+)?$/.test(item) && !looksLikeHeaderRow(item))
+      .map(tidyText)
+      .filter(Boolean)
+      .join(", ");
+  }
+
+  name = tidyText(name);
+  address = tidyText(address);
+  property = tidyText(property);
+  email = tidyText(email).toLowerCase();
+  phone = tidyText(phone);
 
   if (!name && !email && !property) return null;
   return {
     ...member,
     name: name || property || email || "Medlem",
-    email: looksLikeEmail(email) ? email.toLowerCase() : "",
+    email: looksLikeEmail(email) ? email : "",
     property,
     address,
+    phone,
     share: share > 0 ? share : 1,
+    note: tidyText(member.note),
+    customerNo: tidyText(member.customerNo),
   };
 }
 
@@ -203,7 +256,7 @@ export function parseCsvText(text: string): Record<string, string>[] {
     const cells = splitCsvLine(line, delimiter);
     const row: Record<string, string> = {};
     headers.forEach((header, index) => {
-      row[header] = cells[index] ?? "";
+      row[header] = tidyText(cells[index] ?? "");
     });
     return row;
   });
@@ -229,15 +282,17 @@ export function rowsToMembers(rows: Record<string, string>[]): AssociationMember
       pick(row, NAME_KEYS) ||
       values.find((value) => looksLikePerson(value) && value !== propertyPick && value !== emailPick) ||
       "";
+    const phonePick = pick(row, PHONE_KEYS) || values.find(looksLikePhone) || "";
     const postal = [pick(row, POSTAL_KEYS), pick(row, CITY_KEYS)].filter(Boolean).join(" ");
-    const address = [pick(row, ADDRESS_KEYS), postal].filter(Boolean).join(", ");
+    const address = tidyText([pick(row, ADDRESS_KEYS), postal].filter(Boolean).join(", "));
     const repaired = repairMember({
       id: crypto.randomUUID(),
-      name: namePick,
-      email: emailPick,
-      property: propertyPick,
+      name: tidyText(namePick),
+      email: tidyText(emailPick),
+      property: tidyText(propertyPick),
       address,
-      customerNo: pick(row, CUSTOMER_KEYS),
+      phone: tidyText(phonePick),
+      customerNo: tidyText(pick(row, CUSTOMER_KEYS)),
       share: parseShare(pick(row, SHARE_KEYS) || values.find((value) => /^\d+([.,]\d+)?$/.test(value)) || ""),
       fee: parseFee(pick(row, FEE_KEYS)),
       note: pick(row, NOTE_KEYS),

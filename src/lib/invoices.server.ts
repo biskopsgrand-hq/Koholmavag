@@ -26,6 +26,7 @@ function asInvoice(raw: unknown): Invoice | null {
     address: String(row.address ?? "").trim(),
     postal: String(row.postal ?? "").trim(),
     email: String(row.email ?? "").trim().toLowerCase(),
+    phone: String(row.phone ?? "").trim(),
     property: String(row.property ?? "").trim(),
     description: String(row.description ?? "").trim(),
     amount,

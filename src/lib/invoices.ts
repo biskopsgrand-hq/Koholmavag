@@ -15,6 +15,7 @@ export type Invoice = {
   address: string;
   postal: string;
   email: string;
+  phone: string;
   property: string;
   description: string;
   amount: number;
@@ -109,6 +110,7 @@ export function invoiceFromMember(
     address: parsed.street || member.address,
     postal: parsed.postal,
     email: member.email,
+    phone: member.phone,
     property: member.property,
     description: SELLER.itemName,
     amount: memberFee(member, register.defaultFee),

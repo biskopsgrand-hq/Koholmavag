@@ -43,6 +43,7 @@ function asMember(raw: unknown): AssociationMember | null {
     email,
     property,
     address: String(row.address ?? "").trim(),
+    phone: String(row.phone ?? row.telefon ?? "").trim(),
     customerNo: String(row.customerNo ?? "").trim(),
     share: Number.isFinite(share) && share > 0 ? share : 1,
     fee: Number.isFinite(fee) && fee > 0 ? Math.round(fee) : 0,

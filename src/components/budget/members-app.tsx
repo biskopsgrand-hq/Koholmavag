@@ -69,7 +69,13 @@ export function MembersApp() {
         const repaired = members.members.map(repairMember).filter((row): row is NonNullable<typeof row> => row !== null);
         if (
           repaired.length !== members.members.length ||
-          repaired.some((row, index) => row.name !== members.members[index]?.name || row.property !== members.members[index]?.property)
+          repaired.some(
+            (row, index) =>
+              row.name !== members.members[index]?.name ||
+              row.property !== members.members[index]?.property ||
+              row.address !== members.members[index]?.address ||
+              row.phone !== members.members[index]?.phone,
+          )
         ) {
           register = await saveMembers({ data: { ...members, members: repaired } });
         }
@@ -113,7 +119,7 @@ export function MembersApp() {
     const needle = query.trim().toLowerCase();
     if (!needle) return register.members;
     return register.members.filter((member) =>
-      [member.name, member.email, member.property, member.address].join(" ").toLowerCase().includes(needle),
+      [member.name, member.email, member.property, member.address, member.phone].join(" ").toLowerCase().includes(needle),
     );
   }, [query, register.members]);
 
@@ -186,6 +192,7 @@ export function MembersApp() {
       address: "",
       postal: "",
       email: "",
+      phone: "",
       property: "",
       description: "Vägavgift Koholma",
       amount: register.defaultFee,
@@ -522,8 +529,7 @@ export function MembersApp() {
                   <span className="min-w-0">
                     <span className="block font-medium text-ink">{member.name}</span>
                     <span className="block truncate text-sm text-muted">
-                      {member.property || "Ingen fastighet"}
-                      {member.email ? ` · ${member.email}` : " · saknar e-post"}
+                      {[member.property, member.address, member.email, member.phone].filter(Boolean).join(" · ") || "Uppgifter saknas"}
                     </span>
                   </span>
                 </label>
@@ -596,6 +602,7 @@ function emptyMember(): AssociationMember {
     email: "",
     property: "",
     address: "",
+    phone: "",
     customerNo: "",
     share: 1,
     fee: 0,
@@ -650,6 +657,7 @@ function MemberDialog({
       email: draft.email.trim().toLowerCase(),
       property: draft.property.trim(),
       address: draft.address.trim(),
+      phone: draft.phone.trim(),
       note: draft.note.trim(),
     });
   }
@@ -664,9 +672,10 @@ function MemberDialog({
         <form onSubmit={submit} className="flex min-h-0 flex-col gap-3">
           <div className="grid max-h-[min(60dvh,28rem)] gap-3 overflow-y-auto overscroll-contain pr-1">
             <Field label="Namn" value={draft.name} onChange={(name) => setDraft({ ...draft, name })} />
-            <Field label="E-post" value={draft.email} onChange={(email) => setDraft({ ...draft, email })} />
-            <Field label="Fastighet" value={draft.property} onChange={(property) => setDraft({ ...draft, property })} />
             <Field label="Adress" value={draft.address} onChange={(address) => setDraft({ ...draft, address })} />
+            <Field label="Fastighet" value={draft.property} onChange={(property) => setDraft({ ...draft, property })} />
+            <Field label="E-post" value={draft.email} onChange={(email) => setDraft({ ...draft, email })} />
+            <Field label="Telefon" value={draft.phone} onChange={(phone) => setDraft({ ...draft, phone })} />
             <Field
               label="Egen avgift (kr, tom = standard)"
               value={draft.fee ? String(draft.fee) : ""}
@@ -716,6 +725,7 @@ function InvoiceFormDialog({
       address: parsed.street || member.address,
       postal: parsed.postal || draft.postal,
       email: member.email,
+      phone: member.phone,
       property: member.property,
       customerNo: member.customerNo || draft.customerNo,
       ocr: makeOcr(draft.number, member.customerNo || draft.customerNo),
@@ -730,6 +740,7 @@ function InvoiceFormDialog({
       address: draft.address.trim(),
       postal: draft.postal.trim(),
       email: draft.email.trim().toLowerCase(),
+      phone: draft.phone.trim(),
       property: draft.property.trim(),
       description: draft.description.trim(),
       customerNo: draft.customerNo.trim(),
@@ -769,10 +780,11 @@ function InvoiceFormDialog({
               </div>
             ) : null}
             <Field label="Person" value={draft.name} onChange={(name) => setDraft({ ...draft, name })} />
-            <Field label="E-post" value={draft.email} onChange={(email) => setDraft({ ...draft, email })} />
             <Field label="Adress" value={draft.address} onChange={(address) => setDraft({ ...draft, address })} />
             <Field label="Postnr och ort" value={draft.postal} onChange={(postal) => setDraft({ ...draft, postal })} />
             <Field label="Fastighet" value={draft.property} onChange={(property) => setDraft({ ...draft, property })} />
+            <Field label="E-post" value={draft.email} onChange={(email) => setDraft({ ...draft, email })} />
+            <Field label="Telefon" value={draft.phone} onChange={(phone) => setDraft({ ...draft, phone })} />
             <Field label="Kundnr" value={draft.customerNo} onChange={(customerNo) => setDraft({ ...draft, customerNo, ocr: draft.ocr || customerNo })} />
             <div className="sm:col-span-2">
               <Field
