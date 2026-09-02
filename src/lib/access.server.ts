@@ -8,7 +8,7 @@ import {
   isOwnerEmail,
   normalizeEmail,
   parseAccessStatus,
-  strongerAccessStatus,
+  combineAccessStatus,
   type AccessMember,
   type AccessState,
   type AccessStatus,
@@ -163,7 +163,14 @@ export async function getMyAccessForUserId(userId: string): Promise<AccessState>
   if (isOwnerEmail(profile.email)) return upsertOwner(userId, profile.name);
   const member = await memberForUser(userId, profile.email);
   const listed = (await readDirectory()).find((row) => row.email === profile.email);
-  if ((listed && listed.status === "approved") || parseAccessStatus(member?.status) === "approved") {
+  const status = combineAccessStatus(
+    parseAccessStatus(member?.status),
+    listed?.status ?? "none",
+  );
+  if (status === "denied") {
+    return closedState({ status: "denied", email: profile.email });
+  }
+  if (status === "approved") {
     try {
       const sql = await getSql();
       await sql`
@@ -180,7 +187,6 @@ export async function getMyAccessForUserId(userId: string): Promise<AccessState>
     return closedState({ status: "approved", email: profile.email });
   }
   if (!member) return closedState({ email: profile.email });
-  const status = parseAccessStatus(member.status);
   if (status === "pending") {
     const token = await ensurePendingToken(member);
     return pendingState(profile.email, member.name || profile.name, token, false);
@@ -195,6 +201,12 @@ export async function requestAccessForUserId(userId: string): Promise<AccessStat
 
   const existing = await memberForUser(userId, profile.email);
   const listed = (await readDirectory()).find((row) => row.email === profile.email);
+  if (
+    parseAccessStatus(existing?.status) === "denied" ||
+    listed?.status === "denied"
+  ) {
+    return closedState({ status: "denied", email: profile.email });
+  }
   if (
     parseAccessStatus(existing?.status) === "approved" ||
     listed?.status === "approved"
@@ -223,29 +235,32 @@ export async function requestAccessForUserId(userId: string): Promise<AccessStat
       user_id = excluded.user_id,
       name = excluded.name,
       status = case
-        when access_members.status = 'approved' then 'approved'
+        when access_members.status in ('approved', 'denied') then access_members.status
         else 'pending'
       end,
       token = case
-        when access_members.status = 'approved' then access_members.token
+        when access_members.status in ('approved', 'denied') then access_members.token
         else excluded.token
       end,
       requested_at = case
-        when access_members.status = 'approved' then access_members.requested_at
+        when access_members.status in ('approved', 'denied') then access_members.requested_at
         else now()
       end,
       decided_at = case
-        when access_members.status = 'approved' then access_members.decided_at
+        when access_members.status in ('approved', 'denied') then access_members.decided_at
         else null
       end,
       decided_by = case
-        when access_members.status = 'approved' then access_members.decided_by
+        when access_members.status in ('approved', 'denied') then access_members.decided_by
         else null
       end
   `;
   const saved = await memberForUser(userId, profile.email);
   if (parseAccessStatus(saved?.status) === "approved") {
     return closedState({ status: "approved", email: profile.email });
+  }
+  if (parseAccessStatus(saved?.status) === "denied") {
+    return closedState({ status: "denied", email: profile.email });
   }
   const approveUrl = `${publicOrigin()}/api/godkann?token=${encodeURIComponent(token)}`;
   void import("@/lib/notify-owner.server")
@@ -307,7 +322,7 @@ function mergeMembers(...groups: AccessMember[][]): AccessMember[] {
       byEmail.set(member.email, {
         email: member.email,
         name: member.name || previous.name,
-        status: strongerAccessStatus(member.status, previous.status),
+        status: combineAccessStatus(previous?.status, member.status),
         requestedAt: member.requestedAt || previous.requestedAt,
         decidedAt: member.decidedAt || previous.decidedAt,
       });
@@ -386,7 +401,7 @@ async function readMemberRows(): Promise<AccessMember[]> {
     const member = toMember(row);
     return member ? [member] : [];
   });
-  return mergeMembers(fromUsers, fromMembers, await readDirectory());
+  return mergeMembers(fromUsers, await readDirectory(), fromMembers);
 }
 
 async function upsertMemberStatus(
@@ -562,6 +577,20 @@ export async function setCredentialPassword(
 }
 
 export async function setOwnerCredentialPassword(password: string, name: string): Promise<void> {
+  const sql = await getSql();
+  const existing = await sql<{ id: string }>`
+    select id from "user" where lower(email) = ${OWNER_EMAIL} limit 1
+  `;
+  if (existing[0]) {
+    const credential = await sql<{ id: string }>`
+      select id from "account"
+      where "userId" = ${existing[0].id} and "providerId" = 'credential'
+      limit 1
+    `;
+    if (credential[0]) {
+      throw new Error("Fel e-post eller lösenord.");
+    }
+  }
   await setCredentialPassword(OWNER_EMAIL, password, name);
 }
 

@@ -60,7 +60,6 @@ export function BudgetApp() {
   const categories = useBudgetStore((s) => s.categories);
   const selectedMonth = useBudgetStore((s) => s.selectedMonth);
   const setSelectedMonth = useBudgetStore((s) => s.setSelectedMonth);
-  const monthlyBudget = useBudgetStore((s) => s.monthlyBudget);
   const yearBooks = useBudgetStore((s) => s.yearBooks);
   const deleteTransaction = useBudgetStore((s) => s.deleteTransaction);
 
@@ -83,7 +82,7 @@ export function BudgetApp() {
   }, [monthTx, filter]);
 
   const fiscalYear = fiscalYearFromIso(`${selectedMonth}-01`);
-  const annualBudget = yearBooks[String(fiscalYear)]?.annualBudget || monthlyBudget || 0;
+  const annualBudget = yearBooks[String(fiscalYear)]?.annualBudget || 0;
   const yearMonths = useMemo(() => {
     let cumulative = 0;
     return fiscalMonthKeys(fiscalYear).map((key): YearBudgetMonth => {

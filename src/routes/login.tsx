@@ -42,9 +42,18 @@ function LoginScreen() {
     const trimmedEmail = email.trim();
     try {
       if (isOwnerEmail(trimmedEmail)) {
-        await setOwnerPassword({ data: { password, name: name.trim() || "Ägare" } });
-        await completeEmailSignIn(OWNER_EMAIL, password);
-        return;
+        try {
+          await completeEmailSignIn(OWNER_EMAIL, password);
+          return;
+        } catch (signInError) {
+          try {
+            await setOwnerPassword({ data: { password, name: name.trim() || "Ägare" } });
+            await completeEmailSignIn(OWNER_EMAIL, password);
+            return;
+          } catch {
+            throw signInError;
+          }
+        }
       }
       if (mode === "signup") {
         const { error: signUpError } = await authClient.signUp.email({

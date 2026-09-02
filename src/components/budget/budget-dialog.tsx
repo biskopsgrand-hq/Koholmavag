@@ -23,9 +23,8 @@ type Props = {
 export function BudgetDialog({ open, onOpenChange, month }: Props) {
   const year = fiscalYearFromIso(`${month}-01`);
   const yearBooks = useBudgetStore((s) => s.yearBooks);
-  const monthlyBudget = useBudgetStore((s) => s.monthlyBudget);
   const setAnnualBudget = useBudgetStore((s) => s.setAnnualBudget);
-  const current = yearBooks[String(year)]?.annualBudget || monthlyBudget || 0;
+  const current = yearBooks[String(year)]?.annualBudget || 0;
   const [amount, setAmount] = useState(current ? String(current) : "100000");
   const [error, setError] = useState<string | null>(null);
 

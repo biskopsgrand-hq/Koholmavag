@@ -69,8 +69,26 @@ function seedMonth(): string {
   return monthKeyFromDate(new Date());
 }
 
+function normalizeBook(book?: Partial<YearBook> | null): YearBook {
+  return {
+    openingCash: Number(book?.openingCash) || 0,
+    annualBudget: Number(book?.annualBudget) || 0,
+    assets: Array.isArray(book?.assets) ? book.assets : [],
+    liabilities: Array.isArray(book?.liabilities) ? book.liabilities : [],
+  };
+}
+
 function bookFor(books: Record<string, YearBook>, year: number): YearBook {
-  return books[String(year)] ?? EMPTY_YEAR_BOOK;
+  return normalizeBook(books[String(year)]);
+}
+
+function normalizeYearBooks(books: unknown): Record<string, YearBook> {
+  if (!books || typeof books !== "object" || Array.isArray(books)) return {};
+  const next: Record<string, YearBook> = {};
+  for (const [year, book] of Object.entries(books as Record<string, YearBook>)) {
+    next[year] = normalizeBook(book);
+  }
+  return next;
 }
 
 function payloadFromState(state: Pick<BudgetState, "monthlyBudget" | "categories" | "transactions" | "yearBooks">) {
@@ -100,17 +118,25 @@ function stripDemoBooks(books: Record<string, YearBook>): Record<string, YearBoo
 }
 
 let saveTimer = 0;
+let savePending = false;
 let hydratePromise: Promise<void> | null = null;
 
 function queueSave() {
   if (typeof window === "undefined") return;
+  savePending = true;
   window.clearTimeout(saveTimer);
   saveTimer = window.setTimeout(() => {
     const state = useBudgetStore.getState();
-    if (!state.ready) return;
+    if (!state.ready) {
+      savePending = false;
+      return;
+    }
     void import("@/lib/budget-fns")
       .then(({ saveBudget }) => saveBudget({ data: payloadFromState(state) }))
-      .catch((err) => console.error("budget save failed", err));
+      .catch((err) => console.error("budget save failed", err))
+      .finally(() => {
+        savePending = false;
+      });
   }, 400);
 }
 
@@ -161,7 +187,7 @@ export async function hydrateSharedBudget(): Promise<void> {
         monthlyBudget: remote.monthlyBudget,
         categories: remote.categories,
         transactions: remote.transactions,
-        yearBooks: remote.yearBooks,
+        yearBooks: normalizeYearBooks(remote.yearBooks),
         ready: true,
       });
     })().catch((err) => {
@@ -173,15 +199,16 @@ export async function hydrateSharedBudget(): Promise<void> {
 }
 
 export async function refreshSharedBudget(): Promise<void> {
+  if (savePending) return;
   try {
     const { loadBudget } = await import("@/lib/budget-fns");
     const remote = await loadBudget({ data: {} });
-    if (!remote.existed) return;
+    if (!remote.existed || savePending) return;
     useBudgetStore.setState({
       monthlyBudget: remote.monthlyBudget,
       categories: remote.categories,
       transactions: remote.transactions,
-      yearBooks: remote.yearBooks,
+      yearBooks: normalizeYearBooks(remote.yearBooks),
       ready: true,
     });
   } catch {
@@ -307,7 +334,6 @@ export const useBudgetStore = create<BudgetState>()(
           const key = String(year);
           const current = bookFor(state.yearBooks, year);
           return {
-            monthlyBudget: amount,
             yearBooks: {
               ...state.yearBooks,
               [key]: { ...current, annualBudget: amount },
@@ -372,7 +398,7 @@ export const useBudgetStore = create<BudgetState>()(
               : current.categories,
           yearBooks:
             p.yearBooks && typeof p.yearBooks === "object" && !Array.isArray(p.yearBooks)
-              ? p.yearBooks
+              ? normalizeYearBooks(p.yearBooks)
               : current.yearBooks,
         };
       },

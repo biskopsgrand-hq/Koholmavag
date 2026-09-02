@@ -38,13 +38,19 @@ export function parseAccessStatus(value: unknown): AccessStatus {
 
 function statusRank(status: AccessStatus): number {
   if (status === "approved") return 3;
-  if (status === "pending") return 2;
-  if (status === "denied") return 1;
+  if (status === "denied") return 2;
+  if (status === "pending") return 1;
   return 0;
 }
 
 export function strongerAccessStatus(a: AccessStatus, b: AccessStatus): AccessStatus {
   return statusRank(a) >= statusRank(b) ? a : b;
+}
+
+export function combineAccessStatus(previous: AccessStatus | undefined, next: AccessStatus): AccessStatus {
+  if (next === "approved" || next === "denied") return next;
+  if (previous === "approved" || previous === "denied") return previous;
+  return next;
 }
 
 export function asMemberList(value: unknown): AccessMember[] {
@@ -86,7 +92,7 @@ export function mergeMemberLists(
     byEmail.set(email, {
       email,
       name: member.name || previousMember?.name || null,
-      status: strongerAccessStatus(member.status, previousMember?.status ?? "none"),
+      status: combineAccessStatus(previousMember?.status, member.status),
       requestedAt: member.requestedAt || previousMember?.requestedAt || "",
       decidedAt: member.decidedAt || previousMember?.decidedAt || null,
     });
