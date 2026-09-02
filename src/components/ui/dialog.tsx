@@ -32,9 +32,9 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed z-50 grid w-full gap-4 bg-surface p-6 text-ink shadow-[var(--shadow-raised)] duration-200",
-        "max-sm:inset-x-0 max-sm:bottom-0 max-sm:top-auto max-sm:max-h-[92dvh] max-sm:overflow-y-auto max-sm:rounded-t-2xl",
-        "sm:top-1/2 sm:left-1/2 sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl",
+        "fixed z-50 flex w-full flex-col gap-4 overflow-y-auto bg-surface p-6 text-ink shadow-[var(--shadow-raised)] duration-200",
+        "max-sm:inset-x-0 max-sm:bottom-0 max-sm:top-auto max-sm:max-h-[100dvh] max-sm:rounded-t-2xl max-sm:pb-[max(1.5rem,env(safe-area-inset-bottom))]",
+        "sm:top-1/2 sm:left-1/2 sm:max-h-[92dvh] sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl",
         "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
         className,
       )}
@@ -51,13 +51,16 @@ const DialogContent = React.forwardRef<
 DialogContent.displayName = DialogPrimitive.Content.displayName;
 
 function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
-  return <div className={cn("flex flex-col gap-1.5 pr-8", className)} {...props} />;
+  return <div className={cn("flex shrink-0 flex-col gap-1.5 pr-8", className)} {...props} />;
 }
 
 function DialogFooter({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
-      className={cn("flex flex-col-reverse gap-2 sm:flex-row sm:justify-end", className)}
+      className={cn(
+        "flex shrink-0 flex-col-reverse gap-2 border-t border-line pt-4 sm:flex-row sm:flex-wrap sm:justify-end",
+        className,
+      )}
       {...props}
     />
   );

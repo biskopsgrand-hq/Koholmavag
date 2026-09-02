@@ -644,16 +644,18 @@ function MemberDialog({
           <DialogTitle>{member?.name ? "Redigera medlem" : "Ny medlem"}</DialogTitle>
           <DialogDescription>Uppgifterna används på fakturan.</DialogDescription>
         </DialogHeader>
-        <form onSubmit={submit} className="grid gap-3">
-          <Field label="Namn" value={draft.name} onChange={(name) => setDraft({ ...draft, name })} />
-          <Field label="E-post" value={draft.email} onChange={(email) => setDraft({ ...draft, email })} />
-          <Field label="Fastighet" value={draft.property} onChange={(property) => setDraft({ ...draft, property })} />
-          <Field label="Adress" value={draft.address} onChange={(address) => setDraft({ ...draft, address })} />
-          <Field
-            label="Egen avgift (kr, tom = standard)"
-            value={draft.fee ? String(draft.fee) : ""}
-            onChange={(fee) => setDraft({ ...draft, fee: parseAmountInput(fee) ?? 0 })}
-          />
+        <form onSubmit={submit} className="flex min-h-0 flex-col gap-3">
+          <div className="grid max-h-[min(60dvh,28rem)] gap-3 overflow-y-auto overscroll-contain pr-1">
+            <Field label="Namn" value={draft.name} onChange={(name) => setDraft({ ...draft, name })} />
+            <Field label="E-post" value={draft.email} onChange={(email) => setDraft({ ...draft, email })} />
+            <Field label="Fastighet" value={draft.property} onChange={(property) => setDraft({ ...draft, property })} />
+            <Field label="Adress" value={draft.address} onChange={(address) => setDraft({ ...draft, address })} />
+            <Field
+              label="Egen avgift (kr, tom = standard)"
+              value={draft.fee ? String(draft.fee) : ""}
+              onChange={(fee) => setDraft({ ...draft, fee: parseAmountInput(fee) ?? 0 })}
+            />
+          </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Avbryt
@@ -730,71 +732,75 @@ function InvoiceFormDialog({
           <DialogTitle>{invoice.number}</DialogTitle>
           <DialogDescription>Person, adress, belopp och moms sparas på fakturan.</DialogDescription>
         </DialogHeader>
-        <form onSubmit={submit} className="grid gap-3">
-          {members.length > 0 ? (
-            <div className="grid gap-2">
-              <Label>Från medlem</Label>
-              <select
-                className="h-11 rounded-md border border-line bg-bg px-3 text-sm text-ink"
-                value={draft.memberId ?? ""}
-                onChange={(event) => pickMember(event.target.value)}
-              >
-                <option value="">Välj eller fyll i för hand</option>
-                {members.map((member) => (
-                  <option key={member.id} value={member.id}>
-                    {member.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : null}
-          <Field label="Person" value={draft.name} onChange={(name) => setDraft({ ...draft, name })} />
-          <Field label="Adress" value={draft.address} onChange={(address) => setDraft({ ...draft, address })} />
-          <Field label="Postnr och ort" value={draft.postal} onChange={(postal) => setDraft({ ...draft, postal })} />
-          <Field label="E-post" value={draft.email} onChange={(email) => setDraft({ ...draft, email })} />
-          <Field label="Fastighet" value={draft.property} onChange={(property) => setDraft({ ...draft, property })} />
-          <Field label="Kundnr" value={draft.customerNo} onChange={(customerNo) => setDraft({ ...draft, customerNo, ocr: draft.ocr || customerNo })} />
-          <Field
-            label="Beskrivning"
-            value={draft.description}
-            onChange={(description) => setDraft({ ...draft, description })}
-          />
-          <Field
-            label="Belopp exkl. moms (kr)"
-            value={draft.amount ? String(draft.amount) : ""}
-            onChange={(amount) => setDraft({ ...draft, amount: parseAmountInput(amount) ?? 0 })}
-          />
-          <div className="grid gap-2">
-            <Label>Momssats</Label>
-            <div className="flex flex-wrap gap-2">
-              {VAT_RATES.map((rate) => (
-                <Button
-                  key={rate}
-                  type="button"
-                  variant={draft.vatRate === rate ? "default" : "outline"}
-                  onClick={() => setDraft({ ...draft, vatRate: rate as VatRate })}
+        <form onSubmit={submit} className="flex min-h-0 flex-col gap-3">
+          <div className="grid max-h-[min(60dvh,28rem)] gap-3 overflow-y-auto overscroll-contain pr-1 sm:grid-cols-2">
+            {members.length > 0 ? (
+              <div className="grid gap-2 sm:col-span-2">
+                <Label>Från medlem</Label>
+                <select
+                  className="h-11 rounded-md border border-line bg-bg px-3 text-sm text-ink"
+                  value={draft.memberId ?? ""}
+                  onChange={(event) => pickMember(event.target.value)}
                 >
-                  {rate} %
-                </Button>
-              ))}
+                  <option value="">Välj eller fyll i för hand</option>
+                  {members.map((member) => (
+                    <option key={member.id} value={member.id}>
+                      {member.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+            <Field label="Person" value={draft.name} onChange={(name) => setDraft({ ...draft, name })} />
+            <Field label="E-post" value={draft.email} onChange={(email) => setDraft({ ...draft, email })} />
+            <Field label="Adress" value={draft.address} onChange={(address) => setDraft({ ...draft, address })} />
+            <Field label="Postnr och ort" value={draft.postal} onChange={(postal) => setDraft({ ...draft, postal })} />
+            <Field label="Fastighet" value={draft.property} onChange={(property) => setDraft({ ...draft, property })} />
+            <Field label="Kundnr" value={draft.customerNo} onChange={(customerNo) => setDraft({ ...draft, customerNo, ocr: draft.ocr || customerNo })} />
+            <div className="sm:col-span-2">
+              <Field
+                label="Beskrivning"
+                value={draft.description}
+                onChange={(description) => setDraft({ ...draft, description })}
+              />
             </div>
+            <Field
+              label="Belopp exkl. moms (kr)"
+              value={draft.amount ? String(draft.amount) : ""}
+              onChange={(amount) => setDraft({ ...draft, amount: parseAmountInput(amount) ?? 0 })}
+            />
+            <Field
+              label="Förfallodag"
+              value={draft.dueDate}
+              onChange={(dueDate) => setDraft({ ...draft, dueDate })}
+            />
+            <div className="grid gap-2 sm:col-span-2">
+              <Label>Momssats</Label>
+              <div className="flex flex-wrap gap-2">
+                {VAT_RATES.map((rate) => (
+                  <Button
+                    key={rate}
+                    type="button"
+                    variant={draft.vatRate === rate ? "default" : "outline"}
+                    onClick={() => setDraft({ ...draft, vatRate: rate as VatRate })}
+                  >
+                    {rate} %
+                  </Button>
+                ))}
+              </div>
+            </div>
+            <p className="text-sm text-muted sm:col-span-2">
+              Moms {formatKr(totals.vat)} · Att betala {formatKr(totals.total)}
+            </p>
           </div>
-          <Field
-            label="Förfallodag"
-            value={draft.dueDate}
-            onChange={(dueDate) => setDraft({ ...draft, dueDate })}
-          />
-          <p className="text-sm text-muted">
-            Moms {formatKr(totals.vat)} · Att betala {formatKr(totals.total)}
-          </p>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
               Avbryt
             </Button>
-            <Button type="submit">Spara faktura</Button>
+            <Button type="submit">Spara</Button>
             <Button type="button" onClick={() => onSaveAndMail(prepared())}>
               <Mail />
-              Spara och maila
+              Maila
             </Button>
           </DialogFooter>
         </form>
