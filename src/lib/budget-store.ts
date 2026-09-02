@@ -110,14 +110,58 @@ function applyLedger(
     deletedIds?: string[];
   },
 ) {
+  const current = useBudgetStore.getState();
+  const transactions = payload.transactions.filter((tx) => !deletedIds.has(tx.id) && tx.amount > 0);
+  if (transactions.length === 0 && current.transactions.length > 0) return;
   for (const id of payload.deletedIds ?? []) deletedIds.add(id);
   useBudgetStore.setState({
     monthlyBudget: payload.monthlyBudget,
     categories: payload.categories.length > 0 ? payload.categories : DEFAULT_CATEGORIES,
-    transactions: payload.transactions.filter((tx) => !deletedIds.has(tx.id)),
-    yearBooks: normalizeYearBooks(payload.yearBooks),
+    transactions,
+    yearBooks: Object.keys(payload.yearBooks).length > 0
+      ? normalizeYearBooks(payload.yearBooks)
+      : current.yearBooks,
     ready: true,
   });
+}
+
+function readLegacyLocal(): {
+  monthlyBudget: number;
+  categories: Category[];
+  transactions: Transaction[];
+  yearBooks: Record<string, YearBook>;
+} | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem("saldo-budget-v1");
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { state?: Record<string, unknown> } & Record<string, unknown>;
+    const state = (parsed.state ?? parsed) as Record<string, unknown>;
+    const transactions = Array.isArray(state.transactions)
+      ? state.transactions.filter(
+          (tx): tx is Transaction =>
+            Boolean(tx) &&
+            typeof tx === "object" &&
+            Number((tx as Transaction).amount) > 0 &&
+            ((tx as Transaction).type === "income" || (tx as Transaction).type === "expense"),
+        )
+      : [];
+    if (transactions.length === 0) return null;
+    return {
+      monthlyBudget: Number(state.monthlyBudget) || 0,
+      categories: Array.isArray(state.categories) && state.categories.length > 0
+        ? (state.categories as Category[])
+        : DEFAULT_CATEGORIES,
+      transactions: transactions.map((tx) => ({
+        ...tx,
+        amount: Math.round(Number(tx.amount)),
+        accrued: tx.accrued === true,
+      })),
+      yearBooks: normalizeYearBooks(state.yearBooks),
+    };
+  } catch {
+    return null;
+  }
 }
 
 let saveTimer = 0;
@@ -160,6 +204,18 @@ export async function hydrateSharedBudget(): Promise<void> {
     for (let attempt = 0; attempt < 6; attempt += 1) {
       try {
         const remote = await loadBudget({ data: {} });
+        if (remote.transactions.length > 0) {
+          applyLedger(remote);
+          return;
+        }
+        const recovered = readLegacyLocal();
+        if (recovered) {
+          applyLedger(recovered);
+          const { saveBudget } = await import("@/lib/budget-fns");
+          const saved = await saveBudget({ data: { ...recovered, deletedIds: [] } });
+          applyLedger(saved);
+          return;
+        }
         applyLedger(remote);
         return;
       } catch (err) {
@@ -167,12 +223,13 @@ export async function hydrateSharedBudget(): Promise<void> {
         await new Promise((resolve) => window.setTimeout(resolve, 400 * (attempt + 1)));
       }
     }
+    const recovered = readLegacyLocal();
+    if (recovered) {
+      applyLedger(recovered);
+      return;
+    }
     console.error("budget hydrate failed", lastError);
-    useBudgetStore.setState({
-      transactions: [],
-      yearBooks: {},
-      ready: true,
-    });
+    useBudgetStore.setState({ ready: true });
   })();
   return hydratePromise;
 }
@@ -183,6 +240,7 @@ export async function refreshSharedBudget(): Promise<void> {
     const { loadBudget } = await import("@/lib/budget-fns");
     const remote = await loadBudget({ data: {} });
     if (savePending) return;
+    if (remote.transactions.length === 0) return;
     applyLedger(remote);
   } catch {
     /* keep current snapshot until next refresh */

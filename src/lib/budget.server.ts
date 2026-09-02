@@ -20,8 +20,24 @@ async function requireApproved(userId: string): Promise<void> {
 }
 
 function asNumber(value: unknown, fallback = 0): number {
-  const n = typeof value === "number" ? value : Number(value);
-  return Number.isFinite(n) ? n : fallback;
+  if (typeof value === "number" && Number.isFinite(value)) return Math.round(value);
+  if (typeof value === "string") {
+    const n = Number(value.replace(/\s/g, "").replace(",", "."));
+    return Number.isFinite(n) ? Math.round(n) : fallback;
+  }
+  return fallback;
+}
+
+function asRecord(raw: unknown): Record<string, unknown> {
+  if (typeof raw === "string") {
+    try {
+      raw = JSON.parse(raw);
+    } catch {
+      return {};
+    }
+  }
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  return raw as Record<string, unknown>;
 }
 
 function parseItems(raw: unknown): { id: string; name: string; amount: number }[] {
@@ -50,16 +66,16 @@ function parseTransaction(raw: unknown): Transaction | null {
     categoryId: String(row.categoryId ?? ""),
     note: String(row.note ?? ""),
     date,
-    accrued: Boolean(row.accrued),
+    accrued: row.accrued === true || row.accrued === "true",
   };
 }
 
 function parseYearBooks(raw: unknown): Record<string, YearBook> {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const source = asRecord(raw);
   const books: Record<string, YearBook> = {};
-  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+  for (const [key, value] of Object.entries(source)) {
     if (!/^\d{4}$/.test(key)) continue;
-    const row = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+    const row = asRecord(value);
     books[key] = {
       openingCash: Math.max(0, asNumber(row.openingCash)),
       annualBudget: Math.max(0, asNumber(row.annualBudget)),
@@ -77,7 +93,7 @@ function parseDeletedIds(raw: unknown): string[] {
 }
 
 function parsePayload(raw: unknown): BudgetPayload {
-  const data = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const data = asRecord(raw);
   const deletedIds = parseDeletedIds(data.deletedIds);
   const deleted = new Set(deletedIds);
   const transactions = Array.isArray(data.transactions)
@@ -132,7 +148,16 @@ export async function saveSharedBudget(userId: string, payload: BudgetPayload): 
   const rows = await sql<{ payload: unknown }>`
     select payload from budget_ledger where id = ${LEDGER_ID} limit 1
   `;
-  const next = rows[0] ? mergePayloads(parsePayload(rows[0].payload), incoming) : incoming;
+  const existing = rows[0] ? parsePayload(rows[0].payload) : null;
+  if (
+    existing &&
+    existing.transactions.length > 0 &&
+    incoming.transactions.length === 0 &&
+    (incoming.deletedIds?.length ?? 0) === 0
+  ) {
+    return existing;
+  }
+  const next = existing ? mergePayloads(existing, incoming) : incoming;
   await sql.query(
     `insert into budget_ledger (id, payload, updated_at)
      values ($1, $2::jsonb, now())
