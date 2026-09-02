@@ -145,20 +145,7 @@ export function MembersApp() {
       const saved = await saveMembers({ data: payload });
       const kept: MemberRegister = {
         ...saved,
-        members: payload.members.map((member) => {
-          const row = saved.members.find((item) => item.id === member.id);
-          if (!row) return member;
-          return {
-            ...row,
-            name: member.name || row.name,
-            address: member.address || row.address,
-            zip: member.zip || row.zip,
-            city: member.city || row.city,
-            postal: member.postal || row.postal,
-            phone: member.phone || row.phone,
-            note: member.note || row.note,
-          };
-        }),
+        members: mergeMemberLists([saved.members, payload.members], KOHOLMA_MEMBERS),
       };
       registerRef.current = kept;
       setRegister(kept);
@@ -635,49 +622,49 @@ export function MembersApp() {
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Field
                     label="Namn"
-                    value={member.name}
+                    value={member.name ?? ""}
                     onChange={(name) => patchMember(member.id, { name })}
                     onBlur={() => patchMember(member.id, {}, true)}
                   />
                   <Field
                     label="Adress"
-                    value={member.address}
+                    value={member.address ?? ""}
                     onChange={(address) => patchMember(member.id, { address })}
                     onBlur={() => patchMember(member.id, {}, true)}
                   />
                   <Field
                     label="Postnummer"
-                    value={member.zip}
+                    value={member.zip ?? ""}
                     onChange={(zip) => patchMember(member.id, { zip, postal: formatPostal(zip, member.city) })}
                     onBlur={() => patchMember(member.id, {}, true)}
                   />
                   <Field
                     label="Postort"
-                    value={member.city}
+                    value={member.city ?? ""}
                     onChange={(city) => patchMember(member.id, { city, postal: formatPostal(member.zip, city) })}
                     onBlur={() => patchMember(member.id, {}, true)}
                   />
                   <Field
                     label="Fastighet"
-                    value={member.property}
+                    value={member.property ?? ""}
                     onChange={(property) => patchMember(member.id, { property })}
                     onBlur={() => patchMember(member.id, {}, true)}
                   />
                   <Field
                     label="E-post"
-                    value={member.email}
+                    value={member.email ?? ""}
                     onChange={(email) => patchMember(member.id, { email })}
                     onBlur={() => patchMember(member.id, {}, true)}
                   />
                   <Field
                     label="Telefon"
-                    value={member.phone}
+                    value={member.phone ?? ""}
                     onChange={(phone) => patchMember(member.id, { phone })}
                     onBlur={() => patchMember(member.id, {}, true)}
                   />
                   <Field
                     label="Notering"
-                    value={member.note}
+                    value={member.note ?? ""}
                     onChange={(note) => patchMember(member.id, { note })}
                     onBlur={() => patchMember(member.id, {}, true)}
                   />

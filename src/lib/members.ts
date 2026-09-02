@@ -466,22 +466,24 @@ export function applySeedPhones(members: AssociationMember[], seed: AssociationM
   const next = members.map((member) => {
     const base = ensurePostal(member);
     const hit = seedMatchKey(base).map((key) => index.get(key)).find(Boolean);
-    let updated = base;
-    if ((!updated.zip || !updated.city) && hit) {
-      updated = {
-        ...updated,
-        zip: updated.zip || hit.zip,
-        city: updated.city || hit.city,
-        postal: formatPostal(updated.zip || hit.zip, updated.city || hit.city),
-        address: updated.address || hit.address,
-      };
-    }
-    if (!updated.phone.trim() && hit?.phone) updated = { ...updated, phone: hit.phone };
+    if (!hit) return base;
+    const updated: AssociationMember = {
+      ...base,
+      address: base.address.trim() || hit.address,
+      zip: base.zip.trim() || hit.zip,
+      city: base.city.trim() || hit.city,
+      postal: formatPostal(base.zip.trim() || hit.zip, base.city.trim() || hit.city),
+      email: base.email.trim() || hit.email,
+      phone: base.phone.trim() || hit.phone,
+      property: base.property.trim() || hit.property,
+      name: base.name.trim() || hit.name,
+    };
     if (
       updated.zip !== member.zip ||
       updated.city !== member.city ||
       updated.postal !== member.postal ||
       updated.phone !== member.phone ||
+      updated.email !== member.email ||
       updated.address !== member.address
     ) {
       changed += 1;

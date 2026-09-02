@@ -119,7 +119,9 @@ export async function loadMemberRegister(userId: string): Promise<MemberRegister
   };
   const livePhones = live.members.filter((row) => row.phone.trim()).length;
   const recoveredPhones = members.filter((row) => row.phone.trim()).length;
-  if (recoveredPhones > livePhones || (live.members.length === 0 && members.length > 0)) {
+  const liveZip = live.members.filter((row) => (row.zip || row.city || "").trim()).length;
+  const recoveredZip = members.filter((row) => (row.zip || row.city || "").trim()).length;
+  if (recoveredPhones > livePhones || recoveredZip > liveZip || (live.members.length === 0 && members.length > 0)) {
     await writeRow(REGISTER_ID, recovered);
   }
   return recovered;
