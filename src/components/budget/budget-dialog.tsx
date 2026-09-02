@@ -11,35 +11,39 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { parseAmountInput } from "@/lib/format";
+import { fiscalYearFromIso, fiscalYearLabel, parseAmountInput } from "@/lib/format";
 import { useBudgetStore } from "@/lib/budget-store";
 
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  month: string;
 };
 
-export function BudgetDialog({ open, onOpenChange }: Props) {
+export function BudgetDialog({ open, onOpenChange, month }: Props) {
+  const year = fiscalYearFromIso(`${month}-01`);
+  const yearBooks = useBudgetStore((s) => s.yearBooks);
   const monthlyBudget = useBudgetStore((s) => s.monthlyBudget);
-  const setMonthlyBudget = useBudgetStore((s) => s.setMonthlyBudget);
-  const [amount, setAmount] = useState(String(monthlyBudget));
+  const setAnnualBudget = useBudgetStore((s) => s.setAnnualBudget);
+  const current = yearBooks[String(year)]?.annualBudget || monthlyBudget || 0;
+  const [amount, setAmount] = useState(current ? String(current) : "100000");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
-    setAmount(String(monthlyBudget));
+    setAmount(current ? String(current) : "100000");
     setError(null);
-  }, [open, monthlyBudget]);
+  }, [open, current]);
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
     const parsed = parseAmountInput(amount);
     if (parsed === null) {
-      setError("Ange en budget större än 0.");
+      setError("Ange en årsbudget större än 0.");
       return;
     }
-    setMonthlyBudget(parsed);
-    toast("Budgeten uppdaterades");
+    setAnnualBudget(year, parsed);
+    toast(`Årsbudget ${fiscalYearLabel(year)} sparad.`);
     onOpenChange(false);
   }
 
@@ -47,14 +51,14 @@ export function BudgetDialog({ open, onOpenChange }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Månadsbudget</DialogTitle>
+          <DialogTitle>Årsbudget {fiscalYearLabel(year)}</DialogTitle>
           <DialogDescription>
-            Sätt hur mycket du får lägga på utgifter den här månaden. Använt belopp räknas mot budgeten.
+            Sätt budgeten för räkenskapsåret 1 juli–30 juni. Månadernas utgifter summeras mot beloppet.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="grid gap-4">
           <div className="grid gap-2">
-            <Label htmlFor="budget-amount">Budget (kr)</Label>
+            <Label htmlFor="budget-amount">Årsbudget (kr)</Label>
             <Input
               id="budget-amount"
               inputMode="decimal"
@@ -64,6 +68,7 @@ export function BudgetDialog({ open, onOpenChange }: Props) {
                 setError(null);
               }}
               className="tabular-nums"
+              placeholder="100000"
             />
             {error ? <p className="text-sm text-clay">{error}</p> : null}
           </div>
@@ -71,7 +76,7 @@ export function BudgetDialog({ open, onOpenChange }: Props) {
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Avbryt
             </Button>
-            <Button type="submit">Spara budget</Button>
+            <Button type="submit">Spara årsbudget</Button>
           </DialogFooter>
         </form>
       </DialogContent>

@@ -27,15 +27,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Progress } from "@/components/ui/progress";
 import { AccountChip } from "@/components/budget/account-chip";
 import { AdminNav } from "@/components/budget/auth-gate";
 import { BrandLockup } from "@/components/budget/brand-lockup";
 import { BudgetDialog } from "@/components/budget/budget-dialog";
+import { YearBudgetChart, type YearBudgetMonth } from "@/components/budget/year-budget-chart";
 import { CategoriesDialog } from "@/components/budget/categories-dialog";
 import { TransactionDialog } from "@/components/budget/transaction-dialog";
 import { categoryById, type Category } from "@/lib/categories";
 import {
+  fiscalMonthKeys,
   fiscalYearFromIso,
   fiscalYearLabel,
   formatDayLabel,
@@ -60,6 +61,7 @@ export function BudgetApp() {
   const selectedMonth = useBudgetStore((s) => s.selectedMonth);
   const setSelectedMonth = useBudgetStore((s) => s.setSelectedMonth);
   const monthlyBudget = useBudgetStore((s) => s.monthlyBudget);
+  const yearBooks = useBudgetStore((s) => s.yearBooks);
   const deleteTransaction = useBudgetStore((s) => s.deleteTransaction);
 
   const [formOpen, setFormOpen] = useState(false);
@@ -80,12 +82,16 @@ export function BudgetApp() {
     return monthTx.filter((tx) => tx.type === filter);
   }, [monthTx, filter]);
 
-  const budgetProgress =
-    monthlyBudget <= 0
-      ? 0
-      : Math.max(0, Math.min(100, Math.round((totals.expense / monthlyBudget) * 100)));
-  const overBudget = totals.expense > monthlyBudget;
-  const budgetLeft = monthlyBudget - totals.expense;
+  const fiscalYear = fiscalYearFromIso(`${selectedMonth}-01`);
+  const annualBudget = yearBooks[String(fiscalYear)]?.annualBudget || monthlyBudget || 0;
+  const yearMonths = useMemo(() => {
+    let cumulative = 0;
+    return fiscalMonthKeys(fiscalYear).map((key): YearBudgetMonth => {
+      const spent = monthTotals(monthTransactions(transactions, key)).expense;
+      cumulative += spent;
+      return { key, spent, cumulative };
+    });
+  }, [fiscalYear, transactions]);
 
   function openCreate() {
     setEditing(null);
@@ -161,45 +167,18 @@ export function BudgetApp() {
             </div>
           </section>
 
-          <button
-            type="button"
-            onClick={() => setBudgetOpen(true)}
-            className="rounded-2xl bg-surface p-5 text-left shadow-[var(--shadow-border)] transition-[box-shadow] duration-150 hover:shadow-[var(--shadow-border-hover)] sm:p-6"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-sm text-muted">Budget</p>
-                <p className="mt-1 text-lg font-medium text-ink">
-                  Utgifter i {formatMonthLabel(selectedMonth).toLowerCase()}
-                </p>
-              </div>
-              <span className="rounded-sm bg-surface-2 px-2 py-1 text-xs font-medium text-muted">
-                Redigera
-              </span>
-            </div>
-            <div className="mt-4">
-              <Progress
-                value={budgetProgress}
-                className={cn(overBudget && "[&>*]:bg-clay")}
-              />
-            </div>
-            <div className="mt-3 flex items-baseline justify-between gap-3">
-              <p className="text-sm tabular-nums text-ink">
-                {formatKr(totals.expense)}
-                <span className="text-muted"> av {formatKr(monthlyBudget)}</span>
-              </p>
-              <p
-                className={cn(
-                  "text-sm font-medium tabular-nums",
-                  overBudget ? "text-clay" : "text-muted",
-                )}
-              >
-                {overBudget
-                  ? `Över budget · ${formatKr(totals.expense - monthlyBudget)}`
-                  : `${formatKr(budgetLeft)} kvar`}
-              </p>
-            </div>
-          </button>
+          <section className="rounded-2xl bg-surface p-5 shadow-[var(--shadow-border)] sm:p-6">
+            <YearBudgetChart
+              year={fiscalYear}
+              budget={annualBudget}
+              months={yearMonths}
+              selectedMonth={selectedMonth}
+              onSelectMonth={setSelectedMonth}
+            />
+            <Button variant="outline" className="mt-4 w-full" onClick={() => setBudgetOpen(true)}>
+              {annualBudget > 0 ? "Ändra årsbudget" : "Sätt årsbudget 100 000 kr"}
+            </Button>
+          </section>
 
           <section className="rounded-2xl bg-surface p-5 shadow-[var(--shadow-border)] sm:p-6">
             <div className="mb-4 flex items-center justify-between gap-3">
@@ -329,7 +308,7 @@ export function BudgetApp() {
         editing={editing}
         onManageCategories={() => setCategoriesOpen(true)}
       />
-      <BudgetDialog open={budgetOpen} onOpenChange={setBudgetOpen} />
+      <BudgetDialog open={budgetOpen} onOpenChange={setBudgetOpen} month={selectedMonth} />
       <CategoriesDialog open={categoriesOpen} onOpenChange={setCategoriesOpen} />
 
       <AlertDialog open={!!pendingDelete} onOpenChange={(open) => !open && setPendingDelete(null)}>

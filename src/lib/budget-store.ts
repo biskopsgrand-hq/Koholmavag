@@ -30,12 +30,14 @@ export type BalanceItem = {
 
 export type YearBook = {
   openingCash: number;
+  annualBudget: number;
   assets: BalanceItem[];
   liabilities: BalanceItem[];
 };
 
 export const EMPTY_YEAR_BOOK: YearBook = {
   openingCash: 0,
+  annualBudget: 0,
   assets: [],
   liabilities: [],
 };
@@ -58,6 +60,7 @@ type BudgetState = {
   setMonthlyBudget: (amount: number) => void;
   setSelectedMonth: (month: string) => void;
   setOpeningCash: (year: number, amount: number) => void;
+  setAnnualBudget: (year: number, amount: number) => void;
   addBalanceItem: (year: number, kind: BalanceKind, name: string, amount: number) => string | null;
   removeBalanceItem: (year: number, kind: BalanceKind, id: string) => void;
 };
@@ -88,6 +91,7 @@ function stripDemoBooks(books: Record<string, YearBook>): Record<string, YearBoo
   for (const [year, book] of Object.entries(books)) {
     next[year] = {
       openingCash: book.openingCash,
+      annualBudget: book.annualBudget ?? 0,
       assets: book.assets.filter((item) => !item.id.startsWith("seed-")),
       liabilities: book.liabilities.filter((item) => !item.id.startsWith("seed-")),
     };
@@ -289,6 +293,20 @@ export const useBudgetStore = create<BudgetState>()(
             yearBooks: {
               ...state.yearBooks,
               [key]: { ...current, openingCash: amount },
+            },
+          };
+        });
+        queueSave();
+      },
+      setAnnualBudget: (year, amount) => {
+        set((state) => {
+          const key = String(year);
+          const current = bookFor(state.yearBooks, year);
+          return {
+            monthlyBudget: amount,
+            yearBooks: {
+              ...state.yearBooks,
+              [key]: { ...current, annualBudget: amount },
             },
           };
         });

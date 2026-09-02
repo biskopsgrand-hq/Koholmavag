@@ -35,6 +35,19 @@ export function shiftMonth(key: string, delta: number): string {
   return monthKeyFromDate(date);
 }
 
+export function fiscalMonthKeys(startYear: number): string[] {
+  return Array.from({ length: 12 }, (_, index) => {
+    const month = ((6 + index) % 12) + 1;
+    const year = startYear + (6 + index >= 12 ? 1 : 0);
+    return `${year}-${String(month).padStart(2, "0")}`;
+  });
+}
+
+export function formatMonthShort(key: string): string {
+  const raw = format(parseMonthKey(key), "LLL", { locale: sv });
+  return raw.replace(".", "").slice(0, 3);
+}
+
 export function parseAmountInput(raw: string): number | null {
   return parseMoneyInput(raw, false);
 }

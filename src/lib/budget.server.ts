@@ -61,6 +61,7 @@ function parseYearBooks(raw: unknown): Record<string, YearBook> {
     const row = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
     books[key] = {
       openingCash: Math.max(0, asNumber(row.openingCash)),
+      annualBudget: Math.max(0, asNumber(row.annualBudget)),
       assets: parseItems(row.assets),
       liabilities: parseItems(row.liabilities),
     };
