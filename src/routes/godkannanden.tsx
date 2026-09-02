@@ -53,7 +53,7 @@ function AccessAdmin() {
     async function load() {
       try {
         const rows = await listAccessMembers();
-        if (!cancelled) setMembers(rows);
+        if (!cancelled) setMembers(Array.isArray(rows) ? rows : []);
       } catch {
         if (!cancelled) toast.error("Kunde inte hämta listan.");
       }
@@ -78,7 +78,7 @@ function AccessAdmin() {
     setBusy(memberEmail + status);
     try {
       const rows = await decideAccessMember({ data: { email: memberEmail, status } });
-      setMembers(rows);
+      setMembers(Array.isArray(rows) ? rows : []);
       toast(status === "approved" ? "Personen är godkänd." : "Personen är nekad.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Kunde inte spara.");
@@ -94,7 +94,7 @@ function AccessAdmin() {
       const rows = await inviteAccessMember({ data: { email, name } });
       setEmail("");
       setName("");
-      setMembers(rows);
+      setMembers(Array.isArray(rows) ? rows : []);
       toast("Personen är förhandsgodkänd.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Kunde inte bjuda in.");
@@ -104,7 +104,8 @@ function AccessAdmin() {
   }
 
   const pending = members?.filter((m) => m.status === "pending") ?? [];
-  const others = members?.filter((m) => m.status !== "pending") ?? [];
+  const approved = members?.filter((m) => m.status === "approved") ?? [];
+  const denied = members?.filter((m) => m.status === "denied") ?? [];
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-3xl min-w-0 flex-col overflow-x-clip px-4 pt-6 pb-16 sm:px-6">
@@ -152,7 +153,9 @@ function AccessAdmin() {
       </section>
 
       <section className="mt-6 rounded-2xl bg-surface p-5 shadow-[var(--shadow-border)] sm:p-6">
-        <h2 className="font-display text-xl font-medium">Väntar</h2>
+        <h2 className="font-display text-xl font-medium">
+          Väntar{members ? ` (${pending.length})` : ""}
+        </h2>
         {members === null ? (
           <p className="mt-3 text-sm text-muted">Hämtar…</p>
         ) : pending.length === 0 ? (
@@ -187,35 +190,60 @@ function AccessAdmin() {
       </section>
 
       <section className="mt-6 rounded-2xl bg-surface p-5 shadow-[var(--shadow-border)] sm:p-6">
-        <h2 className="font-display text-xl font-medium">Lista</h2>
-        {others.length === 0 ? (
-          <p className="mt-3 text-sm text-muted">Inga godkända eller nekade ännu utöver ägaren.</p>
+        <h2 className="font-display text-xl font-medium">
+          Godkända{members ? ` (${approved.length})` : ""}
+        </h2>
+        {members === null ? (
+          <p className="mt-3 text-sm text-muted">Hämtar…</p>
+        ) : approved.length === 0 ? (
+          <p className="mt-3 text-sm text-muted">Ingen har tillgång ännu.</p>
         ) : (
           <ul className="mt-4 grid gap-2">
-            {others.map((member) => (
+            {approved.map((member) => (
               <li key={member.email} className="flex flex-col gap-2 rounded-xl bg-bg px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
                   <p className="font-medium">{member.name || "Utan namn"}</p>
-                  <p className="truncate text-sm text-muted">
-                    {member.email} · {member.status === "approved" ? "godkänd" : "nekad"}
-                  </p>
+                  <p className="truncate text-sm text-muted">{member.email}</p>
                 </div>
-                {member.email !== OWNER_EMAIL ? (
+                {member.email === OWNER_EMAIL ? (
+                  <p className="text-sm text-muted">Ägare</p>
+                ) : (
                   <Button
                     variant="outline"
                     disabled={busy !== null}
-                    onClick={() => void decide(member.email, member.status === "approved" ? "denied" : "approved")}
+                    onClick={() => void decide(member.email, "denied")}
                   >
-                    {member.status === "approved" ? "Neka" : "Godkänn"}
+                    Neka
                   </Button>
-                ) : (
-                  <p className="text-sm text-muted">Ägare</p>
                 )}
               </li>
             ))}
           </ul>
         )}
       </section>
+
+      {denied.length > 0 ? (
+        <section className="mt-6 rounded-2xl bg-surface p-5 shadow-[var(--shadow-border)] sm:p-6">
+          <h2 className="font-display text-xl font-medium">Nekade ({denied.length})</h2>
+          <ul className="mt-4 grid gap-2">
+            {denied.map((member) => (
+              <li key={member.email} className="flex flex-col gap-2 rounded-xl bg-bg px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="font-medium">{member.name || "Utan namn"}</p>
+                  <p className="truncate text-sm text-muted">{member.email}</p>
+                </div>
+                <Button
+                  variant="outline"
+                  disabled={busy !== null}
+                  onClick={() => void decide(member.email, "approved")}
+                >
+                  Godkänn
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
     </div>
   );
 }
