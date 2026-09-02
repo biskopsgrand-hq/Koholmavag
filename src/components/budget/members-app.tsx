@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link } from "@tanstack/react-router";
 import { FileDown, Mail, Pencil, Plus, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
@@ -64,6 +64,9 @@ export function MembersApp() {
   const [selected, setSelected] = useState<string[]>([]);
   const [bulkQueue, setBulkQueue] = useState<Invoice[] | null>(null);
   const [mailStep, setMailStep] = useState<Invoice | null>(null);
+  const registerRef = useRef(register);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  registerRef.current = register;
 
   useEffect(() => {
     void Promise.all([loadMembers({ data: {} }), loadInvoiceList({ data: {} })])
@@ -114,14 +117,62 @@ export function MembersApp() {
       });
   }, []);
 
+  useEffect(() => {
+    function flush() {
+      if (saveTimer.current) {
+        clearTimeout(saveTimer.current);
+        saveTimer.current = null;
+      }
+      void persist(registerRef.current);
+    }
+    function onHide() {
+      if (document.visibilityState === "hidden") flush();
+    }
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", onHide);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", onHide);
+    };
+  }, []);
+
   async function persist(next: MemberRegister) {
-    const payload = { ...EMPTY_REGISTER, ...next, deletedIds: next.deletedIds ?? [] };
+    const payload: MemberRegister = {
+      ...EMPTY_REGISTER,
+      ...next,
+      listId: next.listId || KOHOLMA_LIST_ID,
+      deletedIds: next.deletedIds ?? [],
+      members: next.members,
+    };
+    registerRef.current = payload;
     setRegister(payload);
     writeMemberCache(payload);
-    const saved = await saveMembers({ data: payload });
-    setRegister(saved);
-    writeMemberCache(saved);
-    return saved;
+    try {
+      const saved = await saveMembers({ data: payload });
+      const kept: MemberRegister = {
+        ...saved,
+        members: payload.members.map((member) => {
+          const row = saved.members.find((item) => item.id === member.id);
+          if (!row) return member;
+          return {
+            ...row,
+            name: member.name || row.name,
+            address: member.address || row.address,
+            property: member.property || row.property,
+            email: member.email || row.email,
+            phone: member.phone || row.phone,
+            note: member.note || row.note,
+          };
+        }),
+      };
+      registerRef.current = kept;
+      setRegister(kept);
+      writeMemberCache(kept);
+      return kept;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Kunde inte spara uppgifterna.");
+      throw err;
+    }
   }
 
   async function persistInvoices(next: Invoice[]) {
@@ -179,17 +230,23 @@ export function MembersApp() {
   }
 
   function patchMember(id: string, patch: Partial<AssociationMember>, save = false) {
-    setRegister((current) => {
-      const members = current.members.map((row) => (row.id === id ? { ...row, ...patch } : row));
-      const next = { ...current, members, listId: current.listId || KOHOLMA_LIST_ID };
-      writeMemberCache(next);
-      if (save) {
-        queueMicrotask(() => {
-          void persist(next).then(() => toast("Sparat"));
-        });
-      }
-      return next;
-    });
+    const current = registerRef.current;
+    const next: MemberRegister = {
+      ...current,
+      listId: current.listId || KOHOLMA_LIST_ID,
+      members: current.members.map((row) => (row.id === id ? { ...row, ...patch } : row)),
+    };
+    registerRef.current = next;
+    setRegister(next);
+    writeMemberCache(next);
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    if (save) {
+      void persist(next).then(() => toast.success("Sparat", { id: "member-save" }));
+      return;
+    }
+    saveTimer.current = setTimeout(() => {
+      void persist(registerRef.current);
+    }, 350);
   }
 
   async function removeMember(id: string) {

@@ -2,7 +2,6 @@ import { getSql } from "@/lib/db";
 import { getMyAccessForUserId } from "@/lib/access.server";
 import {
   EMPTY_REGISTER,
-  mergeMembers,
   repairMember,
   type AssociationMember,
   type MemberRegister,
@@ -133,7 +132,7 @@ export async function saveMemberRegister(userId: string, incoming: MemberRegiste
     message: parsed.message || fallback.message,
     listId: parsed.listId || fallback.listId || "",
     deletedIds: deleted,
-    members: mergeMembers(fallback.members, parsed.members).filter(
+    members: (parsed.members.length > 0 ? parsed.members : fallback.members).filter(
       (member) => !deletedSet.has(member.id),
     ),
   };
