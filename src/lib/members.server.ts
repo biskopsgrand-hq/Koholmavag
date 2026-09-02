@@ -137,10 +137,6 @@ export async function saveMemberRegister(userId: string, incoming: MemberRegiste
       (member) => !deletedSet.has(member.id),
     ),
   };
-    members: mergeMembers(fallback.members, parsed.members).filter(
-      (member) => !deletedSet.has(member.id),
-    ),
-  };
   if (fallback.members.length > 0) await writeRow(BACKUP_ID, fallback);
   await writeRow(REGISTER_ID, merged);
   return merged;
