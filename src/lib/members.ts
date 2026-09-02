@@ -7,6 +7,8 @@ export type AssociationMember = {
   email: string;
   property: string;
   address: string;
+  zip: string;
+  city: string;
   postal: string;
   phone: string;
   customerNo: string;
@@ -138,14 +140,32 @@ export function looksLikePostalLine(value: string): boolean {
   return /^\d{3}\s?\d{2}\b/.test(tidyText(value));
 }
 
-export function splitStreetAndPostal(address: string): { street: string; postal: string } {
+export function formatZip(value: string): string {
+  const digits = value.replace(/\D/g, "");
+  if (digits.length === 5) return `${digits.slice(0, 3)} ${digits.slice(3)}`;
+  return tidyText(value);
+}
+
+export function parseZipCity(value: string): { zip: string; city: string } {
+  const text = tidyText(value);
+  const match = text.match(/^(\d{3}\s?\d{2})\s*(.*)$/);
+  if (!match) return { zip: "", city: text };
+  return { zip: formatZip(match[1] ?? ""), city: tidyText(match[2] ?? "") };
+}
+
+export function formatPostal(zip: string, city: string): string {
+  return [formatZip(zip), tidyText(city)].filter(Boolean).join(" ");
+}
+
+export function splitStreetAndPostal(address: string): { street: string; postal: string; zip: string; city: string } {
   const lines = address
     .split(/[\n,]/)
     .map(tidyText)
     .filter(Boolean);
   const postal = lines.find(looksLikePostalLine) ?? "";
   const street = lines.filter((line) => line !== postal).join(", ");
-  return { street, postal };
+  const parsed = parseZipCity(postal);
+  return { street, postal: formatPostal(parsed.zip, parsed.city), zip: parsed.zip, city: parsed.city };
 }
 
 function looksLikeStreet(value: string): boolean {
@@ -213,7 +233,7 @@ function explodeValue(value: string): string[] {
   return [text];
 }
 
-function classifyValues(values: string[]): Pick<AssociationMember, "name" | "email" | "property" | "address" | "postal" | "phone"> {
+function classifyValues(values: string[]): Pick<AssociationMember, "name" | "email" | "property" | "address" | "zip" | "city" | "postal" | "phone"> {
   const tokens = values
     .flatMap(explodeValue)
     .map(tidyText)
@@ -235,12 +255,15 @@ function classifyValues(values: string[]): Pick<AssociationMember, "name" | "ema
   const citySet = new Set(cities);
   const names = tokens.filter((token) => looksLikePerson(token) && !citySet.has(token));
   const postal = tidyText(postalLines[0] ?? [postals[0] ?? "", cities[0] ?? ""].filter(Boolean).join(" "));
+  const parsed = parseZipCity(postal);
   return {
     name: tidyText(names[0] ?? ""),
     email: tidyText(emails[0] ?? "").toLowerCase(),
     property: tidyText(properties[0] ?? ""),
     address: tidyText(streets[0] ?? ""),
-    postal,
+    zip: parsed.zip,
+    city: parsed.city,
+    postal: formatPostal(parsed.zip, parsed.city),
     phone: tidyText(phones[0] ?? ""),
   };
 }
@@ -252,18 +275,24 @@ export function repairMember(member: AssociationMember): AssociationMember | nul
     member.property,
     member.address,
     member.postal,
+    member.zip,
+    member.city,
     member.phone,
     member.note,
   ]);
   if (!classified.name && !classified.email && !classified.property && !classified.address) return null;
   const split = splitStreetAndPostal([classified.address, classified.postal || member.postal].filter(Boolean).join(", "));
+  const zip = classified.zip || member.zip || split.zip;
+  const city = classified.city || member.city || split.city;
   return {
     ...member,
     name: classified.name || classified.property || classified.email || "Medlem",
     email: looksLikeEmail(classified.email) ? classified.email : "",
     property: classified.property,
     address: split.street || classified.address,
-    postal: split.postal || classified.postal || member.postal || "",
+    zip,
+    city,
+    postal: formatPostal(zip, city),
     phone: classified.phone || member.phone,
     note: member.note,
     customerNo: tidyText(member.customerNo),
@@ -323,7 +352,9 @@ export function rowsToMembers(rows: Record<string, string>[]): AssociationMember
       email: pick(row, EMAIL_KEYS) || classified.email,
       property: pick(row, PROPERTY_KEYS) || classified.property,
       address: pick(row, ADDRESS_KEYS) || classified.address,
-      postal: pick(row, POSTAL_KEYS) || pick(row, CITY_KEYS) || classified.postal,
+      zip: formatZip(pick(row, POSTAL_KEYS) || classified.zip),
+      city: pick(row, CITY_KEYS) || classified.city,
+      postal: classified.postal,
       phone: pick(row, PHONE_KEYS) || classified.phone,
       customerNo: pick(row, CUSTOMER_KEYS),
       share: parseShare(pick(row, SHARE_KEYS)),
@@ -372,13 +403,16 @@ export function memberFromSheetRow(cells: string[]): AssociationMember | null {
     .join(" ");
   const postalCell = addressParts.find(looksLikePostalLine) ?? "";
   const streetParts = addressParts.filter((cell) => cell !== postalCell);
+  const parsed = parseZipCity(postalCell);
   const member: AssociationMember = {
     id: crypto.randomUUID(),
     name,
     email: emails[0] ?? "",
     property: properties.join(", "),
     address: tidyText(streetParts.join(", ")),
-    postal: tidyText(postalCell),
+    zip: parsed.zip,
+    city: parsed.city,
+    postal: formatPostal(parsed.zip, parsed.city),
     phone: tidyText(phones[0] ?? ""),
     customerNo: "",
     share: 1,
@@ -406,10 +440,21 @@ function seedMatchKey(member: Pick<AssociationMember, "email" | "name">): string
 }
 
 export function ensurePostal(member: AssociationMember): AssociationMember {
-  if ((member.postal ?? "").trim()) return { ...member, postal: member.postal.trim() };
-  const split = splitStreetAndPostal(member.address);
-  if (!split.postal) return { ...member, postal: "" };
-  return { ...member, address: split.street, postal: split.postal };
+  let zip = formatZip(member.zip ?? "");
+  let city = tidyText(member.city ?? "");
+  let address = member.address;
+  if (!zip && !city) {
+    const fromPostal = parseZipCity(member.postal ?? "");
+    zip = fromPostal.zip;
+    city = fromPostal.city;
+  }
+  if (!zip && !city) {
+    const split = splitStreetAndPostal(member.address);
+    zip = split.zip;
+    city = split.city;
+    if (split.zip) address = split.street;
+  }
+  return { ...member, address, zip, city, postal: formatPostal(zip, city) };
 }
 
 export function applySeedPhones(members: AssociationMember[], seed: AssociationMember[]): { members: AssociationMember[]; changed: number } {
@@ -422,12 +467,25 @@ export function applySeedPhones(members: AssociationMember[], seed: AssociationM
     const base = ensurePostal(member);
     const hit = seedMatchKey(base).map((key) => index.get(key)).find(Boolean);
     let updated = base;
-    if (!updated.postal && hit?.postal) {
-      updated = { ...updated, postal: hit.postal };
-      if (!updated.address && hit.address) updated = { ...updated, address: hit.address };
+    if ((!updated.zip || !updated.city) && hit) {
+      updated = {
+        ...updated,
+        zip: updated.zip || hit.zip,
+        city: updated.city || hit.city,
+        postal: formatPostal(updated.zip || hit.zip, updated.city || hit.city),
+        address: updated.address || hit.address,
+      };
     }
     if (!updated.phone.trim() && hit?.phone) updated = { ...updated, phone: hit.phone };
-    if (updated.postal !== member.postal || updated.phone !== member.phone || updated.address !== member.address) changed += 1;
+    if (
+      updated.zip !== member.zip ||
+      updated.city !== member.city ||
+      updated.postal !== member.postal ||
+      updated.phone !== member.phone ||
+      updated.address !== member.address
+    ) {
+      changed += 1;
+    }
     return updated;
   });
   return { members: next, changed };

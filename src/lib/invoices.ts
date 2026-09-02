@@ -108,7 +108,7 @@ export function invoiceFromMember(
     memberId: member.id,
     name: member.name,
     address: parsed.street || member.address,
-    postal: member.postal || parsed.postal,
+    postal: member.postal || [member.zip, member.city].filter(Boolean).join(" ") || parsed.postal,
     email: member.email,
     phone: member.phone,
     property: member.property,

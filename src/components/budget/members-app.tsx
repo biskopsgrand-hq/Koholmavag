@@ -21,6 +21,8 @@ import {
   EMPTY_REGISTER,
   KOHOLMA_LIST_ID,
   applySeedPhones,
+  formatPostal,
+  parseZipCity,
   memberFee,
   mergeMembers,
   repairMember,
@@ -158,6 +160,8 @@ export function MembersApp() {
             ...row,
             name: member.name || row.name,
             address: member.address || row.address,
+            zip: member.zip || row.zip,
+            city: member.city || row.city,
             postal: member.postal || row.postal,
             phone: member.phone || row.phone,
             note: member.note || row.note,
@@ -185,7 +189,7 @@ export function MembersApp() {
     const needle = query.trim().toLowerCase();
     if (!needle) return register.members;
     return register.members.filter((member) =>
-      [member.name, member.email, member.property, member.address, member.postal, member.phone].join(" ").toLowerCase().includes(needle),
+      [member.name, member.email, member.property, member.address, member.zip, member.city, member.postal, member.phone].join(" ").toLowerCase().includes(needle),
     );
   }, [query, register.members]);
 
@@ -650,9 +654,15 @@ export function MembersApp() {
                     onBlur={() => patchMember(member.id, {}, true)}
                   />
                   <Field
-                    label="Postnr och ort"
-                    value={member.postal}
-                    onChange={(postal) => patchMember(member.id, { postal })}
+                    label="Postnummer"
+                    value={member.zip}
+                    onChange={(zip) => patchMember(member.id, { zip, postal: formatPostal(zip, member.city) })}
+                    onBlur={() => patchMember(member.id, {}, true)}
+                  />
+                  <Field
+                    label="Postort"
+                    value={member.city}
+                    onChange={(city) => patchMember(member.id, { city, postal: formatPostal(member.zip, city) })}
                     onBlur={() => patchMember(member.id, {}, true)}
                   />
                   <Field
@@ -737,6 +747,8 @@ function emptyMember(): AssociationMember {
     email: "",
     property: "",
     address: "",
+    zip: "",
+    city: "",
     postal: "",
     phone: "",
     customerNo: "",
@@ -793,7 +805,9 @@ function MemberDialog({
       email: draft.email.trim().toLowerCase(),
       property: draft.property.trim(),
       address: draft.address.trim(),
-      postal: draft.postal.trim(),
+      zip: draft.zip.trim(),
+      city: draft.city.trim(),
+      postal: formatPostal(draft.zip, draft.city),
       phone: draft.phone.trim(),
       note: draft.note.trim(),
     });
@@ -810,7 +824,8 @@ function MemberDialog({
           <div className="grid max-h-[min(60dvh,28rem)] gap-3 overflow-y-auto overscroll-contain pr-1">
             <Field label="Namn" value={draft.name} onChange={(name) => setDraft({ ...draft, name })} />
             <Field label="Adress" value={draft.address} onChange={(address) => setDraft({ ...draft, address })} />
-            <Field label="Postnr och ort" value={draft.postal} onChange={(postal) => setDraft({ ...draft, postal })} />
+            <Field label="Postnummer" value={draft.zip} onChange={(zip) => setDraft({ ...draft, zip, postal: formatPostal(zip, draft.city) })} />
+            <Field label="Postort" value={draft.city} onChange={(city) => setDraft({ ...draft, city, postal: formatPostal(draft.zip, city) })} />
             <Field label="Fastighet" value={draft.property} onChange={(property) => setDraft({ ...draft, property })} />
             <Field label="E-post" value={draft.email} onChange={(email) => setDraft({ ...draft, email })} />
             <Field label="Telefon" value={draft.phone} onChange={(phone) => setDraft({ ...draft, phone })} />
@@ -861,7 +876,7 @@ function InvoiceFormDialog({
       memberId: member.id,
       name: member.name,
       address: parsed.street || member.address,
-      postal: member.postal || parsed.postal || draft.postal,
+      postal: formatPostal(member.zip, member.city) || member.postal || parsed.postal || draft.postal,
       email: member.email,
       phone: member.phone,
       property: member.property,
@@ -919,7 +934,16 @@ function InvoiceFormDialog({
             ) : null}
             <Field label="Person" value={draft.name} onChange={(name) => setDraft({ ...draft, name })} />
             <Field label="Adress" value={draft.address} onChange={(address) => setDraft({ ...draft, address })} />
-            <Field label="Postnr och ort" value={draft.postal} onChange={(postal) => setDraft({ ...draft, postal })} />
+            <Field
+              label="Postnummer"
+              value={parseZipCity(draft.postal).zip}
+              onChange={(zip) => setDraft({ ...draft, postal: formatPostal(zip, parseZipCity(draft.postal).city) })}
+            />
+            <Field
+              label="Postort"
+              value={parseZipCity(draft.postal).city}
+              onChange={(city) => setDraft({ ...draft, postal: formatPostal(parseZipCity(draft.postal).zip, city) })}
+            />
             <Field label="Fastighet" value={draft.property} onChange={(property) => setDraft({ ...draft, property })} />
             <Field label="E-post" value={draft.email} onChange={(email) => setDraft({ ...draft, email })} />
             <Field label="Telefon" value={draft.phone} onChange={(phone) => setDraft({ ...draft, phone })} />

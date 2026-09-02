@@ -2,6 +2,7 @@ import { getSql } from "@/lib/db";
 import { getMyAccessForUserId } from "@/lib/access.server";
 import {
   EMPTY_REGISTER,
+  ensurePostal,
   repairMember,
   type AssociationMember,
   type MemberRegister,
@@ -42,23 +43,18 @@ function asMember(raw: unknown): AssociationMember | null {
     email,
     property,
     address: String(row.address ?? "").trim(),
-    postal: String(row.postal ?? row.postnr ?? "").trim(),
+    zip: String(row.zip ?? row.postnr ?? "").trim(),
+    city: String(row.city ?? row.postort ?? "").trim(),
+    postal: String(row.postal ?? "").trim(),
     phone: String(row.phone ?? row.telefon ?? "").trim(),
     customerNo: String(row.customerNo ?? "").trim(),
     share: Number.isFinite(share) && share > 0 ? share : 1,
     fee: Number.isFinite(fee) && fee > 0 ? Math.round(fee) : 0,
     note: String(row.note ?? "").trim(),
   };
-  if (!mapped.postal) {
-    const split = mapped.address.split(/[\n,]/).map((part) => part.trim()).filter(Boolean);
-    const postal = split.find((part) => /^\d{3}\s?\d{2}\b/.test(part)) ?? "";
-    if (postal) {
-      mapped.postal = postal;
-      mapped.address = split.filter((part) => part !== postal).join(", ");
-    }
-  }
-  if (mapped.phone || mapped.address || mapped.email || mapped.postal) return mapped;
-  return repairMember(mapped);
+  const filled = ensurePostal(mapped);
+  if (filled.phone || filled.address || filled.email || filled.zip || filled.city || filled.postal) return filled;
+  return repairMember(filled);
 }
 
 function parseRegister(raw: unknown): MemberRegister {

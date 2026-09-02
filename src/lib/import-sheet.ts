@@ -11,6 +11,8 @@ function memberToRow(member: {
   name: string;
   address: string;
   postal?: string;
+  zip?: string;
+  city?: string;
   property: string;
   email: string;
   phone: string;
@@ -19,7 +21,8 @@ function memberToRow(member: {
   return {
     Namn: member.name,
     Adress: member.address,
-    Postnr: member.postal ?? "",
+    Postnr: member.zip ?? member.postal ?? "",
+    Postort: member.city ?? "",
     Fastighet: member.property,
     Email: member.email,
     Telefon: member.phone,
