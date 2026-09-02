@@ -179,6 +179,26 @@ export function MembersApp() {
     await persistInvoices(next);
     setDraftInvoice(null);
     toast(`Faktura ${invoice.number} är sparad.`);
+    return invoice;
+  }
+
+  async function sendInvoiceMail(invoice: Invoice) {
+    if (!invoice.email.includes("@")) {
+      toast.error("Ange e-post på fakturan först.");
+      setDraftInvoice(invoice);
+      return;
+    }
+    try {
+      const mode = await mailSavedInvoice(invoice);
+      toast(
+        mode === "shared"
+          ? "Välj e-post. PDF:en följer med."
+          : "PDF:en laddades ner och mejlet öppnas. Bifoga PDF:en i mejlet.",
+      );
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
+      toast.error("Kunde inte öppna mejlet.");
+    }
   }
 
   async function togglePaid(invoice: Invoice) {
@@ -371,6 +391,10 @@ export function MembersApp() {
                     >
                       {invoice.paid ? "Betald" : "Obetald"}
                     </Button>
+                    <Button type="button" onClick={() => void sendInvoiceMail(invoice)}>
+                      <Mail />
+                      Maila
+                    </Button>
                     <Button variant="outline" onClick={() => setOpenInvoice(invoice)}>
                       PDF
                     </Button>
@@ -447,6 +471,11 @@ export function MembersApp() {
           members={register.members}
           onClose={() => setDraftInvoice(null)}
           onSave={(invoice) => void saveInvoice(invoice)}
+          onSaveAndMail={(invoice) => {
+            void saveInvoice(invoice).then((saved) => {
+              if (saved) void sendInvoiceMail(saved);
+            });
+          }}
         />
       ) : null}
 
@@ -559,11 +588,13 @@ function InvoiceFormDialog({
   members,
   onClose,
   onSave,
+  onSaveAndMail,
 }: {
   invoice: Invoice;
   members: AssociationMember[];
   onClose: () => void;
   onSave: (invoice: Invoice) => void;
+  onSaveAndMail: (invoice: Invoice) => void;
 }) {
   const [draft, setDraft] = useState(invoice);
   const totals = invoiceTotals(draft);
@@ -590,9 +621,8 @@ function InvoiceFormDialog({
     });
   }
 
-  function submit(event: FormEvent) {
-    event.preventDefault();
-    onSave({
+  function prepared(): Invoice {
+    return {
       ...draft,
       name: draft.name.trim(),
       address: draft.address.trim(),
@@ -602,7 +632,12 @@ function InvoiceFormDialog({
       description: draft.description.trim(),
       customerNo: draft.customerNo.trim(),
       ocr: makeOcr(draft.number, draft.customerNo),
-    });
+    };
+  }
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    onSave(prepared());
   }
 
   return (
@@ -674,6 +709,10 @@ function InvoiceFormDialog({
               Avbryt
             </Button>
             <Button type="submit">Spara faktura</Button>
+            <Button type="button" onClick={() => onSaveAndMail(prepared())}>
+              <Mail />
+              Spara och maila
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
