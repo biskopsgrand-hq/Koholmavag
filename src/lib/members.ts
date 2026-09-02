@@ -495,18 +495,61 @@ export function memberKey(member: Pick<AssociationMember, "email" | "property" |
   return (member.email || member.property || member.name).trim().toLowerCase();
 }
 
-export function mergeMembers(current: AssociationMember[], incoming: AssociationMember[]): AssociationMember[] {
-  const byKey = new Map<string, AssociationMember>();
+function nonEmpty(value: string | undefined): string {
+  return (value ?? "").trim();
+}
+
+function pickCustom(seedValue: string, ...values: string[]): string {
+  const filled = values.map(nonEmpty).filter(Boolean);
+  const seed = nonEmpty(seedValue);
+  return filled.find((value) => value !== seed) || filled[0] || seed;
+}
+
+export function mergeMemberFields(base: AssociationMember, overlay: AssociationMember, seed?: AssociationMember | null): AssociationMember {
+  return {
+    ...base,
+    ...overlay,
+    id: base.id || overlay.id,
+    name: pickCustom(seed?.name ?? "", overlay.name, base.name),
+    email: pickCustom(seed?.email ?? "", overlay.email, base.email),
+    property: pickCustom(seed?.property ?? "", overlay.property, base.property),
+    address: pickCustom(seed?.address ?? "", overlay.address, base.address),
+    zip: pickCustom(seed?.zip ?? "", overlay.zip, base.zip),
+    city: pickCustom(seed?.city ?? "", overlay.city, base.city),
+    postal: pickCustom(seed?.postal ?? "", overlay.postal, base.postal),
+    phone: pickCustom(seed?.phone ?? "", overlay.phone, base.phone),
+    note: pickCustom(seed?.note ?? "", overlay.note, base.note),
+    customerNo: pickCustom(seed?.customerNo ?? "", overlay.customerNo, base.customerNo),
+    share: overlay.share || base.share,
+    fee: overlay.fee || base.fee,
+  };
+}
+
+export function mergeMemberLists(lists: AssociationMember[][], seed: AssociationMember[] = []): AssociationMember[] {
+  const seedByKey = new Map<string, AssociationMember>();
+  for (const row of seed) {
+    seedByKey.set(memberKey(row), row);
+    if (row.email) seedByKey.set(row.email.toLowerCase(), row);
+    seedByKey.set(row.name.trim().toLowerCase(), row);
+  }
   const byId = new Map<string, AssociationMember>();
-  for (const member of [...current, ...incoming]) {
-    const previous = byId.get(member.id) ?? byKey.get(memberKey(member));
-    const next = previous ? { ...previous, ...member, id: previous.id } : member;
-    byId.set(next.id, next);
-    byKey.set(memberKey(next), next);
+  const byKey = new Map<string, AssociationMember>();
+  for (const list of lists) {
+    for (const member of list) {
+      const previous = byId.get(member.id) ?? byKey.get(memberKey(member));
+      const seedHit = seedByKey.get(member.id) ?? seedByKey.get(memberKey(member)) ?? seedByKey.get(member.email) ?? seedByKey.get(member.name.trim().toLowerCase());
+      const next = previous ? mergeMemberFields(previous, member, seedHit) : member;
+      byId.set(next.id, next);
+      byKey.set(memberKey(next), next);
+    }
   }
   return [...new Map([...byId.values()].map((member) => [member.id, member])).values()].sort((a, b) =>
     a.name.localeCompare(b.name, "sv"),
   );
+}
+
+export function mergeMembers(current: AssociationMember[], incoming: AssociationMember[]): AssociationMember[] {
+  return mergeMemberLists([current, incoming]);
 }
 
 export function memberFee(member: AssociationMember, defaultFee: number): number {

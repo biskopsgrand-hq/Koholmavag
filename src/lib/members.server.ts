@@ -3,10 +3,12 @@ import { getMyAccessForUserId } from "@/lib/access.server";
 import {
   EMPTY_REGISTER,
   ensurePostal,
+  mergeMemberLists,
   repairMember,
   type AssociationMember,
   type MemberRegister,
 } from "@/lib/members";
+import { KOHOLMA_MEMBERS } from "@/lib/members-seed";
 
 const REGISTER_ID = "members";
 const BACKUP_ID = "members-backup";
@@ -99,13 +101,28 @@ async function writeRow(id: string, register: MemberRegister): Promise<void> {
 export async function loadMemberRegister(userId: string): Promise<MemberRegister> {
   await requireApproved(userId);
   const live = await readRow(REGISTER_ID);
-  if (live.members.length > 0) return live;
   const backup = await readRow(BACKUP_ID);
-  if (backup.members.length > 0) {
-    await writeRow(REGISTER_ID, backup);
-    return backup;
+  const members = mergeMemberLists(
+    [KOHOLMA_MEMBERS, live.members, backup.members],
+    KOHOLMA_MEMBERS,
+  ).map(ensurePostal);
+  const recovered: MemberRegister = {
+    ...EMPTY_REGISTER,
+    ...live,
+    defaultFee: live.defaultFee || backup.defaultFee,
+    dueDate: live.dueDate || backup.dueDate,
+    payment: live.payment || backup.payment,
+    message: live.message || backup.message,
+    listId: live.listId || backup.listId || "",
+    deletedIds: [...new Set([...live.deletedIds, ...backup.deletedIds])],
+    members,
+  };
+  const livePhones = live.members.filter((row) => row.phone.trim()).length;
+  const recoveredPhones = members.filter((row) => row.phone.trim()).length;
+  if (recoveredPhones > livePhones || (live.members.length === 0 && members.length > 0)) {
+    await writeRow(REGISTER_ID, recovered);
   }
-  return live;
+  return recovered;
 }
 
 export async function saveMemberRegister(userId: string, incoming: MemberRegister): Promise<MemberRegister> {
@@ -137,7 +154,7 @@ export async function saveMemberRegister(userId: string, incoming: MemberRegiste
     message: parsed.message || fallback.message,
     listId: parsed.listId || fallback.listId || "",
     deletedIds: deleted,
-    members: (parsed.members.length > 0 ? parsed.members : fallback.members).filter(
+    members: mergeMemberLists([fallback.members, parsed.members], KOHOLMA_MEMBERS).filter(
       (member) => !deletedSet.has(member.id),
     ),
   };

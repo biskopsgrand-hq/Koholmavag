@@ -25,6 +25,7 @@ import {
   parseZipCity,
   memberFee,
   mergeMembers,
+  mergeMemberLists,
   repairMember,
   rowsToMembers,
   type AssociationMember,
@@ -74,38 +75,29 @@ export function MembersApp() {
     void Promise.all([loadMembers({ data: {} }), loadInvoiceList({ data: {} })])
       .then(async ([members, rows]) => {
         let register = members;
+        const cached = readMemberCache();
+        if (cached?.members.length) {
+          register = {
+            ...register,
+            members: mergeMemberLists([register.members, cached.members], KOHOLMA_MEMBERS),
+          };
+        }
         if (register.members.length < 5 && register.listId !== KOHOLMA_LIST_ID) {
           register = await saveMembers({
             data: {
               ...EMPTY_REGISTER,
               ...register,
-              members: KOHOLMA_MEMBERS,
+              members: mergeMemberLists([KOHOLMA_MEMBERS, register.members], KOHOLMA_MEMBERS),
               deletedIds: ["__all__"],
               listId: KOHOLMA_LIST_ID,
             },
           });
-        } else if (register.listId !== KOHOLMA_LIST_ID) {
-          register = await saveMembers({
-            data: { ...register, listId: KOHOLMA_LIST_ID, deletedIds: register.deletedIds ?? [] },
-          });
         }
         const phones = applySeedPhones(register.members, KOHOLMA_MEMBERS);
-        if (phones.changed > 0) {
-          register = await saveMembers({
-            data: {
-              ...register,
-              members: phones.members,
-              listId: KOHOLMA_LIST_ID,
-              deletedIds: register.deletedIds ?? [],
-            },
-          });
-        }
-        if (register.members.length === 0) {
-          const cached = readMemberCache();
-          if (cached) {
-            register = await saveMembers({ data: cached });
-          }
-        }
+        register = { ...register, members: phones.members, listId: register.listId || KOHOLMA_LIST_ID };
+        register = await saveMembers({
+          data: { ...register, deletedIds: register.deletedIds ?? [] },
+        });
         setRegister(register);
         writeMemberCache(register);
         setInvoices(rows);
