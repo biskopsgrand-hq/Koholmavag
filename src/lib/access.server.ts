@@ -92,7 +92,7 @@ async function memberByEmail(email: string): Promise<MemberRow | null> {
   const rows = await sql<MemberRow>`
     select email, user_id, name, status, token, requested_at::text, decided_at::text
     from access_members
-    where email = ${email}
+    where lower(email) = ${email}
     limit 1
   `;
   return rows[0] ?? null;
@@ -370,25 +370,33 @@ export async function applyAccessToken(
   return { ...current, status: decision };
 }
 
-export async function setOwnerCredentialPassword(password: string, name: string): Promise<void> {
+export async function setCredentialPassword(
+  email: string,
+  password: string,
+  name?: string,
+): Promise<void> {
+  const normalized = normalizeEmail(email);
   const trimmed = password.trim();
   if (trimmed.length < 8) {
     throw new Error("Lösenordet måste vara minst 8 tecken.");
   }
-  const displayName = name.trim() || "Ägare";
+  if (!normalized.includes("@")) {
+    throw new Error("Ogiltig e-post.");
+  }
   const { hashPassword } = await import("better-auth/crypto");
   const hashed = await hashPassword(trimmed);
   const sql = await getSql();
-  const existing = await sql<{ id: string }>`
-    select id from "user" where lower(email) = ${OWNER_EMAIL} limit 1
+  const existing = await sql<{ id: string; name: string }>`
+    select id, name from "user" where lower(email) = ${normalized} limit 1
   `;
+  const displayName = name?.trim() || existing[0]?.name || normalized;
   const userId = existing[0]?.id ?? randomUUID();
   if (!existing[0]) {
     await sql`
       insert into "user" (id, name, email, "emailVerified", "createdAt", "updatedAt")
-      values (${userId}, ${displayName}, ${OWNER_EMAIL}, true, now(), now())
+      values (${userId}, ${displayName}, ${normalized}, true, now(), now())
     `;
-  } else {
+  } else if (name?.trim()) {
     await sql`
       update "user"
       set name = ${displayName}, "updatedAt" = now()
@@ -416,5 +424,35 @@ export async function setOwnerCredentialPassword(password: string, name: string)
       )
     `;
   }
-  await upsertOwner(userId, displayName);
+  if (isOwnerEmail(normalized)) {
+    await upsertOwner(userId, displayName);
+  }
+}
+
+export async function setOwnerCredentialPassword(password: string, name: string): Promise<void> {
+  await setCredentialPassword(OWNER_EMAIL, password, name);
+}
+
+export async function changeOwnPassword(userId: string, password: string): Promise<void> {
+  const profile = await profileForUserId(userId);
+  if (!profile) throw new Error("Hittade inte kontot.");
+  const access = await getMyAccessForUserId(userId);
+  if (access.status !== "approved") throw new Error("Forbidden");
+  await setCredentialPassword(profile.email, password, profile.name);
+}
+
+export async function setMemberPasswordForAdmin(
+  adminId: string,
+  email: string,
+  password: string,
+): Promise<void> {
+  await requireAdmin(adminId);
+  const normalized = normalizeEmail(email);
+  if (!isOwnerEmail(normalized)) {
+    const member = await memberByEmail(normalized);
+    if (member?.status !== "approved") {
+      throw new Error("Bara godkända personer kan få ett nytt lösenord.");
+    }
+  }
+  await setCredentialPassword(normalized, password);
 }

@@ -5,6 +5,7 @@ import { toast, Toaster } from "sonner";
 import { AuthGate, useAccess } from "@/components/budget/auth-gate";
 import { AccountChip } from "@/components/budget/account-chip";
 import { BrandLockup } from "@/components/budget/brand-lockup";
+import { PasswordDialog } from "@/components/budget/password-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -46,6 +47,7 @@ function AccessAdmin() {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
+  const [passwordFor, setPasswordFor] = useState<AccessMember | null>(null);
 
   useEffect(() => {
     if (!access?.isAdmin) return;
@@ -206,15 +208,25 @@ function AccessAdmin() {
                   <p className="truncate text-sm text-muted">{member.email}</p>
                 </div>
                 {member.email === OWNER_EMAIL ? (
-                  <p className="text-sm text-muted">Ägare</p>
+                  <div className="flex flex-wrap gap-2">
+                    <p className="self-center text-sm text-muted">Ägare</p>
+                    <Button variant="outline" onClick={() => setPasswordFor(member)}>
+                      Byt lösenord
+                    </Button>
+                  </div>
                 ) : (
-                  <Button
-                    variant="outline"
-                    disabled={busy !== null}
-                    onClick={() => void decide(member.email, "denied")}
-                  >
-                    Neka
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" onClick={() => setPasswordFor(member)}>
+                      Byt lösenord
+                    </Button>
+                    <Button
+                      variant="outline"
+                      disabled={busy !== null}
+                      onClick={() => void decide(member.email, "denied")}
+                    >
+                      Neka
+                    </Button>
+                  </div>
                 )}
               </li>
             ))}
@@ -244,6 +256,14 @@ function AccessAdmin() {
           </ul>
         </section>
       ) : null}
+      <PasswordDialog
+        open={passwordFor !== null}
+        onOpenChange={(open) => {
+          if (!open) setPasswordFor(null);
+        }}
+        email={passwordFor?.email}
+        name={passwordFor?.name}
+      />
     </div>
   );
 }

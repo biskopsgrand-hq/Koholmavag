@@ -45,3 +45,22 @@ export const setOwnerPassword = createServerFn({ method: "POST" })
     const { setOwnerCredentialPassword } = await import("@/lib/access.server");
     await setOwnerCredentialPassword(data.password, data.name);
   });
+
+export const changeOwnPassword = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: { password: string; confirm: string }) => input)
+  .handler(async ({ context, data }): Promise<void> => {
+    if (data.password.trim() !== data.confirm.trim()) {
+      throw new Error("Lösenorden stämmer inte överens.");
+    }
+    const { changeOwnPassword: save } = await import("@/lib/access.server");
+    await save(context.userId, data.password);
+  });
+
+export const setMemberPassword = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: { email: string; password: string }) => input)
+  .handler(async ({ context, data }): Promise<void> => {
+    const { setMemberPasswordForAdmin } = await import("@/lib/access.server");
+    await setMemberPasswordForAdmin(context.userId, data.email, data.password);
+  });

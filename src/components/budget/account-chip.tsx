@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { signOut } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { PasswordDialog } from "@/components/budget/password-dialog";
 import { Button } from "@/components/ui/button";
 
 export function AccountChip() {
   const { user, isPending } = useCurrentUserState();
   const [signingOut, setSigningOut] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
 
   if (isPending) {
     return <div className="h-11 w-36 animate-pulse rounded-md bg-surface-2" />;
@@ -28,6 +30,9 @@ export function AccountChip() {
         </span>
       )}
       <span className="hidden max-w-28 truncate text-sm font-medium text-ink sm:inline">{label}</span>
+      <Button type="button" variant="outline" onClick={() => setPasswordOpen(true)}>
+        Byt lösenord
+      </Button>
       <Button
         type="button"
         variant="outline"
@@ -39,6 +44,7 @@ export function AccountChip() {
       >
         {signingOut ? "Loggar ut…" : "Logga ut"}
       </Button>
+      <PasswordDialog open={passwordOpen} onOpenChange={setPasswordOpen} />
     </div>
   );
 }
