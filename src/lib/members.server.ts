@@ -2,6 +2,7 @@ import { getSql } from "@/lib/db";
 import { getMyAccessForUserId } from "@/lib/access.server";
 import {
   EMPTY_REGISTER,
+  applySeedPhones,
   ensurePostal,
   mergeMemberLists,
   repairMember,
@@ -102,10 +103,10 @@ export async function loadMemberRegister(userId: string): Promise<MemberRegister
   await requireApproved(userId);
   const live = await readRow(REGISTER_ID);
   const backup = await readRow(BACKUP_ID);
-  const members = mergeMemberLists(
-    [KOHOLMA_MEMBERS, live.members, backup.members],
+  const members = applySeedPhones(
+    mergeMemberLists([KOHOLMA_MEMBERS, live.members, backup.members], KOHOLMA_MEMBERS),
     KOHOLMA_MEMBERS,
-  ).map(ensurePostal);
+  ).members.map(ensurePostal);
   const recovered: MemberRegister = {
     ...EMPTY_REGISTER,
     ...live,
@@ -119,9 +120,9 @@ export async function loadMemberRegister(userId: string): Promise<MemberRegister
   };
   const livePhones = live.members.filter((row) => row.phone.trim()).length;
   const recoveredPhones = members.filter((row) => row.phone.trim()).length;
-  const liveZip = live.members.filter((row) => (row.zip || row.city || "").trim()).length;
-  const recoveredZip = members.filter((row) => (row.zip || row.city || "").trim()).length;
-  if (recoveredPhones > livePhones || recoveredZip > liveZip || (live.members.length === 0 && members.length > 0)) {
+  const liveZip = live.members.filter((row) => /^\d{3}\s?\d{2}\b/.test(row.zip || "")).length;
+  const recoveredZip = members.filter((row) => /^\d{3}\s?\d{2}\b/.test(row.zip || "")).length;
+  if (recoveredPhones > livePhones || recoveredZip > liveZip || recoveredZip < members.length || (live.members.length === 0 && members.length > 0)) {
     await writeRow(REGISTER_ID, recovered);
   }
   return recovered;

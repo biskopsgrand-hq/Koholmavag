@@ -37,7 +37,7 @@ export const EMPTY_REGISTER: MemberRegister = {
   listId: "",
 };
 
-export const KOHOLMA_LIST_ID = "adresslista-koholma-2026";
+export const KOHOLMA_LIST_ID = "adresslista-koholma-2026-postnr";
 
 const NAME_KEYS = ["namn", "name", "medlem", "förnamn", "efternamn", "fulltnamn", "ägare", "lagfaren", "kontaktperson", "kontakt", "person", "innehavare"];
 const EMAIL_KEYS = ["e-post", "epost", "e post", "email", "e-mail", "mailadress"];
@@ -433,28 +433,39 @@ export function isKoholmaAddressSheet(header: unknown[]): boolean {
   return text.includes("namn") && (text.includes("fastighet") || text.includes("mobilnr") || text.includes("email"));
 }
 
-function seedMatchKey(member: Pick<AssociationMember, "email" | "name">): string[] {
-  const keys = [member.name.trim().toLowerCase()];
+function seedMatchKey(member: Pick<AssociationMember, "email" | "name" | "property">): string[] {
+  const keys = [member.name.trim().toLowerCase().replace(/\s+/g, " ")];
   if (member.email.includes("@")) keys.push(member.email.trim().toLowerCase());
+  for (const part of member.property.split(/[,/]/).map((item) => item.trim().toLowerCase()).filter(Boolean)) {
+    keys.push(part);
+  }
   return keys;
+}
+
+function hasZip(value: string | undefined): boolean {
+  return /^\d{3}\s?\d{2}\b/.test(tidyText(value ?? ""));
 }
 
 export function ensurePostal(member: AssociationMember): AssociationMember {
   let zip = formatZip(member.zip ?? "");
   let city = tidyText(member.city ?? "");
   let address = member.address;
-  if (!zip && !city) {
+  if (!hasZip(zip)) {
     const fromPostal = parseZipCity(member.postal ?? "");
-    zip = fromPostal.zip;
-    city = fromPostal.city;
+    if (hasZip(fromPostal.zip)) {
+      zip = fromPostal.zip;
+      city = city || fromPostal.city;
+    }
   }
-  if (!zip && !city) {
+  if (!hasZip(zip)) {
     const split = splitStreetAndPostal(member.address);
-    zip = split.zip;
-    city = split.city;
-    if (split.zip) address = split.street;
+    if (hasZip(split.zip)) {
+      zip = split.zip;
+      city = city || split.city;
+      address = split.street || address;
+    }
   }
-  return { ...member, address, zip, city, postal: formatPostal(zip, city) };
+  return { ...member, address, zip: hasZip(zip) ? zip : "", city, postal: formatPostal(zip, city) };
 }
 
 export function applySeedPhones(members: AssociationMember[], seed: AssociationMember[]): { members: AssociationMember[]; changed: number } {
@@ -467,12 +478,14 @@ export function applySeedPhones(members: AssociationMember[], seed: AssociationM
     const base = ensurePostal(member);
     const hit = seedMatchKey(base).map((key) => index.get(key)).find(Boolean);
     if (!hit) return base;
+    const zip = hasZip(base.zip) ? formatZip(base.zip) : hit.zip;
+    const city = tidyText(base.city) || hit.city;
     const updated: AssociationMember = {
       ...base,
       address: base.address.trim() || hit.address,
-      zip: base.zip.trim() || hit.zip,
-      city: base.city.trim() || hit.city,
-      postal: formatPostal(base.zip.trim() || hit.zip, base.city.trim() || hit.city),
+      zip,
+      city,
+      postal: formatPostal(zip, city),
       email: base.email.trim() || hit.email,
       phone: base.phone.trim() || hit.phone,
       property: base.property.trim() || hit.property,
@@ -516,9 +529,12 @@ export function mergeMemberFields(base: AssociationMember, overlay: AssociationM
     email: pickCustom(seed?.email ?? "", overlay.email, base.email),
     property: pickCustom(seed?.property ?? "", overlay.property, base.property),
     address: pickCustom(seed?.address ?? "", overlay.address, base.address),
-    zip: pickCustom(seed?.zip ?? "", overlay.zip, base.zip),
-    city: pickCustom(seed?.city ?? "", overlay.city, base.city),
-    postal: pickCustom(seed?.postal ?? "", overlay.postal, base.postal),
+    zip: hasZip(overlay.zip) ? formatZip(overlay.zip) : hasZip(base.zip) ? formatZip(base.zip) : formatZip(seed?.zip ?? ""),
+    city: nonEmpty(overlay.city) || nonEmpty(base.city) || nonEmpty(seed?.city),
+    postal: formatPostal(
+      hasZip(overlay.zip) ? overlay.zip : hasZip(base.zip) ? base.zip : seed?.zip ?? "",
+      nonEmpty(overlay.city) || nonEmpty(base.city) || seed?.city || "",
+    ),
     phone: pickCustom(seed?.phone ?? "", overlay.phone, base.phone),
     note: pickCustom(seed?.note ?? "", overlay.note, base.note),
     customerNo: pickCustom(seed?.customerNo ?? "", overlay.customerNo, base.customerNo),

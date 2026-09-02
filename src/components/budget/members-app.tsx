@@ -84,19 +84,12 @@ export function MembersApp() {
             members: mergeMemberLists([register.members, cached.members], KOHOLMA_MEMBERS),
           };
         }
-        if (register.members.length < 5 && register.listId !== KOHOLMA_LIST_ID) {
-          register = await saveMembers({
-            data: {
-              ...EMPTY_REGISTER,
-              ...register,
-              members: mergeMemberLists([KOHOLMA_MEMBERS, register.members], KOHOLMA_MEMBERS),
-              deletedIds: ["__all__"],
-              listId: KOHOLMA_LIST_ID,
-            },
-          });
-        }
         const phones = applySeedPhones(register.members, KOHOLMA_MEMBERS);
-        register = { ...register, members: phones.members, listId: register.listId || KOHOLMA_LIST_ID };
+        register = {
+          ...register,
+          members: phones.members,
+          listId: KOHOLMA_LIST_ID,
+        };
         register = await saveMembers({
           data: { ...register, deletedIds: register.deletedIds ?? [] },
         });
@@ -117,9 +110,11 @@ export function MembersApp() {
     if (!ready || savingRef.current || saveTimer.current) return;
     try {
       const [members, rows] = await Promise.all([loadMembers({ data: {} }), loadInvoiceList({ data: {} })]);
+      const filled = applySeedPhones(members.members, KOHOLMA_MEMBERS);
+      const next = { ...members, members: filled.members, listId: members.listId || KOHOLMA_LIST_ID };
       if (savingRef.current || saveTimer.current) return;
-      setRegister(members);
-      writeMemberCache(members);
+      setRegister(next);
+      writeMemberCache(next);
       setInvoices(rows);
     } catch {
       /* keep current until next pull */
