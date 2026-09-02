@@ -5,6 +5,7 @@ import type { Transaction, YearBook } from "@/lib/budget-store";
 import type { BudgetPayload, LoadedBudget } from "@/lib/budget-types";
 
 const LEDGER_ID = "shared";
+const BACKUP_ID = "shared-backup";
 
 const EMPTY_PAYLOAD: BudgetPayload = {
   monthlyBudget: 0,
@@ -134,30 +135,42 @@ function mergePayloads(base: BudgetPayload, incoming: BudgetPayload): BudgetPayl
 export async function loadSharedBudget(userId: string): Promise<LoadedBudget> {
   await requireApproved(userId);
   const sql = await getSql();
-  const rows = await sql<{ payload: unknown }>`
-    select payload from budget_ledger where id = ${LEDGER_ID} limit 1
+  const rows = await sql<{ id: string; payload: unknown }>`
+    select id, payload from budget_ledger
   `;
-  if (!rows[0]) return { ...EMPTY_PAYLOAD, existed: false };
-  return { ...parsePayload(rows[0].payload), existed: true };
+  let best: BudgetPayload | null = null;
+  for (const row of rows) {
+    if (row.id === "directory") continue;
+    const parsed = parsePayload(row.payload);
+    if (!best || parsed.transactions.length > best.transactions.length) best = parsed;
+  }
+  if (!best) return { ...EMPTY_PAYLOAD, existed: false };
+  return { ...best, existed: best.transactions.length > 0 };
 }
 
 export async function saveSharedBudget(userId: string, payload: BudgetPayload): Promise<BudgetPayload> {
   await requireApproved(userId);
   const incoming = parsePayload(payload);
   const sql = await getSql();
-  const rows = await sql<{ payload: unknown }>`
-    select payload from budget_ledger where id = ${LEDGER_ID} limit 1
+  const rows = await sql<{ id: string; payload: unknown }>`
+    select id, payload from budget_ledger where id in (${LEDGER_ID}, ${BACKUP_ID})
   `;
-  const existing = rows[0] ? parsePayload(rows[0].payload) : null;
-  if (
-    existing &&
-    existing.transactions.length > 0 &&
-    incoming.transactions.length === 0 &&
-    (incoming.deletedIds?.length ?? 0) === 0
-  ) {
-    return existing;
+  const existing = parsePayload(rows.find((row) => row.id === LEDGER_ID)?.payload);
+  const backup = parsePayload(rows.find((row) => row.id === BACKUP_ID)?.payload);
+  const richest =
+    existing.transactions.length >= backup.transactions.length ? existing : backup;
+  if (incoming.transactions.length === 0 && richest.transactions.length > 0) {
+    return richest;
   }
-  const next = existing ? mergePayloads(existing, incoming) : incoming;
+  const next = richest.transactions.length > 0 ? mergePayloads(richest, incoming) : incoming;
+  if (existing.transactions.length > 0) {
+    await sql.query(
+      `insert into budget_ledger (id, payload, updated_at)
+       values ($1, $2::jsonb, now())
+       on conflict (id) do update set payload = excluded.payload, updated_at = now()`,
+      [BACKUP_ID, JSON.stringify(existing)],
+    );
+  }
   await sql.query(
     `insert into budget_ledger (id, payload, updated_at)
      values ($1, $2::jsonb, now())

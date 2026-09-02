@@ -123,44 +123,130 @@ function applyLedger(
       : current.yearBooks,
     ready: true,
   });
+  rememberLocalBackup(
+    transactions,
+    Object.keys(payload.yearBooks).length > 0 ? normalizeYearBooks(payload.yearBooks) : current.yearBooks,
+    payload.categories.length > 0 ? payload.categories : DEFAULT_CATEGORIES,
+  );
 }
 
-function readLegacyLocal(): {
-  monthlyBudget: number;
-  categories: Category[];
-  transactions: Transaction[];
-  yearBooks: Record<string, YearBook>;
-} | null {
+function coerceAmount(value: unknown): number {
+  if (typeof value === "number" && Number.isFinite(value)) return Math.round(value);
+  if (typeof value === "string") {
+    const n = Number(value.replace(/\s/g, "").replace("kr", "").replace("SEK", "").replace(",", "."));
+    return Number.isFinite(n) ? Math.round(n) : 0;
+  }
+  return 0;
+}
+
+function asTx(raw: unknown): Transaction | null {
+  if (!raw || typeof raw !== "object") return null;
+  const row = raw as Record<string, unknown>;
+  const type = row.type === "income" || row.type === "expense" ? row.type : null;
+  const amount = Math.abs(coerceAmount(row.amount ?? row.belopp));
+  const date = String(row.date ?? "").slice(0, 10);
+  if (!type || amount <= 0 || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+  return {
+    id: String(row.id ?? `${type}-${date}-${amount}`),
+    type,
+    amount,
+    categoryId: String(row.categoryId ?? ""),
+    note: String(row.note ?? ""),
+    date,
+    accrued: row.accrued === true || row.accrued === "true",
+  };
+}
+
+function collectTransactions(value: unknown, into: Map<string, Transaction>) {
+  if (!value) return;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+      try {
+        collectTransactions(JSON.parse(trimmed), into);
+      } catch {
+        /* ignore */
+      }
+    }
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const tx = asTx(item);
+      if (tx) into.set(tx.id, tx);
+      else collectTransactions(item, into);
+    }
+    return;
+  }
+  if (typeof value === "object") {
+    for (const nested of Object.values(value as Record<string, unknown>)) {
+      collectTransactions(nested, into);
+    }
+  }
+}
+
+function ledgerFromTransactions(
+  transactions: Transaction[],
+  extra?: Partial<{ monthlyBudget: number; categories: Category[]; yearBooks: Record<string, YearBook> }>,
+) {
+  if (transactions.length === 0) return null;
+  return {
+    monthlyBudget: extra?.monthlyBudget || 0,
+    categories: extra?.categories && extra.categories.length > 0 ? extra.categories : DEFAULT_CATEGORIES,
+    transactions,
+    yearBooks: extra?.yearBooks ?? {},
+  };
+}
+
+function readAllLocalLedgers() {
   if (typeof window === "undefined") return null;
+  const found = new Map<string, Transaction>();
+  let categories: Category[] | undefined;
+  let yearBooks: Record<string, YearBook> | undefined;
+  let monthlyBudget = 0;
+  const inspect = (raw: string | null) => {
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw) as { state?: Record<string, unknown> } & Record<string, unknown>;
+      const state = (parsed.state ?? parsed) as Record<string, unknown>;
+      collectTransactions(parsed, found);
+      if (Array.isArray(state.categories) && state.categories.length > 0) {
+        categories = state.categories as Category[];
+      }
+      if (state.yearBooks && typeof state.yearBooks === "object") {
+        yearBooks = normalizeYearBooks(state.yearBooks);
+      }
+      const budget = coerceAmount(state.monthlyBudget);
+      if (budget > monthlyBudget) monthlyBudget = budget;
+    } catch {
+      collectTransactions(raw, found);
+    }
+  };
+  inspect(window.localStorage.getItem("saldo-budget-v1"));
+  inspect(window.localStorage.getItem("koholma-ledger-backup"));
+  inspect(window.localStorage.getItem("koholma-ui-v1"));
+  for (let i = 0; i < window.localStorage.length; i += 1) {
+    inspect(window.localStorage.getItem(window.localStorage.key(i) ?? ""));
+  }
   try {
-    const raw = window.localStorage.getItem("saldo-budget-v1");
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as { state?: Record<string, unknown> } & Record<string, unknown>;
-    const state = (parsed.state ?? parsed) as Record<string, unknown>;
-    const transactions = Array.isArray(state.transactions)
-      ? state.transactions.filter(
-          (tx): tx is Transaction =>
-            Boolean(tx) &&
-            typeof tx === "object" &&
-            Number((tx as Transaction).amount) > 0 &&
-            ((tx as Transaction).type === "income" || (tx as Transaction).type === "expense"),
-        )
-      : [];
-    if (transactions.length === 0) return null;
-    return {
-      monthlyBudget: Number(state.monthlyBudget) || 0,
-      categories: Array.isArray(state.categories) && state.categories.length > 0
-        ? (state.categories as Category[])
-        : DEFAULT_CATEGORIES,
-      transactions: transactions.map((tx) => ({
-        ...tx,
-        amount: Math.round(Number(tx.amount)),
-        accrued: tx.accrued === true,
-      })),
-      yearBooks: normalizeYearBooks(state.yearBooks),
-    };
+    for (let i = 0; i < window.sessionStorage.length; i += 1) {
+      inspect(window.sessionStorage.getItem(window.sessionStorage.key(i) ?? ""));
+    }
   } catch {
-    return null;
+    /* ignore */
+  }
+  return ledgerFromTransactions([...found.values()], { monthlyBudget, categories, yearBooks });
+}
+
+function rememberLocalBackup(transactions: Transaction[], yearBooks: Record<string, YearBook>, categories: Category[]) {
+  if (typeof window === "undefined" || transactions.length === 0) return;
+  try {
+    window.localStorage.setItem(
+      "koholma-ledger-backup",
+      JSON.stringify({ transactions, yearBooks, categories, savedAt: Date.now() }),
+    );
+  } catch {
+    /* ignore quota */
   }
 }
 
@@ -208,7 +294,7 @@ export async function hydrateSharedBudget(): Promise<void> {
           applyLedger(remote);
           return;
         }
-        const recovered = readLegacyLocal();
+        const recovered = readAllLocalLedgers();
         if (recovered) {
           applyLedger(recovered);
           const { saveBudget } = await import("@/lib/budget-fns");
@@ -223,7 +309,7 @@ export async function hydrateSharedBudget(): Promise<void> {
         await new Promise((resolve) => window.setTimeout(resolve, 400 * (attempt + 1)));
       }
     }
-    const recovered = readLegacyLocal();
+    const recovered = readAllLocalLedgers();
     if (recovered) {
       applyLedger(recovered);
       return;
@@ -232,6 +318,20 @@ export async function hydrateSharedBudget(): Promise<void> {
     useBudgetStore.setState({ ready: true });
   })();
   return hydratePromise;
+}
+
+export async function restoreLocalBudget(): Promise<number> {
+  const recovered = readAllLocalLedgers();
+  if (!recovered) return 0;
+  applyLedger(recovered);
+  try {
+    const { saveBudget } = await import("@/lib/budget-fns");
+    const saved = await saveBudget({ data: { ...recovered, deletedIds: [] } });
+    if (saved.transactions.length > 0) applyLedger(saved);
+  } catch (err) {
+    console.error("restore save failed", err);
+  }
+  return useBudgetStore.getState().transactions.length;
 }
 
 export async function refreshSharedBudget(): Promise<void> {

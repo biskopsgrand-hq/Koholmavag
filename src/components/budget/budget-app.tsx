@@ -47,6 +47,7 @@ import {
 import {
   monthTotals,
   monthTransactions,
+  restoreLocalBudget,
   spendingByCategory,
   useBudgetStore,
   type Transaction,
@@ -69,6 +70,7 @@ export function BudgetApp() {
   const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<Transaction | null>(null);
   const [filter, setFilter] = useState<ListFilter>("all");
+  const [restoring, setRestoring] = useState(false);
 
   const monthTx = useMemo(
     () => monthTransactions(transactions, selectedMonth),
@@ -164,6 +166,27 @@ export function BudgetApp() {
                 tone="expense"
               />
             </div>
+            {transactions.length === 0 ? (
+              <Button
+                variant="outline"
+                className="mt-4 w-full"
+                disabled={restoring}
+                onClick={() => {
+                  setRestoring(true);
+                  void restoreLocalBudget()
+                    .then((count) => {
+                      toast(
+                        count > 0
+                          ? `Återställde ${count} poster.`
+                          : "Hittade ingen kopia på den här enheten.",
+                      );
+                    })
+                    .finally(() => setRestoring(false));
+                }}
+              >
+                {restoring ? "Återställer…" : "Återställ poster från den här enheten"}
+              </Button>
+            ) : null}
           </section>
 
           <section className="rounded-2xl bg-surface p-5 shadow-[var(--shadow-border)] sm:p-6">
