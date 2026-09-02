@@ -109,6 +109,26 @@ function documentXml(report: AnnualReport): string {
     paragraph("KOSTNADER", { size: 18, color: "6B6458", before: 280, after: 80 }),
     table(lineRows(report.expenseLines, "Inga kostnader under räkenskapsåret.", "Summa kostnader", report.expense)),
     table(row("Årets resultat", report.result, { bold: true, border: true })),
+    ...(report.accruedIncome > 0 || report.accruedExpense > 0
+      ? [
+          paragraph("FAKTURERAT, EJ BETALT (ingår inte i resultatet)", {
+            size: 18,
+            color: "6B6458",
+            before: 280,
+            after: 80,
+          }),
+          table(
+            (report.accruedIncomeLines.map((line) => row(`${line.name} (ej betald)`, line.amount)).join("") || "") +
+              (report.accruedIncome > 0
+                ? row("Summa fakturerat, ej betalt", report.accruedIncome, { bold: true, border: true })
+                : "") +
+              (report.accruedExpenseLines.map((line) => row(`${line.name} (ej utbetald)`, line.amount)).join("") || "") +
+              (report.accruedExpense > 0
+                ? row("Summa kostnader, ej betalda", report.accruedExpense, { bold: true, border: true })
+                : ""),
+          ),
+        ]
+      : []),
     paragraph(`Balansräkning ${report.closingLabel}`, { bold: true, size: 28, before: 480, after: 160 }),
     paragraph("TILLGÅNGAR", { size: 18, color: "6B6458", after: 80 }),
     table(
@@ -127,7 +147,7 @@ function documentXml(report: AnnualReport): string {
           border: true,
         }),
     ),
-    paragraph("Likvida medel = ingående saldo 1 juli + in- och utbetalningar. Upplupna intäkter ingår inte i kassan.", {
+    paragraph("Likvida medel = ingående saldo 1 juli + årets resultat. Fakturerat men ej betalt ingår inte i resultatet.", {
       size: 18,
       color: "6B6458",
       before: 280,

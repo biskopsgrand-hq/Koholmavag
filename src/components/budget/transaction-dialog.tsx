@@ -245,8 +245,8 @@ export function TransactionDialog({ open, onOpenChange, editing, onManageCategor
               </span>
               <span className="mt-0.5 block text-sm text-muted">
                 {type === "income"
-                  ? "Räknas som intäkt och upplupen fordran. Kassan ökar inte förrän pengarna kommer."
-                  : "Räknas som kostnad och upplupen skuld. Kassan minskar inte förrän ni betalar."}
+                  ? "Visas som fakturerat, men räknas inte som intäkt förrän pengarna kommit in."
+                  : "Visas som obetald kostnad, men räknas inte i resultatet förrän ni betalat."}
               </span>
             </span>
           </label>

@@ -201,6 +201,33 @@ export function AnnualReports() {
             emphasize
             tone={report.result < 0 ? "negative" : "positive"}
           />
+          {report.accruedIncome > 0 || report.accruedExpense > 0 ? (
+            <LedgerSection label="Fakturerat, ej betalt">
+              <p className="text-sm text-muted">Visas här men räknas inte in i intäkter, kostnader eller årets resultat.</p>
+              {report.accruedIncomeLines.map((line) => (
+                <LedgerRow
+                  key={`ai-${line.categoryId}`}
+                  label={`${line.name} (ej betald)`}
+                  amount={line.amount}
+                  muted
+                />
+              ))}
+              {report.accruedIncome > 0 ? (
+                <LedgerRow label="Summa fakturerat, ej betalt" amount={report.accruedIncome} total muted />
+              ) : null}
+              {report.accruedExpenseLines.map((line) => (
+                <LedgerRow
+                  key={`ae-${line.categoryId}`}
+                  label={`${line.name} (ej utbetald)`}
+                  amount={line.amount}
+                  muted
+                />
+              ))}
+              {report.accruedExpense > 0 ? (
+                <LedgerRow label="Summa kostnader, ej betalda" amount={report.accruedExpense} total muted />
+              ) : null}
+            </LedgerSection>
+          ) : null}
         </StatementCard>
 
         <StatementCard title={`Balansräkning ${report.closingLabel}`}>
@@ -229,8 +256,8 @@ export function AnnualReports() {
             />
           </LedgerSection>
           <p className="mt-4 text-sm text-muted">
-            Likvida medel = ingående saldo 1 juli ({formatKr(report.openingCash)}) + in- och utbetalningar.
-            Fakturerat men ej betalt ligger som upplupna intäkter, inte i kassan.
+            Likvida medel = ingående saldo 1 juli ({formatKr(report.openingCash)}) + årets resultat.
+            Fakturerat men ej betalt visas i resultaträkningen men ingår inte i summorna.
           </p>
         </StatementCard>
 
@@ -350,12 +377,14 @@ function LedgerRow({
   amount,
   total,
   emphasize,
+  muted,
   tone,
 }: {
   label: string;
   amount: number;
   total?: boolean;
   emphasize?: boolean;
+  muted?: boolean;
   tone?: "positive" | "negative";
 }) {
   return (
@@ -366,12 +395,13 @@ function LedgerRow({
         emphasize && "mt-1 border-t border-ink/20 pt-3 text-base",
       )}
     >
-      <span className={cn("min-w-0 truncate", emphasize ? "font-medium text-ink" : "text-ink")}>
+      <span className={cn("min-w-0 truncate", emphasize ? "font-medium text-ink" : muted ? "text-muted" : "text-ink")}>
         {label}
       </span>
       <span
         className={cn(
           "shrink-0 tabular-nums",
+          muted && "text-muted",
           tone === "positive" && "text-moss",
           tone === "negative" && "text-clay",
         )}
