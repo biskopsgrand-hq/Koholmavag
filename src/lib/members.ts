@@ -93,12 +93,14 @@ function looksLikePhone(value: string): boolean {
 }
 
 export function looksLikeProperty(value: string): boolean {
-  return /\d+\s*:\s*\d+/.test(value) || /^koholma\b/i.test(value.trim());
+  return /^(koholma\s+)?\d+\s*:\s*\d+$/i.test(tidyText(value));
 }
 
 export function looksLikePerson(value: string): boolean {
-  const text = value.trim();
-  if (text.length < 3 || text.includes("@") || looksLikeProperty(text) || /^\d+([.,]\d+)?$/.test(text)) return false;
+  const text = tidyText(value);
+  if (text.length < 3 || text.includes("@") || looksLikeProperty(text) || looksLikePhone(text)) return false;
+  if (/^\d+([.,]\d+)?$/.test(text) || /^\d{3}\s?\d{2}/.test(text)) return false;
+  if (/\d/.test(text)) return false;
   if (HEADER_WORDS.includes(normHeader(text))) return false;
   return /[a-zA-ZåäöÅÄÖ]/.test(text);
 }
@@ -112,84 +114,26 @@ function looksLikeEmail(value: string): boolean {
 }
 
 export function repairMember(member: AssociationMember): AssociationMember | null {
-  let name = tidyText(member.name);
-  let email = tidyText(member.email);
-  let property = tidyText(member.property);
-  let address = tidyText(member.address);
-  let phone = tidyText(member.phone ?? "");
-  const share = member.share;
-  const extra: string[] = [];
+  const tokens = [member.name, member.email, member.property, member.address, member.phone, member.note]
+    .flatMap((value) => String(value ?? "").split(/[,;]/))
+    .map(tidyText)
+    .filter((token) => token.length > 0 && !looksLikeHeaderRow(token) && !/^\d+([.,]\d+)?$/.test(token));
 
-  if (looksLikeHeaderRow(name) && looksLikeProperty(email) && looksLikePerson(property)) {
-    name = property;
-    property = email;
-    email = "";
-  }
-  if (looksLikeHeaderRow(name) || looksLikeHeaderRow(property)) return null;
+  if (tokens.length === 0) return null;
 
-  if (email && !looksLikeEmail(email)) {
-    extra.push(email);
-    email = "";
-  }
-  if (looksLikePhone(name) && !looksLikePerson(name)) {
-    extra.push(name);
-    name = "";
-  }
-  if (looksLikeProperty(name) && looksLikePerson(property)) {
-    const swap = name;
-    name = property;
-    property = swap;
-  }
-  if (looksLikeProperty(name)) {
-    const person = extra.find(looksLikePerson);
-    if (person) {
-      extra.splice(extra.indexOf(person), 1);
-      if (!looksLikeProperty(property)) property = name;
-      name = person;
-    }
-  }
-  if (!looksLikeProperty(property)) {
-    const found = extra.find(looksLikeProperty);
-    if (found) {
-      extra.splice(extra.indexOf(found), 1);
-      if (looksLikePerson(property) && !looksLikePerson(name)) name = property;
-      property = found;
-    }
-  }
-  if (!looksLikePerson(name)) {
-    const person = extra.find(looksLikePerson);
-    if (person) {
-      extra.splice(extra.indexOf(person), 1);
-      name = person;
-    }
-  }
-  if (!phone) {
-    const found = extra.find(looksLikePhone);
-    if (found) {
-      extra.splice(extra.indexOf(found), 1);
-      phone = found;
-    }
-  }
-  if (!looksLikeEmail(email)) {
-    const found = extra.find(looksLikeEmail);
-    if (found) {
-      extra.splice(extra.indexOf(found), 1);
-      email = found;
-    }
-  }
-  if (!address) {
-    address = extra
-      .filter((item) => looksLikePerson(item) === false && !looksLikeProperty(item) && !looksLikePhone(item) && !looksLikeEmail(item) && !/^\d+([.,]\d+)?$/.test(item) && !looksLikeHeaderRow(item))
-      .map(tidyText)
-      .filter(Boolean)
-      .join(", ");
-  }
+  const emails = tokens.filter(looksLikeEmail);
+  const phones = tokens.filter(looksLikePhone);
+  const properties = tokens.filter(looksLikeProperty);
+  const used = new Set([...emails, ...phones, ...properties]);
+  const rest = tokens.filter((token) => !used.has(token));
+  const names = rest.filter(looksLikePerson);
+  const addressParts = rest.filter((token) => !names.includes(token));
 
-  name = tidyText(name);
-  address = tidyText(address);
-  property = tidyText(property);
-  email = tidyText(email).toLowerCase();
-  phone = tidyText(phone);
+  const name = tidyText(names[0] ?? "");
+  const property = tidyText(properties[0] ?? "");
+  const email = tidyText(emails[0] ?? "").toLowerCase();
+  const phone = tidyText(phones[0] ?? "");
+  const address = tidyText(addressParts.join(", "));
 
   if (!name && !email && !property) return null;
   return {
@@ -199,9 +143,9 @@ export function repairMember(member: AssociationMember): AssociationMember | nul
     property,
     address,
     phone,
-    share: share > 0 ? share : 1,
-    note: tidyText(member.note),
+    note: "",
     customerNo: tidyText(member.customerNo),
+    share: member.share > 0 ? member.share : 1,
   };
 }
 

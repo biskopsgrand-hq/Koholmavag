@@ -137,7 +137,8 @@ export function MembersApp() {
       }
       const next = await persist({
         ...register,
-        members: mergeMembers(register.members, incoming),
+        members: incoming,
+        deletedIds: register.members.map((row) => row.id),
       });
       toast(
         `Läste in ${incoming.length} medlemmar, t.ex. ${incoming
@@ -324,7 +325,7 @@ export function MembersApp() {
       <section className="rounded-2xl bg-surface p-5 shadow-[var(--shadow-border)] sm:p-6">
         <h2 className="font-display text-xl font-medium">Läs in fil</h2>
         <p className="mt-1 text-sm text-muted">
-          CSV eller Excel. Rubriker som Namn, E-post, Fastighet, Adress, Andel, Avgift känns igen automatiskt.
+          CSV eller Excel. Rubriker som Namn, Adress, Fastighet, E-post, Telefon. Filen ersätter listan.
         </p>
         <div className="mt-4 flex flex-col gap-3 sm:flex-row">
           <label className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-md bg-pine px-4 text-sm font-medium text-pine-fg">
@@ -510,6 +511,18 @@ export function MembersApp() {
               <Mail />
               Maila markerade{selectedWithEmail.length > 0 ? ` (${selectedWithEmail.length})` : ""}
             </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                const cleaned = register.members.map(repairMember).filter((row): row is AssociationMember => row !== null);
+                void persist({ ...register, members: cleaned }).then((saved) => {
+                  toast(`Listan städades. ${saved.members.length} medlemmar.`);
+                });
+              }}
+            >
+              Städa listan
+            </Button>
           </div>
         ) : null}
         {visible.length === 0 ? (
@@ -517,7 +530,7 @@ export function MembersApp() {
         ) : (
           <ul className="divide-y divide-line">
             {visible.map((member) => (
-              <li key={member.id} className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <li key={member.id} className="flex flex-col gap-3 py-4 sm:flex-row sm:items-start sm:justify-between">
                 <label className="flex min-h-11 min-w-0 cursor-pointer items-start gap-3">
                   <input
                     type="checkbox"
@@ -526,11 +539,12 @@ export function MembersApp() {
                     onChange={() => toggleSelected(member.id)}
                     aria-label={`Markera ${member.name}`}
                   />
-                  <span className="min-w-0">
-                    <span className="block font-medium text-ink">{member.name}</span>
-                    <span className="block truncate text-sm text-muted">
-                      {[member.property, member.address, member.email, member.phone].filter(Boolean).join(" · ") || "Uppgifter saknas"}
-                    </span>
+                  <span className="grid min-w-0 gap-1 text-sm">
+                    <span className="font-medium text-ink">{member.name || "Utan namn"}</span>
+                    <MemberLine label="Fastighet" value={member.property} />
+                    <MemberLine label="Adress" value={member.address} />
+                    <MemberLine label="E-post" value={member.email} />
+                    <MemberLine label="Telefon" value={member.phone} />
                   </span>
                 </label>
                 <div className="flex flex-wrap items-center gap-2">
@@ -592,6 +606,16 @@ export function MembersApp() {
 
       {bulkQueue ? <BulkMailDialog invoices={bulkQueue} onClose={() => setBulkQueue(null)} /> : null}
     </div>
+  );
+}
+
+function MemberLine({ label, value }: { label: string; value: string }) {
+  if (!value) return null;
+  return (
+    <span className="grid grid-cols-[6.5rem_1fr] gap-2 sm:grid-cols-[7.5rem_1fr]">
+      <span className="text-muted">{label}</span>
+      <span className="break-words text-ink">{value}</span>
+    </span>
   );
 }
 
