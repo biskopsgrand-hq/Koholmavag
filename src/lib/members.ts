@@ -377,6 +377,28 @@ export function isKoholmaAddressSheet(header: unknown[]): boolean {
   return text.includes("namn") && (text.includes("fastighet") || text.includes("mobilnr") || text.includes("email"));
 }
 
+function seedMatchKey(member: Pick<AssociationMember, "email" | "name">): string[] {
+  const keys = [member.name.trim().toLowerCase()];
+  if (member.email.includes("@")) keys.push(member.email.trim().toLowerCase());
+  return keys;
+}
+
+export function applySeedPhones(members: AssociationMember[], seed: AssociationMember[]): { members: AssociationMember[]; changed: number } {
+  const index = new Map<string, AssociationMember>();
+  for (const row of seed) {
+    for (const key of seedMatchKey(row)) index.set(key, row);
+  }
+  let changed = 0;
+  const next = members.map((member) => {
+    const hit = seedMatchKey(member).map((key) => index.get(key)).find(Boolean);
+    if (!hit?.phone) return member;
+    if (member.phone.trim()) return member;
+    changed += 1;
+    return { ...member, phone: hit.phone };
+  });
+  return { members: next, changed };
+}
+
 export function memberKey(member: Pick<AssociationMember, "email" | "property" | "name">): string {
   return (member.email || member.property || member.name).trim().toLowerCase();
 }

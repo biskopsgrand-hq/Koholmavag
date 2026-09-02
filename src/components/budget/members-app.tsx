@@ -20,6 +20,7 @@ import { rowsFromFile } from "@/lib/import-sheet";
 import {
   EMPTY_REGISTER,
   KOHOLMA_LIST_ID,
+  applySeedPhones,
   memberFee,
   mergeMembers,
   repairMember,
@@ -81,6 +82,17 @@ export function MembersApp() {
         } else if (register.listId !== KOHOLMA_LIST_ID) {
           register = await saveMembers({
             data: { ...register, listId: KOHOLMA_LIST_ID, deletedIds: register.deletedIds ?? [] },
+          });
+        }
+        const phones = applySeedPhones(register.members, KOHOLMA_MEMBERS);
+        if (phones.changed > 0) {
+          register = await saveMembers({
+            data: {
+              ...register,
+              members: phones.members,
+              listId: KOHOLMA_LIST_ID,
+              deletedIds: register.deletedIds ?? [],
+            },
           });
         }
         if (register.members.length === 0) {
