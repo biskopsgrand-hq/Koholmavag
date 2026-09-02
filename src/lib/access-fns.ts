@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { authMiddleware } from "@/lib/auth/middleware";
 import type { AccessMember, AccessState } from "@/lib/access";
 
-export const getMyAccess = createServerFn({ method: "GET" })
+export const getMyAccess = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .handler(async ({ context }): Promise<AccessState> => {
     const { getMyAccessForUserId } = await import("@/lib/access.server");

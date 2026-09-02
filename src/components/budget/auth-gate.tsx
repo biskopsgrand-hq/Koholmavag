@@ -9,13 +9,24 @@ import { APP_NAME } from "@/lib/brand";
 import { Button } from "@/components/ui/button";
 
 const AccessContext = createContext<AccessState | null>(null);
+let accessCache: AccessState | null = null;
 
 export function useAccess(): AccessState | null {
-  return useContext(AccessContext);
+  return useContext(AccessContext) ?? accessCache;
 }
 
 export function AuthGate({ children }: { children: ReactNode }) {
   const { user, isPending } = useCurrentUserState();
+  const [seenUser, setSeenUser] = useState(Boolean(user));
+
+  useEffect(() => {
+    if (user) setSeenUser(true);
+  }, [user]);
+
+  if (isPending && (user || seenUser || accessCache)) {
+    if (user || accessCache) return <AccessGate>{children}</AccessGate>;
+    return <AuthPending />;
+  }
   if (isPending) return <AuthPending />;
   if (!user) {
     return (
@@ -29,31 +40,54 @@ export function AuthGate({ children }: { children: ReactNode }) {
 }
 
 function AccessGate({ children }: { children: ReactNode }) {
-  const [access, setAccess] = useState<AccessState | null>(null);
+  const [access, setAccess] = useState<AccessState | null>(accessCache);
   const [error, setError] = useState<string | null>(null);
+
+  function remember(state: AccessState) {
+    accessCache = state;
+    setAccess(state);
+  }
 
   useEffect(() => {
     let cancelled = false;
-    getMyAccess()
-      .then(async (state) => {
+    let attempts = 0;
+    async function load() {
+      try {
+        const state = await getMyAccess();
         if (cancelled) return;
         if (state.status === "none") {
           const created = await requestAccess();
-          if (!cancelled) setAccess({ ...created, freshRequest: true });
+          if (!cancelled) remember({ ...created, freshRequest: true });
           return;
         }
-        setAccess(state);
-      })
-      .catch((err: unknown) => {
+        remember(state);
+      } catch (err: unknown) {
         if (cancelled) return;
         const message = err instanceof Error ? err.message : "";
-        if (message === "Unauthorized") {
+        if (message === "Unauthorized" || message.includes("cross-site")) {
+          attempts += 1;
+          if (accessCache && isApproved(accessCache.status) && attempts < 4) {
+            window.setTimeout(() => {
+              if (!cancelled) void load();
+            }, 400 * attempts);
+            return;
+          }
+          if (accessCache && isApproved(accessCache.status)) {
+            setAccess(accessCache);
+            return;
+          }
           setError("session");
           return;
         }
         console.error("access check failed", err);
+        if (accessCache && isApproved(accessCache.status)) {
+          setAccess(accessCache);
+          return;
+        }
         setError("Kunde inte kontrollera behörighet.");
-      });
+      }
+    }
+    void load();
     return () => {
       cancelled = true;
     };
@@ -64,11 +98,11 @@ function AccessGate({ children }: { children: ReactNode }) {
     const timer = window.setInterval(() => {
       getMyAccess()
         .then((state) => {
-          setAccess((prev) => ({
+          remember({
             ...state,
             freshRequest: false,
-            mailto: state.mailto ?? prev?.mailto ?? null,
-          }));
+            mailto: state.mailto ?? accessCache?.mailto ?? null,
+          });
         })
         .catch(() => {});
     }, 12000);
@@ -100,7 +134,7 @@ function AccessGate({ children }: { children: ReactNode }) {
           access={access}
           onRefresh={async () => {
             const state = await getMyAccess();
-            setAccess({ ...state, freshRequest: false });
+            remember({ ...state, freshRequest: false });
           }}
         />
       </AccessContext.Provider>

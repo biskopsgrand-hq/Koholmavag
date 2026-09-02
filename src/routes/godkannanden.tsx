@@ -1,8 +1,8 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
-import { toast, Toaster } from "sonner";
-import { AuthGate, useAccess } from "@/components/budget/auth-gate";
+import { toast } from "sonner";
+import { useAccess } from "@/components/budget/auth-gate";
 import { AccountChip } from "@/components/budget/account-chip";
 import { BrandLockup } from "@/components/budget/brand-lockup";
 import { PasswordDialog } from "@/components/budget/password-dialog";
@@ -25,19 +25,9 @@ export const Route = createFileRoute("/godkannanden")({
 
 function AccessAdminPage() {
   return (
-    <AuthGate>
-      <main className="min-h-dvh overflow-x-clip bg-bg text-ink">
-        <AccessAdmin />
-        <Toaster
-          position="top-center"
-          offset={16}
-          toastOptions={{
-            className:
-              "!bg-surface !text-ink !border-0 !shadow-[var(--shadow-raised)] !font-sans",
-          }}
-        />
-      </main>
-    </AuthGate>
+    <main className="min-h-dvh overflow-x-clip bg-bg text-ink">
+      <AccessAdmin />
+    </main>
   );
 }
 
