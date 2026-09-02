@@ -161,6 +161,16 @@ export function MembersApp() {
     toast("Medlemmen är sparad.");
   }
 
+  function patchMember(id: string, patch: Partial<AssociationMember>, save = false) {
+    setRegister((current) => {
+      const members = current.members.map((row) => (row.id === id ? { ...row, ...patch } : row));
+      const next = { ...current, members };
+      writeMemberCache(next);
+      if (save) queueMicrotask(() => void persist(next));
+      return next;
+    });
+  }
+
   async function removeMember(id: string) {
     await persist({
       ...register,
@@ -530,34 +540,56 @@ export function MembersApp() {
         ) : (
           <ul className="divide-y divide-line">
             {visible.map((member) => (
-              <li key={member.id} className="flex flex-col gap-3 py-4 sm:flex-row sm:items-start sm:justify-between">
-                <label className="flex min-h-11 min-w-0 cursor-pointer items-start gap-3">
+              <li key={member.id} className="grid gap-3 py-4">
+                <div className="flex items-center gap-3">
                   <input
                     type="checkbox"
-                    className="mt-1 size-5 shrink-0 accent-pine"
+                    className="size-5 shrink-0 accent-pine"
                     checked={selected.includes(member.id)}
                     onChange={() => toggleSelected(member.id)}
                     aria-label={`Markera ${member.name}`}
                   />
-                  <span className="grid min-w-0 gap-1 text-sm">
-                    <span className="font-medium text-ink">{member.name || "Utan namn"}</span>
-                    <MemberLine label="Fastighet" value={member.property} />
-                    <MemberLine label="Adress" value={member.address} />
-                    <MemberLine label="E-post" value={member.email} />
-                    <MemberLine label="Telefon" value={member.phone} />
-                  </span>
-                </label>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm tabular-nums text-ink">{formatKr(memberFee(member, register.defaultFee))}</span>
-                  <Button variant="outline" onClick={() => startInvoice(member)}>
-                    Faktura
-                  </Button>
-                  <Button variant="outline" size="icon-sm" onClick={() => setEditing(member)} aria-label="Redigera">
-                    <Pencil />
-                  </Button>
-                  <Button variant="outline" size="icon-sm" onClick={() => void removeMember(member.id)} aria-label="Ta bort">
-                    <Trash2 />
-                  </Button>
+                  <p className="min-w-0 flex-1 font-medium text-ink">{member.name || "Ny medlem"}</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button variant="outline" onClick={() => startInvoice(member)}>
+                      Faktura
+                    </Button>
+                    <Button variant="outline" size="icon-sm" onClick={() => void removeMember(member.id)} aria-label="Ta bort">
+                      <Trash2 />
+                    </Button>
+                  </div>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field
+                    label="Namn"
+                    value={member.name}
+                    onChange={(name) => patchMember(member.id, { name })}
+                    onBlur={() => patchMember(member.id, {}, true)}
+                  />
+                  <Field
+                    label="Adress"
+                    value={member.address}
+                    onChange={(address) => patchMember(member.id, { address })}
+                    onBlur={() => patchMember(member.id, {}, true)}
+                  />
+                  <Field
+                    label="Fastighet"
+                    value={member.property}
+                    onChange={(property) => patchMember(member.id, { property })}
+                    onBlur={() => patchMember(member.id, {}, true)}
+                  />
+                  <Field
+                    label="E-post"
+                    value={member.email}
+                    onChange={(email) => patchMember(member.id, { email })}
+                    onBlur={() => patchMember(member.id, {}, true)}
+                  />
+                  <Field
+                    label="Telefon"
+                    value={member.phone}
+                    onChange={(phone) => patchMember(member.id, { phone })}
+                    onBlur={() => patchMember(member.id, {}, true)}
+                  />
                 </div>
               </li>
             ))}
@@ -606,16 +638,6 @@ export function MembersApp() {
 
       {bulkQueue ? <BulkMailDialog invoices={bulkQueue} onClose={() => setBulkQueue(null)} /> : null}
     </div>
-  );
-}
-
-function MemberLine({ label, value }: { label: string; value: string }) {
-  if (!value) return null;
-  return (
-    <span className="grid grid-cols-[6.5rem_1fr] gap-2 sm:grid-cols-[7.5rem_1fr]">
-      <span className="text-muted">{label}</span>
-      <span className="break-words text-ink">{value}</span>
-    </span>
   );
 }
 
