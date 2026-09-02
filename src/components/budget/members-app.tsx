@@ -26,6 +26,7 @@ import {
   type MemberRegister,
 } from "@/lib/members";
 import { loadMembers, saveMembers } from "@/lib/members-fns";
+import { readMemberCache, writeMemberCache } from "@/lib/members-cache";
 import { downloadAllInvoicePdfs, downloadInvoiceZip, downloadSavedInvoice, mailSavedInvoice } from "@/lib/invoice-mail";
 import {
   dueInDays,
@@ -60,21 +61,34 @@ export function MembersApp() {
 
   useEffect(() => {
     void Promise.all([loadMembers({ data: {} }), loadInvoiceList({ data: {} })])
-      .then(([members, rows]) => {
-        setRegister(members);
+      .then(async ([members, rows]) => {
+        let register = members;
+        if (register.members.length === 0) {
+          const cached = readMemberCache();
+          if (cached) {
+            register = await saveMembers({ data: cached });
+          }
+        }
+        setRegister(register);
+        writeMemberCache(register);
         setInvoices(rows);
         setReady(true);
       })
       .catch(() => {
+        const cached = readMemberCache();
+        if (cached) setRegister(cached);
         toast.error("Kunde inte hämta registret.");
         setReady(true);
       });
   }, []);
 
   async function persist(next: MemberRegister) {
-    setRegister(next);
-    const saved = await saveMembers({ data: next });
+    const payload = { ...EMPTY_REGISTER, ...next, deletedIds: next.deletedIds ?? [] };
+    setRegister(payload);
+    writeMemberCache(payload);
+    const saved = await saveMembers({ data: payload });
     setRegister(saved);
+    writeMemberCache(saved);
     return saved;
   }
 
@@ -118,10 +132,7 @@ export function MembersApp() {
   }
 
   async function saveMember(member: AssociationMember) {
-    const exists = register.members.some((row) => row.id === member.id);
-    const members = exists
-      ? register.members.map((row) => (row.id === member.id ? member : row))
-      : [...register.members, member];
+    const members = mergeMembers(register.members, [member]);
     await persist({ ...register, members });
     setEditing(null);
     setCreating(false);
@@ -129,7 +140,11 @@ export function MembersApp() {
   }
 
   async function removeMember(id: string) {
-    await persist({ ...register, members: register.members.filter((row) => row.id !== id) });
+    await persist({
+      ...register,
+      members: register.members.filter((row) => row.id !== id),
+      deletedIds: [...new Set([...(register.deletedIds ?? []), id])],
+    });
     toast("Medlemmen togs bort.");
   }
 

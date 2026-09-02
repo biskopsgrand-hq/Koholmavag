@@ -15,6 +15,7 @@ export type AssociationMember = {
 
 export type MemberRegister = {
   members: AssociationMember[];
+  deletedIds: string[];
   defaultFee: number;
   dueDate: string;
   payment: string;
@@ -23,6 +24,7 @@ export type MemberRegister = {
 
 export const EMPTY_REGISTER: MemberRegister = {
   members: [],
+  deletedIds: [],
   defaultFee: 0,
   dueDate: "",
   payment: "",
@@ -124,17 +126,22 @@ export function rowsToMembers(rows: Record<string, string>[]): AssociationMember
   return members;
 }
 
+export function memberKey(member: Pick<AssociationMember, "email" | "property" | "name">): string {
+  return (member.email || member.property || member.name).trim().toLowerCase();
+}
+
 export function mergeMembers(current: AssociationMember[], incoming: AssociationMember[]): AssociationMember[] {
   const byKey = new Map<string, AssociationMember>();
-  const keyOf = (member: AssociationMember) =>
-    (member.email || member.property || member.name).trim().toLowerCase();
-  for (const member of current) byKey.set(keyOf(member), member);
-  for (const member of incoming) {
-    const key = keyOf(member);
-    const previous = byKey.get(key);
-    byKey.set(key, previous ? { ...previous, ...member, id: previous.id } : member);
+  const byId = new Map<string, AssociationMember>();
+  for (const member of [...current, ...incoming]) {
+    const previous = byId.get(member.id) ?? byKey.get(memberKey(member));
+    const next = previous ? { ...previous, ...member, id: previous.id } : member;
+    byId.set(next.id, next);
+    byKey.set(memberKey(next), next);
   }
-  return [...byKey.values()].sort((a, b) => a.name.localeCompare(b.name, "sv"));
+  return [...new Map([...byId.values()].map((member) => [member.id, member])).values()].sort((a, b) =>
+    a.name.localeCompare(b.name, "sv"),
+  );
 }
 
 export function memberFee(member: AssociationMember, defaultFee: number): number {

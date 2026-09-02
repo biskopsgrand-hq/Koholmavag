@@ -2,15 +2,29 @@ import { getSql } from "@/lib/db";
 import { getMyAccessForUserId } from "@/lib/access.server";
 import {
   EMPTY_REGISTER,
+  mergeMembers,
   type AssociationMember,
   type MemberRegister,
 } from "@/lib/members";
 
 const REGISTER_ID = "members";
+const BACKUP_ID = "members-backup";
 
 async function requireApproved(userId: string): Promise<void> {
   const access = await getMyAccessForUserId(userId);
   if (access.status !== "approved") throw new Error("Forbidden");
+}
+
+function asRecord(raw: unknown): Record<string, unknown> {
+  if (typeof raw === "string") {
+    try {
+      raw = JSON.parse(raw);
+    } catch {
+      return {};
+    }
+  }
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  return raw as Record<string, unknown>;
 }
 
 function asMember(raw: unknown): AssociationMember | null {
@@ -18,14 +32,15 @@ function asMember(raw: unknown): AssociationMember | null {
   const row = raw as Record<string, unknown>;
   const name = String(row.name ?? "").trim();
   const email = String(row.email ?? "").trim().toLowerCase();
-  if (!name && !email) return null;
+  const property = String(row.property ?? "").trim();
+  if (!name && !email && !property) return null;
   const share = Number(row.share);
   const fee = Number(row.fee);
   return {
     id: String(row.id ?? crypto.randomUUID()),
-    name: name || email,
+    name: name || property || email || "Medlem",
     email,
-    property: String(row.property ?? "").trim(),
+    property,
     address: String(row.address ?? "").trim(),
     customerNo: String(row.customerNo ?? "").trim(),
     share: Number.isFinite(share) && share > 0 ? share : 1,
@@ -35,12 +50,16 @@ function asMember(raw: unknown): AssociationMember | null {
 }
 
 function parseRegister(raw: unknown): MemberRegister {
-  const data = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const data = asRecord(raw);
   const members = Array.isArray(data.members)
     ? data.members.map(asMember).filter((row): row is AssociationMember => row !== null)
     : [];
+  const deletedIds = Array.isArray(data.deletedIds)
+    ? data.deletedIds.map((id) => String(id)).filter(Boolean)
+    : [];
   return {
     members,
+    deletedIds,
     defaultFee: Math.max(0, Math.round(Number(data.defaultFee) || 0)),
     dueDate: String(data.dueDate ?? ""),
     payment: String(data.payment ?? ""),
@@ -48,26 +67,59 @@ function parseRegister(raw: unknown): MemberRegister {
   };
 }
 
-export async function loadMemberRegister(userId: string): Promise<MemberRegister> {
-  await requireApproved(userId);
+async function readRow(id: string): Promise<MemberRegister> {
   const sql = await getSql();
   const rows = await sql.query<{ payload: unknown }>(
     `select payload from budget_ledger where id = $1 limit 1`,
-    [REGISTER_ID],
+    [id],
   );
   if (!rows[0]) return EMPTY_REGISTER;
   return parseRegister(rows[0].payload);
 }
 
-export async function saveMemberRegister(userId: string, incoming: MemberRegister): Promise<MemberRegister> {
-  await requireApproved(userId);
-  const next = parseRegister(incoming);
+async function writeRow(id: string, register: MemberRegister): Promise<void> {
   const sql = await getSql();
   await sql.query(
     `insert into budget_ledger (id, payload, updated_at)
      values ($1, $2::jsonb, now())
      on conflict (id) do update set payload = excluded.payload, updated_at = now()`,
-    [REGISTER_ID, JSON.stringify(next)],
+    [id, JSON.stringify(register)],
   );
-  return next;
+}
+
+export async function loadMemberRegister(userId: string): Promise<MemberRegister> {
+  await requireApproved(userId);
+  const live = await readRow(REGISTER_ID);
+  if (live.members.length > 0) return live;
+  const backup = await readRow(BACKUP_ID);
+  if (backup.members.length > 0) {
+    await writeRow(REGISTER_ID, backup);
+    return backup;
+  }
+  return live;
+}
+
+export async function saveMemberRegister(userId: string, incoming: MemberRegister): Promise<MemberRegister> {
+  await requireApproved(userId);
+  const parsed = parseRegister(incoming);
+  const existing = await readRow(REGISTER_ID);
+  const fallback = existing.members.length > 0 ? existing : await readRow(BACKUP_ID);
+  const deleted = [...new Set([...fallback.deletedIds, ...parsed.deletedIds])];
+  const deletedSet = new Set(deleted);
+  if (fallback.members.length > 0 && parsed.members.length === 0 && parsed.deletedIds.length === 0) {
+    return fallback;
+  }
+  const merged: MemberRegister = {
+    defaultFee: parsed.defaultFee || fallback.defaultFee,
+    dueDate: parsed.dueDate || fallback.dueDate,
+    payment: parsed.payment || fallback.payment,
+    message: parsed.message || fallback.message,
+    deletedIds: deleted,
+    members: mergeMembers(fallback.members, parsed.members).filter(
+      (member) => !deletedSet.has(member.id),
+    ),
+  };
+  if (fallback.members.length > 0) await writeRow(BACKUP_ID, fallback);
+  await writeRow(REGISTER_ID, merged);
+  return merged;
 }

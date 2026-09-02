@@ -62,7 +62,17 @@ export async function loadInvoices(userId: string): Promise<Invoice[]> {
 export async function saveInvoices(userId: string, invoices: Invoice[]): Promise<Invoice[]> {
   await requireApproved(userId);
   const next = invoices.map(asInvoice).filter((row): row is Invoice => row !== null);
+  const existing = await loadInvoices(userId);
+  if (existing.length > 0 && next.length === 0) return existing;
   const sql = await getSql();
+  if (existing.length > 0) {
+    await sql.query(
+      `insert into budget_ledger (id, payload, updated_at)
+       values ($1, $2::jsonb, now())
+       on conflict (id) do update set payload = excluded.payload, updated_at = now()`,
+      ["invoices-backup", JSON.stringify({ invoices: existing })],
+    );
+  }
   await sql.query(
     `insert into budget_ledger (id, payload, updated_at)
      values ($1, $2::jsonb, now())
