@@ -175,19 +175,19 @@ export function invoiceMailBody(invoice: Invoice, pdfUrl = invoicePdfUrl(invoice
 
 export function invoiceGmailLink(invoice: Invoice): string {
   const from = SELLER.email;
-  const compose = new URL("https://mail.google.com/mail/u/");
+  const compose = new URL(`https://mail.google.com/mail/u/${from}/`);
   compose.searchParams.set("authuser", from);
   compose.searchParams.set("view", "cm");
   compose.searchParams.set("fs", "1");
   compose.searchParams.set("tf", "1");
   compose.searchParams.set("to", invoice.email);
   compose.searchParams.set("su", invoiceMailSubject(invoice));
-  compose.searchParams.set("body", invoiceMailBody(invoice));
-  const chooser = new URL("https://accounts.google.com/AccountChooser");
-  chooser.searchParams.set("Email", from);
-  chooser.searchParams.set("hl", "sv");
-  chooser.searchParams.set("continue", compose.toString());
-  return chooser.toString();
+  compose.searchParams.set("body", `SKICKA FRÅN: ${from}\n\n${invoiceMailBody(invoice)}`);
+  const switcher = new URL("https://accounts.google.com/AddSession");
+  switcher.searchParams.set("Email", from);
+  switcher.searchParams.set("hl", "sv");
+  switcher.searchParams.set("continue", compose.toString());
+  return switcher.toString();
 }
 
 export function invoiceGmailAppLink(invoice: Invoice): string {

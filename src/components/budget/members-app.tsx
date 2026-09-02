@@ -344,7 +344,7 @@ export function MembersApp() {
     setMailStep(invoice);
     void shareInvoiceWithPdf(invoice);
     void saveInvoice(invoice).then(() => setDraftInvoice(null));
-    toast.success("Gmail öppnas som koholmavagen@gmail.com. PDF-länken ligger i mejlet.", { id: "invoice-mail" });
+    toast.success("Välj koholmavagen@gmail.com — inte biskopsgrand. PDF-länken ligger i mejlet.", { id: "invoice-mail" });
   }
 
   function toggleSelected(id: string) {
@@ -1173,7 +1173,7 @@ function MailStepDialog({
         <DialogHeader>
           <DialogTitle>Skicka från {SELLER.email}</DialogTitle>
           <DialogDescription>
-            Gmail öppnas med avsändaren {SELLER.email}. Om Google frågar vilket konto, välj {SELLER.email}.
+            Inte biskopsgrand@gmail.com. Om fel konto syns: tryck på profilbilden uppe till höger och välj {SELLER.email}.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-2 text-sm text-ink">
