@@ -49,6 +49,7 @@ import {
 } from "@/lib/invoices";
 import { SELLER } from "@/lib/seller";
 import { loadInvoiceList, saveInvoiceList } from "@/lib/invoices-fns";
+import { loadMailStatus, saveMailPassword, sendInvoiceMail as postInvoiceMail } from "@/lib/mail-fns";
 import { currentFiscalYear, fiscalYearLabel, formatKr, parseAmountInput } from "@/lib/format";
 import { useLiveSync } from "@/lib/live-sync";
 import { withSessionRetry } from "@/lib/save-with-session";
@@ -69,6 +70,8 @@ export function MembersApp() {
   const [selected, setSelected] = useState<string[]>([]);
   const [bulkQueue, setBulkQueue] = useState<Invoice[] | null>(null);
   const [mailStep, setMailStep] = useState<Invoice | null>(null);
+  const [mailReady, setMailReady] = useState(false);
+  const [mailPass, setMailPass] = useState("");
   const registerRef = useRef(register);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savingRef = useRef(false);
@@ -76,8 +79,8 @@ export function MembersApp() {
   registerRef.current = register;
 
   useEffect(() => {
-    void Promise.all([loadMembers({ data: {} }), loadInvoiceList({ data: {} })])
-      .then(async ([members, rows]) => {
+    void Promise.all([loadMembers({ data: {} }), loadInvoiceList({ data: {} }), loadMailStatus({ data: {} })])
+      .then(async ([members, rows, mail]) => {
         let register = members;
         const cached = readMemberCache();
         if (cached?.members.length) {
@@ -98,6 +101,7 @@ export function MembersApp() {
         setRegister(register);
         writeMemberCache(register);
         setInvoices(rows);
+        setMailReady(mail.configured);
         setReady(true);
       })
       .catch(() => {
@@ -341,10 +345,17 @@ export function MembersApp() {
       setDraftInvoice(invoice);
       return;
     }
-    setMailStep(invoice);
-    void shareInvoiceWithPdf(invoice);
-    void saveInvoice(invoice).then(() => setDraftInvoice(null));
-    toast.success("Välj koholmavagen@gmail.com — inte biskopsgrand. PDF-länken ligger i mejlet.", { id: "invoice-mail" });
+    toast("Skickar faktura med PDF från koholmavagen@gmail.com…", { id: "invoice-mail" });
+    try {
+      await saveInvoice(invoice);
+      await withSessionRetry(() => postInvoiceMail({ data: invoice }));
+      setDraftInvoice(null);
+      setMailStep(null);
+      toast.success("Skickad från koholmavagen@gmail.com med PDF bifogad.", { id: "invoice-mail" });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Kunde inte skicka.";
+      toast.error(message, { id: "invoice-mail" });
+    }
   }
 
   function toggleSelected(id: string) {
@@ -379,7 +390,19 @@ export function MembersApp() {
       queue.push(created);
     }
     await persistInvoices(next);
-    setBulkQueue(queue);
+    setBusy(true);
+    let ok = 0;
+    try {
+      for (const invoice of queue) {
+        await withSessionRetry(() => postInvoiceMail({ data: invoice }));
+        ok += 1;
+        toast.success(`Skickade ${ok} av ${queue.length} med PDF.`, { id: "bulk-mail" });
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Utskicket avbröts.", { id: "bulk-mail" });
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function togglePaid(invoice: Invoice) {
@@ -525,6 +548,39 @@ export function MembersApp() {
             onChange={(value) => patchRegister({ message: value })}
             onBlur={() => void persist(registerRef.current).then(() => toast.success("Sparat", { id: "member-save" }))}
           />
+          <div className="grid gap-2 sm:col-span-2">
+            <Label>Gmail-app-lösenord för {SELLER.email}</Label>
+            <p className="text-sm text-muted">
+              {mailReady
+                ? "Utskick med PDF är kopplat. Fyll i ett nytt lösenord bara om ni byter det."
+                : "Skapa ett app-lösenord hos Google för koholmavagen@gmail.com och klistra in det här. Då bifogas PDF:en i mejlet."}
+            </p>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Input
+                type="password"
+                autoComplete="new-password"
+                value={mailPass}
+                onChange={(event) => setMailPass(event.target.value)}
+                placeholder={mailReady ? "••••••••" : "App-lösenord"}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                disabled={!mailPass.trim()}
+                onClick={() => {
+                  void withSessionRetry(() => saveMailPassword({ data: { pass: mailPass.trim() } }))
+                    .then((status) => {
+                      setMailReady(status.configured);
+                      setMailPass("");
+                      toast.success("Utskick med PDF är kopplat.");
+                    })
+                    .catch((err) => toast.error(err instanceof Error ? err.message : "Kunde inte spara."));
+                }}
+              >
+                Spara lösenord
+              </Button>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -1011,7 +1067,7 @@ function InvoiceFormDialog({
             <Button type="submit">Spara</Button>
             <Button type="button" onClick={() => onSaveAndMail(prepared())}>
               <Mail />
-              Maila från {SELLER.email}
+              Skicka med PDF
             </Button>
           </DialogFooter>
         </form>
