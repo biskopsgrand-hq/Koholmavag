@@ -35,7 +35,7 @@ import { KOHOLMA_MEMBERS } from "@/lib/members-seed";
 import { loadMembers, saveMembers } from "@/lib/members-fns";
 import { readMemberCache, writeMemberCache } from "@/lib/members-cache";
 import { loadMailStatus, saveMailPassword } from "@/lib/mail-fns";
-import { postInvoiceMail } from "@/lib/invoice-send";
+import { postInvoiceMail, rememberSendToken } from "@/lib/invoice-send";
 import { downloadAllInvoicePdfs, downloadInvoiceZip, downloadSavedInvoice, openInvoiceGmail } from "@/lib/invoice-mail";
 import {
   dueInDays,
@@ -103,6 +103,7 @@ export function MembersApp() {
         writeMemberCache(register);
         setInvoices(rows);
         setMailReady(mail.configured);
+        rememberSendToken(mail.sendToken);
         setReady(true);
       })
       .catch(() => {
@@ -355,11 +356,9 @@ export function MembersApp() {
       setDraftInvoice(null);
       setMailStep(null);
       toast.success(`Skickad till ${invoice.email} från koholmavagen@gmail.com med PDF.`, { id: "invoice-mail" });
-    } catch {
-      openInvoiceGmail(invoice);
-      setMailStep(invoice);
-      setDraftInvoice(null);
-      toast("Gmail öppnas som koholmavagen@gmail.com. Skicka mejlet där — PDF-länken ligger i texten.", { id: "invoice-mail" });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Kunde inte skicka.";
+      toast.error(message, { id: "invoice-mail" });
     } finally {
       setBusy(false);
     }
@@ -578,6 +577,7 @@ export function MembersApp() {
                   void withSessionRetry(() => saveMailPassword({ data: { pass: mailPass.trim() } }))
                     .then((status) => {
                       setMailReady(status.configured);
+                      rememberSendToken(status.sendToken);
                       setMailPass("");
                       toast.success("Utskick med PDF är kopplat.");
                     })
