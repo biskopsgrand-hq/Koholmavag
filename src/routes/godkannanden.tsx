@@ -9,7 +9,7 @@ import { PasswordDialog } from "@/components/budget/password-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { OWNER_EMAIL, type AccessMember } from "@/lib/access";
+import { OWNER_EMAIL, isOwnerEmail, parseAccessStatus, type AccessMember } from "@/lib/access";
 import { decideAccessMember, inviteAccessMember, listAccessMembers } from "@/lib/access-fns";
 import { APP_NAME } from "@/lib/brand";
 
@@ -34,6 +34,7 @@ function AccessAdminPage() {
 function AccessAdmin() {
   const access = useAccess();
   const [members, setMembers] = useState<AccessMember[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
@@ -45,9 +46,15 @@ function AccessAdmin() {
     async function load() {
       try {
         const rows = await listAccessMembers();
-        if (!cancelled) setMembers(Array.isArray(rows) ? rows : []);
-      } catch {
-        if (!cancelled) toast.error("Kunde inte hämta listan.");
+        if (!cancelled) {
+          setMembers(Array.isArray(rows) ? rows : []);
+          setLoadError(null);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(err instanceof Error ? err.message : "Kunde inte hämta listan.");
+          toast.error("Kunde inte hämta listan.");
+        }
       }
     }
     void load();
@@ -95,16 +102,20 @@ function AccessAdmin() {
     }
   }
 
-  const pending = members?.filter((m) => m.status === "pending") ?? [];
-  const approved = members?.filter((m) => m.status === "approved") ?? [];
-  const denied = members?.filter((m) => m.status === "denied") ?? [];
+  const pending = members?.filter((m) => parseAccessStatus(m.status) === "pending") ?? [];
+  const approved = members?.filter((m) => parseAccessStatus(m.status) === "approved") ?? [];
+  const denied = members?.filter((m) => parseAccessStatus(m.status) === "denied") ?? [];
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-3xl min-w-0 flex-col overflow-x-clip px-4 pt-6 pb-16 sm:px-6">
       <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <BrandLockup page="Godkännanden" />
-          <p className="mt-1 text-sm text-muted">Bara {OWNER_EMAIL} kan släppa in nya personer.</p>
+          <p className="mt-1 text-sm text-muted">
+            Bara {OWNER_EMAIL} kan släppa in nya personer.
+            {members ? ` ${members.length} personer i registret.` : ""}
+          </p>
+          {loadError ? <p className="mt-2 text-sm text-clay">{loadError}</p> : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <AccountChip />
@@ -146,6 +157,49 @@ function AccessAdmin() {
 
       <section className="mt-6 rounded-2xl bg-surface p-5 shadow-[var(--shadow-border)] sm:p-6">
         <h2 className="font-display text-xl font-medium">
+          Godkända{members ? ` (${approved.length})` : ""}
+        </h2>
+        {members === null ? (
+          <p className="mt-3 text-sm text-muted">Hämtar…</p>
+        ) : approved.length === 0 ? (
+          <p className="mt-3 text-sm text-muted">Ingen har tillgång ännu.</p>
+        ) : (
+          <ul className="mt-4 grid gap-2">
+            {approved.map((member) => (
+              <li key={member.email} className="flex flex-col gap-2 rounded-xl bg-bg px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className="font-medium">{member.name || "Utan namn"}</p>
+                  <p className="truncate text-sm text-muted">{member.email}</p>
+                </div>
+                {isOwnerEmail(member.email) ? (
+                  <div className="flex flex-wrap gap-2">
+                    <p className="self-center text-sm text-muted">Ägare</p>
+                    <Button variant="outline" onClick={() => setPasswordFor(member)}>
+                      Byt lösenord
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" onClick={() => setPasswordFor(member)}>
+                      Byt lösenord
+                    </Button>
+                    <Button
+                      variant="outline"
+                      disabled={busy !== null}
+                      onClick={() => void decide(member.email, "denied")}
+                    >
+                      Neka
+                    </Button>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="mt-6 rounded-2xl bg-surface p-5 shadow-[var(--shadow-border)] sm:p-6">
+        <h2 className="font-display text-xl font-medium">
           Väntar{members ? ` (${pending.length})` : ""}
         </h2>
         {members === null ? (
@@ -175,49 +229,6 @@ function AccessAdmin() {
                     Neka
                   </Button>
                 </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section className="mt-6 rounded-2xl bg-surface p-5 shadow-[var(--shadow-border)] sm:p-6">
-        <h2 className="font-display text-xl font-medium">
-          Godkända{members ? ` (${approved.length})` : ""}
-        </h2>
-        {members === null ? (
-          <p className="mt-3 text-sm text-muted">Hämtar…</p>
-        ) : approved.length === 0 ? (
-          <p className="mt-3 text-sm text-muted">Ingen har tillgång ännu.</p>
-        ) : (
-          <ul className="mt-4 grid gap-2">
-            {approved.map((member) => (
-              <li key={member.email} className="flex flex-col gap-2 rounded-xl bg-bg px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0">
-                  <p className="font-medium">{member.name || "Utan namn"}</p>
-                  <p className="truncate text-sm text-muted">{member.email}</p>
-                </div>
-                {member.email === OWNER_EMAIL ? (
-                  <div className="flex flex-wrap gap-2">
-                    <p className="self-center text-sm text-muted">Ägare</p>
-                    <Button variant="outline" onClick={() => setPasswordFor(member)}>
-                      Byt lösenord
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" onClick={() => setPasswordFor(member)}>
-                      Byt lösenord
-                    </Button>
-                    <Button
-                      variant="outline"
-                      disabled={busy !== null}
-                      onClick={() => void decide(member.email, "denied")}
-                    >
-                      Neka
-                    </Button>
-                  </div>
-                )}
               </li>
             ))}
           </ul>

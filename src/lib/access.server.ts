@@ -6,6 +6,8 @@ import {
   OWNER_EMAIL,
   isOwnerEmail,
   normalizeEmail,
+  parseAccessStatus,
+  strongerAccessStatus,
   type AccessMember,
   type AccessState,
   type AccessStatus,
@@ -222,47 +224,51 @@ async function requireAdmin(userId: string): Promise<void> {
 export async function listMembersForAdmin(userId: string): Promise<AccessMember[]> {
   await requireAdmin(userId);
   const sql = await getSql();
-  const signedUp = await sql<{ email: string; user_id: string; name: string; requested_at: string }>`
-    select lower(email) as email, id as user_id, name, "createdAt"::text as requested_at
-    from "user"
-  `.catch((err) => {
-    console.error("user table read failed", err);
-    return [];
-  });
-  for (const person of signedUp) {
-    const email = normalizeEmail(person.email);
-    if (!email) continue;
-    try {
-      await sql`
-        insert into access_members (email, user_id, name, status, requested_at)
-        values (${email}, ${person.user_id}, ${person.name}, ${isOwnerEmail(email) ? "approved" : "pending"}, now())
-        on conflict (email) do update set
-          user_id = coalesce(access_members.user_id, excluded.user_id),
-          name = coalesce(access_members.name, excluded.name)
-      `;
-    } catch (err) {
-      console.error("access member upsert failed", email, err);
-    }
-  }
-  const rows = await sql<MemberRow>`
-    select lower(email) as email, user_id, name, status, token, requested_at::text, decided_at::text
-    from access_members
-    order by
-      case status when 'pending' then 0 when 'approved' then 1 else 2 end,
-      requested_at desc
-  `;
-  const unique = new Map<string, AccessMember>();
-  for (const row of rows) {
-    const email = normalizeEmail(row.email);
-    unique.set(email, {
+  const byEmail = new Map<string, AccessMember>();
+
+  const users = await sql
+    .query<{ email: string; name: string | null; requested_at: string }>(
+      `select lower(trim(email)) as email, name, "createdAt"::text as requested_at from "user"`,
+    )
+    .catch((err) => {
+      console.error("user table read failed", err);
+      return [];
+    });
+  for (const row of users) {
+    const email = normalizeEmail(row.email ?? "");
+    if (!email.includes("@")) continue;
+    byEmail.set(email, {
       email,
       name: row.name,
-      status: row.status,
+      status: isOwnerEmail(email) ? "approved" : "pending",
       requestedAt: row.requested_at,
+      decidedAt: null,
+    });
+  }
+
+  const members = await sql.query<MemberRow>(
+    `select lower(trim(email)) as email, user_id, name, status, token, requested_at::text, decided_at::text from access_members`,
+  );
+  for (const row of members) {
+    const email = normalizeEmail(row.email ?? "");
+    if (!email.includes("@")) continue;
+    const previous = byEmail.get(email);
+    const status = isOwnerEmail(email)
+      ? "approved"
+      : strongerAccessStatus(parseAccessStatus(row.status), previous?.status ?? "none");
+    byEmail.set(email, {
+      email,
+      name: row.name || previous?.name || null,
+      status: status === "none" ? "pending" : status,
+      requestedAt: row.requested_at || previous?.requestedAt || "",
       decidedAt: row.decided_at,
     });
   }
-  return [...unique.values()];
+
+  return [...byEmail.values()].sort((a, b) => {
+    const order = { pending: 0, approved: 1, denied: 2, none: 3 };
+    return (order[a.status] ?? 9) - (order[b.status] ?? 9) || a.email.localeCompare(b.email);
+  });
 }
 
 export async function decideMemberForAdmin(
