@@ -2,11 +2,12 @@ import type { AssociationMember } from "@/lib/members";
 
 export const KOHOLMA_MEMBERS: AssociationMember[] = [
   {
-    "id": "f7c441f8-27f6-46ff-9b77-d2bd49eb85c1",
+    "id": "cdd71eaa-1be3-4eba-9441-9c3836d09dc0",
     "name": "Anders Falkman",
     "email": "anders.falkman@stoddard.se",
     "property": "Koholma 1:42, Koholma 1:34",
-    "address": "Fredrikshovsgatan 4, 115 23 Stockholm",
+    "address": "Fredrikshovsgatan 4",
+    "postal": "115 23 Stockholm",
     "phone": "",
     "customerNo": "",
     "share": 1,
@@ -14,11 +15,12 @@ export const KOHOLMA_MEMBERS: AssociationMember[] = [
     "note": ""
   },
   {
-    "id": "07d4bb99-499a-4658-9327-26f0a957733c",
+    "id": "d1d8adef-56d7-488b-bc2f-be90e09a25bb",
     "name": "Anders-Petter Kjellgren",
     "email": "apkjellgren@hotmail.com",
     "property": "Koholma 1:41",
-    "address": "Holbergsgatan 129, 168 45 Bromma",
+    "address": "Holbergsgatan 129",
+    "postal": "168 45 Bromma",
     "phone": "",
     "customerNo": "",
     "share": 1,
@@ -26,11 +28,12 @@ export const KOHOLMA_MEMBERS: AssociationMember[] = [
     "note": ""
   },
   {
-    "id": "db2a70b3-5a6f-4674-b88a-fbf968174535",
+    "id": "ff6db832-eb48-4f13-9325-319b0d33eb58",
     "name": "Ann Carlsson",
     "email": "matsolofson@me.com",
     "property": "Koholma 1:31",
-    "address": "Flugsvampsvägen 17, 144 60 Huddinge",
+    "address": "Flugsvampsvägen 17",
+    "postal": "144 60 Huddinge",
     "phone": "070-4868024",
     "customerNo": "",
     "share": 1,
@@ -38,11 +41,12 @@ export const KOHOLMA_MEMBERS: AssociationMember[] = [
     "note": ""
   },
   {
-    "id": "7d85a920-c21f-4ce4-a76b-bf0d4686c121",
+    "id": "591dcb5e-e2fe-48e7-a0de-ee92e93737a1",
     "name": "Anneli Toussaint",
     "email": "anneli.toussaint@gmail.com",
     "property": "Koholma 1:28",
-    "address": "Repslagargatan 27, 5tr, 118 36 Stockholm",
+    "address": "Repslagargatan 27, 5tr",
+    "postal": "118 36 Stockholm",
     "phone": "",
     "customerNo": "",
     "share": 1,
@@ -50,11 +54,12 @@ export const KOHOLMA_MEMBERS: AssociationMember[] = [
     "note": ""
   },
   {
-    "id": "408ffe60-dfdf-4f1d-838b-0aff604c01d3",
+    "id": "5d69c7aa-52d3-4946-9da7-8062c216cd11",
     "name": "Antonia Arbinge-Reuterbring",
     "email": "antoniareuterbring@gmail.com",
     "property": "Koholma 1:85",
-    "address": "Gästrikegatan 5, 113 62 Stockholm",
+    "address": "Gästrikegatan 5",
+    "postal": "113 62 Stockholm",
     "phone": "070-4272833",
     "customerNo": "",
     "share": 1,
@@ -62,11 +67,12 @@ export const KOHOLMA_MEMBERS: AssociationMember[] = [
     "note": ""
   },
   {
-    "id": "99aa0b44-b821-49d9-b0cd-178e3b7ba872",
+    "id": "3670a609-e3e7-4783-8a57-f7bb821300d5",
     "name": "Göran Hallengren",
     "email": "goranhallengren@hotmail.com",
     "property": "Koholma 1:69",
-    "address": "Koholma Byväg 12, 760 15 Gräddö",
+    "address": "Koholma Byväg 12",
+    "postal": "760 15 Gräddö",
     "phone": "",
     "customerNo": "",
     "share": 1,
@@ -74,11 +80,12 @@ export const KOHOLMA_MEMBERS: AssociationMember[] = [
     "note": ""
   },
   {
-    "id": "0fda6a24-1738-42d5-89eb-288fcc52621d",
+    "id": "e23fc6f1-13f9-406c-b73a-0fd4c7b68268",
     "name": "Claes o Tora Planthaber",
     "email": "claes.planthaber@gmail.com",
     "property": "Koholma 1:39",
-    "address": "Gustav Adolfs Väg 9, 761 40 Norrtälje",
+    "address": "Gustav Adolfs Väg 9",
+    "postal": "761 40 Norrtälje",
     "phone": "",
     "customerNo": "",
     "share": 1,
@@ -86,11 +93,12 @@ export const KOHOLMA_MEMBERS: AssociationMember[] = [
     "note": ""
   },
   {
-    "id": "a022f80e-794e-43a8-bc55-7cfca7f3015b",
+    "id": "144cf009-17f8-4cf0-9df8-e786be06dd81",
     "name": "Gunilla Bergman",
     "email": "gunilla.bergman@hotmail.com",
     "property": "Koholma 1:83",
-    "address": "Sollentunavägen 157, 191 48 Sollentuna",
+    "address": "Sollentunavägen 157",
+    "postal": "191 48 Sollentuna",
     "phone": "073-3649128",
     "customerNo": "",
     "share": 1,
@@ -98,11 +106,12 @@ export const KOHOLMA_MEMBERS: AssociationMember[] = [
     "note": ""
   },
   {
-    "id": "2fe175e1-168b-4d9e-818a-4e89445ff29a",
+    "id": "e7cc3289-ac3a-47b5-85cb-73d0a6ca71b1",
     "name": "Annika Szekely",
     "email": "holmben@hotmail.com",
     "property": "Koholma 1:20",
-    "address": "Norr Mälarstrand 20, 112 20 Stockholm",
+    "address": "Norr Mälarstrand 20",
+    "postal": "112 20 Stockholm",
     "phone": "073-9896510",
     "customerNo": "",
     "share": 1,
@@ -110,11 +119,12 @@ export const KOHOLMA_MEMBERS: AssociationMember[] = [
     "note": ""
   },
   {
-    "id": "0de663fa-1208-4989-8251-ee48a4004329",
+    "id": "de71a18f-7e42-4eaf-9323-c4965b3b7512",
     "name": "Håkan Skatt",
     "email": "",
     "property": "Koholma 1:49",
-    "address": "Koholma Hamnväg 19, 760 15 Gräddö",
+    "address": "Koholma Hamnväg 19",
+    "postal": "760 15 Gräddö",
     "phone": "0176-44024",
     "customerNo": "",
     "share": 1,
@@ -122,11 +132,12 @@ export const KOHOLMA_MEMBERS: AssociationMember[] = [
     "note": ""
   },
   {
-    "id": "72da29e5-a969-418b-adb7-318cfec232d4",
+    "id": "f30002d0-343b-4328-8ea3-09a831d27169",
     "name": "Jan Joelsson",
     "email": "jan.joelsson@telia.com",
     "property": "Koholma 1:43",
-    "address": "Meteorevägen 1, 761 64 Norrtälje",
+    "address": "Meteorevägen 1",
+    "postal": "761 64 Norrtälje",
     "phone": "070-6431942",
     "customerNo": "",
     "share": 1,
@@ -134,11 +145,12 @@ export const KOHOLMA_MEMBERS: AssociationMember[] = [
     "note": ""
   },
   {
-    "id": "b528a126-96ee-4b25-8ef2-7fd729344e55",
+    "id": "19e0af6b-9c69-41b4-b0d1-5b9dd0ba843c",
     "name": "Jonas Köpcke",
     "email": "jonas.kopcke@vitri.se",
     "property": "Koholma 1:14",
-    "address": "Sickla Alle 21, 131 65 Nacka",
+    "address": "Sickla Alle 21",
+    "postal": "131 65 Nacka",
     "phone": "070-6256593",
     "customerNo": "",
     "share": 1,
@@ -146,11 +158,12 @@ export const KOHOLMA_MEMBERS: AssociationMember[] = [
     "note": ""
   },
   {
-    "id": "7593546c-7a8d-4008-a942-c5d955364ca5",
+    "id": "007b0e68-d5bf-4656-a1d1-c4f4b1ae29aa",
     "name": "Kaj Stark",
     "email": "kaj.stark@orgoplan.se",
     "property": "Koholma 1:25",
-    "address": "Stora Brogatan 16, 761 30 Norrtälje",
+    "address": "Stora Brogatan 16",
+    "postal": "761 30 Norrtälje",
     "phone": "070-5702995",
     "customerNo": "",
     "share": 1,
@@ -158,11 +171,12 @@ export const KOHOLMA_MEMBERS: AssociationMember[] = [
     "note": ""
   },
   {
-    "id": "3204edcd-6672-4c26-95b4-a3f2239a3725",
+    "id": "c9edc41f-643e-422a-9c2a-0034cf113433",
     "name": "Kajsa Karlsson",
     "email": "kajsakrusbar@hotmail.com",
     "property": "Koholma 1:32",
-    "address": "Koholma Byväg 31, 760 15 Gräddö",
+    "address": "Koholma Byväg 31",
+    "postal": "760 15 Gräddö",
     "phone": "070-3954955",
     "customerNo": "",
     "share": 1,
@@ -170,11 +184,12 @@ export const KOHOLMA_MEMBERS: AssociationMember[] = [
     "note": ""
   },
   {
-    "id": "9505907e-2349-4b34-83ed-f9f59d79b7ec",
+    "id": "c22247ce-b7bd-4954-9ce0-3ed7cb91d758",
     "name": "Kristina Engstrand",
     "email": "engstrandk@gmail.com",
     "property": "Koholma 1:77",
-    "address": "Västmannagatan 68, 113 25 Stockholm",
+    "address": "Västmannagatan 68",
+    "postal": "113 25 Stockholm",
     "phone": "070-6347220",
     "customerNo": "",
     "share": 1,
@@ -182,11 +197,12 @@ export const KOHOLMA_MEMBERS: AssociationMember[] = [
     "note": ""
   },
   {
-    "id": "b9361d8b-59b5-4f2a-aa34-ebdc544faf14",
+    "id": "4ce4157b-9586-43a0-addf-767dcbeadd17",
     "name": "Lars Lenndelius",
     "email": "larslenndelius@gmail.com",
     "property": "Koholma 1:30",
-    "address": "Olof Palmes Gata 14, 111 37 Stockholm",
+    "address": "Olof Palmes Gata 14",
+    "postal": "111 37 Stockholm",
     "phone": "070-3156017",
     "customerNo": "",
     "share": 1,
@@ -194,11 +210,12 @@ export const KOHOLMA_MEMBERS: AssociationMember[] = [
     "note": ""
   },
   {
-    "id": "2247c4d8-6fe6-4213-bdee-817b4a28533b",
+    "id": "8dc13570-2fd6-4207-8b43-ffc98a8f8985",
     "name": "Leif Lindevall",
     "email": "leif.lindevall@gmail.com",
     "property": "Koholma 1:88",
-    "address": "Koholma Byväg 5, 760 15 Gräddö",
+    "address": "Koholma Byväg 5",
+    "postal": "760 15 Gräddö",
     "phone": "073-9583450",
     "customerNo": "",
     "share": 1,
@@ -206,11 +223,12 @@ export const KOHOLMA_MEMBERS: AssociationMember[] = [
     "note": ""
   },
   {
-    "id": "49561880-3aa1-4cc6-bc4d-95ae843afd5e",
+    "id": "ed3e5cc3-ee71-477f-8737-d3fa4b2415eb",
     "name": "Lennart Sjölund",
     "email": "lennart.sjolund41@gmail.com",
     "property": "Koholma 1:67",
-    "address": "Koholma Byväg 22, 760 15 Gräddö",
+    "address": "Koholma Byväg 22",
+    "postal": "760 15 Gräddö",
     "phone": "070-5710512",
     "customerNo": "",
     "share": 1,
@@ -218,11 +236,12 @@ export const KOHOLMA_MEMBERS: AssociationMember[] = [
     "note": ""
   },
   {
-    "id": "e5c48fda-7edc-4d8a-8e67-fd768b8674ef",
+    "id": "ab89d22c-1623-4db8-ae83-eacf110e666d",
     "name": "Maria Ridström",
     "email": "maria@kemaredovisning.se",
     "property": "Koholma 1:68",
-    "address": "c/o Stefan Wickman, Viggvägen 24, 184 61 Åkersberga",
+    "address": "c/o Stefan Wickman, Viggvägen 24",
+    "postal": "184 61 Åkersberga",
     "phone": "073-3018878",
     "customerNo": "",
     "share": 1,
@@ -230,11 +249,12 @@ export const KOHOLMA_MEMBERS: AssociationMember[] = [
     "note": ""
   },
   {
-    "id": "981fed56-964a-439a-bb37-e6f61c8b9bce",
+    "id": "76acb42b-9033-44ab-a11a-42dd47e2b870",
     "name": "Martin Isaeus",
     "email": "martin.issaeus@aquabiota.se",
     "property": "Koholma 1:33",
-    "address": "Vanadisvägen 20, Lght 1403, 113 46 Stockholm",
+    "address": "Vanadisvägen 20, Lght 1403",
+    "postal": "113 46 Stockholm",
     "phone": "070-4412529",
     "customerNo": "",
     "share": 1,
@@ -242,11 +262,12 @@ export const KOHOLMA_MEMBERS: AssociationMember[] = [
     "note": ""
   },
   {
-    "id": "49ccb4c3-5dac-431e-a82b-fc7597e64959",
+    "id": "56b4c287-ef20-4d27-a7c8-697cecd8466d",
     "name": "Mats Carsing",
     "email": "mats.carsing@afconsult.com",
     "property": "Koholma 1:51",
-    "address": "Sursta Gård 871, 186 92 Vallentuna",
+    "address": "Sursta Gård 871",
+    "postal": "186 92 Vallentuna",
     "phone": "076-8242421",
     "customerNo": "",
     "share": 1,
@@ -254,11 +275,12 @@ export const KOHOLMA_MEMBERS: AssociationMember[] = [
     "note": "mats.carsing@gmail.com"
   },
   {
-    "id": "66b6335c-f5b7-4591-9d28-858d389a6a90",
+    "id": "cbf7a121-4a7d-4849-82df-6a087297fec9",
     "name": "Niklas Karlsson",
     "email": "biskopsgrand@gmail.com",
     "property": "Koholma 1:29",
-    "address": "Furusundsgatan 21 B, 115 37 Stockholm",
+    "address": "Furusundsgatan 21 B",
+    "postal": "115 37 Stockholm",
     "phone": "070-2753505",
     "customerNo": "",
     "share": 1,
@@ -266,11 +288,12 @@ export const KOHOLMA_MEMBERS: AssociationMember[] = [
     "note": ""
   },
   {
-    "id": "c834b472-2fe9-4e2a-9d20-3ad8d550c69b",
+    "id": "b066f5c3-a691-4ae5-97a3-1aa91468a237",
     "name": "Oskar Arestål",
     "email": "oskar.arestal@gmail.com",
     "property": "Koholma 1:87",
-    "address": "Astrakanvägen 3, 761 65 Norrtälje",
+    "address": "Astrakanvägen 3",
+    "postal": "761 65 Norrtälje",
     "phone": "076-863611",
     "customerNo": "",
     "share": 1,
@@ -278,11 +301,12 @@ export const KOHOLMA_MEMBERS: AssociationMember[] = [
     "note": ""
   },
   {
-    "id": "0dfeebdb-31a6-477a-991e-0277f115c067",
+    "id": "00bda2ad-285a-4f7d-b569-037cbb3bc06a",
     "name": "Per Särndals dödsbo",
     "email": "lvychowchow@hotmail.com",
     "property": "Koholma 1:47",
-    "address": "c/o Lai Fun Chow, Vigelsjövägen 22B, 761 52 Norrtälje",
+    "address": "c/o Lai Fun Chow, Vigelsjövägen 22B",
+    "postal": "761 52 Norrtälje",
     "phone": "",
     "customerNo": "",
     "share": 1,
@@ -290,11 +314,12 @@ export const KOHOLMA_MEMBERS: AssociationMember[] = [
     "note": ""
   },
   {
-    "id": "6e3c1b3c-3546-41a9-bab7-c311955036f9",
+    "id": "459868b9-0f25-4d14-979e-9e64b48ee1f6",
     "name": "Pia Eriksson Dahl",
     "email": "pia.erikssondahl@outlook.com",
     "property": "Koholma 1:26, Koholma 1:53",
-    "address": "Djäknegatan 74, 754 25 Uppsala",
+    "address": "Djäknegatan 74",
+    "postal": "754 25 Uppsala",
     "phone": "070-4360166",
     "customerNo": "",
     "share": 1,
@@ -302,11 +327,12 @@ export const KOHOLMA_MEMBERS: AssociationMember[] = [
     "note": ""
   },
   {
-    "id": "f4225044-6b10-4974-8295-0155b7904a73",
+    "id": "33424db3-2e31-4cfa-bcdc-9deb4d776424",
     "name": "Pia Westbeck",
     "email": "1.christer.fritzell@gmail.com",
     "property": "Koholma 1:22",
-    "address": "Fågelkärrsvägen 9, 122 22 Enskede",
+    "address": "Fågelkärrsvägen 9",
+    "postal": "122 22 Enskede",
     "phone": "070-6326732",
     "customerNo": "",
     "share": 1,
@@ -314,11 +340,12 @@ export const KOHOLMA_MEMBERS: AssociationMember[] = [
     "note": ""
   },
   {
-    "id": "cb0f4d85-e03f-4d42-8292-491f83927728",
+    "id": "c112bd69-71ff-4cf0-94fb-37a27134ca71",
     "name": "Pia och Lennart Sundberg",
     "email": "pia.sundberg@livea.se",
     "property": "Koholma 1:13",
-    "address": "Arkenvägen 41, 187 46 Täby",
+    "address": "Arkenvägen 41",
+    "postal": "187 46 Täby",
     "phone": "",
     "customerNo": "",
     "share": 1,
@@ -326,11 +353,12 @@ export const KOHOLMA_MEMBERS: AssociationMember[] = [
     "note": "eller Live.se"
   },
   {
-    "id": "1926080f-9aeb-4087-984f-3d11a2186c89",
+    "id": "0dbc2186-2baa-4e44-9843-dd5d67448014",
     "name": "Viktor Borg",
     "email": "viktorborg89@gmail.com",
     "property": "Koholma 1:75",
-    "address": "Koholma Byväg 1, 760 15 Gräddö",
+    "address": "Koholma Byväg 1",
+    "postal": "760 15 Gräddö",
     "phone": "070-7352056",
     "customerNo": "",
     "share": 1,
@@ -338,11 +366,12 @@ export const KOHOLMA_MEMBERS: AssociationMember[] = [
     "note": ""
   },
   {
-    "id": "768f761a-dc72-4eae-ab57-da59cf84e95c",
+    "id": "77849d75-2670-46bb-80f5-3dd84bf35d0a",
     "name": "Ylva Bogegård",
     "email": "bogegard@hotmail.com",
     "property": "Koholma 1:76",
-    "address": "Levertinsgatan 1, 112 52 Stockholm",
+    "address": "Levertinsgatan 1",
+    "postal": "112 52 Stockholm",
     "phone": "073-6298688",
     "customerNo": "",
     "share": 1,
@@ -350,11 +379,12 @@ export const KOHOLMA_MEMBERS: AssociationMember[] = [
     "note": ""
   },
   {
-    "id": "8b13df6e-8834-4958-8665-4f55002fc7ad",
+    "id": "a257b6a1-e21d-4931-a518-5cc0ecd6dbf7",
     "name": "Ylva Åberg",
     "email": "ylva1.aberg@gmail.com",
     "property": "Koholma 1:27",
-    "address": "Dalagatan 29, 113 23 Stockholm",
+    "address": "Dalagatan 29",
+    "postal": "113 23 Stockholm",
     "phone": "",
     "customerNo": "",
     "share": 1,
@@ -362,11 +392,12 @@ export const KOHOLMA_MEMBERS: AssociationMember[] = [
     "note": ""
   },
   {
-    "id": "3a2f960b-c592-4c7b-b9b5-b1125201ebec",
+    "id": "4b0428af-41bb-4627-b551-a8743918abe7",
     "name": "Anders Forsell",
     "email": "anders.forsell@bkpl.se",
     "property": "Koholma 1:46",
-    "address": "Drottninggatan 75, 111 60 Stockholm",
+    "address": "Drottninggatan 75",
+    "postal": "111 60 Stockholm",
     "phone": "",
     "customerNo": "",
     "share": 1,
@@ -374,11 +405,12 @@ export const KOHOLMA_MEMBERS: AssociationMember[] = [
     "note": "Ej medlem"
   },
   {
-    "id": "3ee472de-3ca0-457c-aa34-a05269e646e0",
+    "id": "631583b9-5950-4fe9-966a-429145de120e",
     "name": "Gunilla Ottosson",
     "email": "gunilla.ottosson@gmail.com",
     "property": "Koholma 1:59",
-    "address": "Karl Malmstens Väg 4, 170 73 Solna",
+    "address": "Karl Malmstens Väg 4",
+    "postal": "170 73 Solna",
     "phone": "",
     "customerNo": "",
     "share": 1,
@@ -386,11 +418,12 @@ export const KOHOLMA_MEMBERS: AssociationMember[] = [
     "note": "Ej medlem"
   },
   {
-    "id": "238e2606-217c-4ef1-b92e-6e29faa916ca",
+    "id": "1de45e1d-1389-4712-949f-08a9d74c424a",
     "name": "Helena Svedberg",
     "email": "helena.svedberg@norrtalje.se",
     "property": "Koholma 1:45",
-    "address": "Koholma Hamnväg 6, 760 15 Gräddö",
+    "address": "Koholma Hamnväg 6",
+    "postal": "760 15 Gräddö",
     "phone": "070-7575579",
     "customerNo": "",
     "share": 1,
@@ -398,11 +431,12 @@ export const KOHOLMA_MEMBERS: AssociationMember[] = [
     "note": "Ej medlem"
   },
   {
-    "id": "f3f78d17-d98b-40c6-8f93-42333796c60d",
+    "id": "68c7cdea-01c9-4be4-87a1-23889ebdb8d1",
     "name": "Jan Holmgren",
     "email": "janne.holmgren@live.se",
     "property": "Koholma 1:50",
-    "address": "Koholma Hamnväg 3, 760 15 Gräddö",
+    "address": "Koholma Hamnväg 3",
+    "postal": "760 15 Gräddö",
     "phone": "070-5750075",
     "customerNo": "",
     "share": 1,
@@ -410,11 +444,12 @@ export const KOHOLMA_MEMBERS: AssociationMember[] = [
     "note": "Ej medlem"
   },
   {
-    "id": "de41abb9-7543-4eb7-b5e5-7e59b137769a",
+    "id": "9318d2f1-9c71-4ee0-a0c2-5993bd8700db",
     "name": "Filip Birkhammar",
     "email": "filip.birkhammar@gmail.com",
     "property": "Koholma 1:48",
-    "address": "Hårdvallsgatan 13, 115 44 Stockholm",
+    "address": "Hårdvallsgatan 13",
+    "postal": "115 44 Stockholm",
     "phone": "736001163",
     "customerNo": "",
     "share": 1,
@@ -422,11 +457,12 @@ export const KOHOLMA_MEMBERS: AssociationMember[] = [
     "note": "Ej medlem · Freja Birkhammar frejabirkhammar@hotmail.com 0725825521 · frejabirkhammar@hotmail.com"
   },
   {
-    "id": "97692737-49b1-495d-9738-552b874e58cf",
+    "id": "488c84dd-000b-4670-aaff-0b283a4af754",
     "name": "Kjell Ove Jansson",
     "email": "kjellovejansson58@gmail.com",
     "property": "Koholma 1:62",
-    "address": "Murkelvägen 65, 186 56 Vallentuna",
+    "address": "Murkelvägen 65",
+    "postal": "186 56 Vallentuna",
     "phone": "070-5577310",
     "customerNo": "",
     "share": 1,
@@ -434,11 +470,12 @@ export const KOHOLMA_MEMBERS: AssociationMember[] = [
     "note": "Ej medlem"
   },
   {
-    "id": "502052dd-db62-487d-a6e1-42d9a477969d",
+    "id": "5d6c52ff-d3ee-4779-ac8b-c88d0e3ef0dd",
     "name": "Laki Katakos",
     "email": "laki@bygglagetstockholm.se",
     "property": "Koholma 1:44",
-    "address": "Tegelbruksvägen 5, 126 32 Hägersten",
+    "address": "Tegelbruksvägen 5",
+    "postal": "126 32 Hägersten",
     "phone": "",
     "customerNo": "",
     "share": 1,
@@ -446,11 +483,12 @@ export const KOHOLMA_MEMBERS: AssociationMember[] = [
     "note": "Ej medlem"
   },
   {
-    "id": "8b395d1f-97cb-4438-8f9f-3aeafb2aee00",
+    "id": "2dad10ad-aff2-4cf7-904b-4cc57c73d243",
     "name": "Gunnar Stendahl",
     "email": "gstendahl46@gmail.com",
     "property": "Koholma 1:86",
-    "address": "Klyvargatan 5, 723 56 Västerås",
+    "address": "Klyvargatan 5",
+    "postal": "723 56 Västerås",
     "phone": "072-5510599",
     "customerNo": "",
     "share": 1,
@@ -458,11 +496,12 @@ export const KOHOLMA_MEMBERS: AssociationMember[] = [
     "note": "Ej medlem"
   },
   {
-    "id": "86f91740-6c9c-4bfb-8f70-696f1f5625ea",
+    "id": "deb633dd-8ea9-47ff-adad-123ee1c70740",
     "name": "Marie Hafner",
     "email": "mlhr@live.se",
     "property": "Koholma 1:56",
-    "address": "Rådmansövägen 530, 760 15 Gräddö",
+    "address": "Rådmansövägen 530",
+    "postal": "760 15 Gräddö",
     "phone": "0725-772253",
     "customerNo": "",
     "share": 1,
@@ -470,11 +509,12 @@ export const KOHOLMA_MEMBERS: AssociationMember[] = [
     "note": "Ej medlem"
   },
   {
-    "id": "ac38793d-be50-49c4-961a-2e2e8e42f1f6",
+    "id": "0b465358-a9a9-4823-a6bc-5ec9c16fcae2",
     "name": "Mikael Östergren",
     "email": "michael.ostergren@gmail.com",
     "property": "Koholma 1:52",
-    "address": "Artillerigatan 93, 115 30 Stockholm",
+    "address": "Artillerigatan 93",
+    "postal": "115 30 Stockholm",
     "phone": "070-3305094",
     "customerNo": "",
     "share": 1,
@@ -482,11 +522,12 @@ export const KOHOLMA_MEMBERS: AssociationMember[] = [
     "note": "Ej medlem"
   },
   {
-    "id": "ef6e05a8-0a18-4666-bee3-fb688146011b",
+    "id": "a5479a79-65d4-4055-81eb-7a78a0b46121",
     "name": "Per Morten Berglund",
     "email": "marten.berglund56@gmail.com",
     "property": "Koholma 1:55",
-    "address": "Filarvägen 7, 176 71 Järfälla",
+    "address": "Filarvägen 7",
+    "postal": "176 71 Järfälla",
     "phone": "",
     "customerNo": "",
     "share": 1,
@@ -494,11 +535,12 @@ export const KOHOLMA_MEMBERS: AssociationMember[] = [
     "note": "Ej medlem"
   },
   {
-    "id": "5a05a712-7c9c-4071-b082-8bb4cb78b405",
+    "id": "6d010976-679a-44fb-bb89-0ea7d81b7c9d",
     "name": "Per-Olof Degerman",
     "email": "per-olov.degerman@seb.se",
     "property": "Koholma 1:84",
-    "address": "Ryttartorpsvägen 10, 194 53 Upplands Väsby",
+    "address": "Ryttartorpsvägen 10",
+    "postal": "194 53 Upplands Väsby",
     "phone": "070-6228112",
     "customerNo": "",
     "share": 1,
@@ -506,11 +548,12 @@ export const KOHOLMA_MEMBERS: AssociationMember[] = [
     "note": "Ej medlem"
   },
   {
-    "id": "f3333180-2fef-4c82-bf4f-bc5c8b88e20f",
+    "id": "736581c1-0295-4293-bdf7-69a3e493d4ab",
     "name": "Pia Magnusson",
     "email": "pia.t.magnusson@gmail.com",
     "property": "Koholma 1:40",
-    "address": "Kristinebergsvägen 16, 112 44 Stockholm",
+    "address": "Kristinebergsvägen 16",
+    "postal": "112 44 Stockholm",
     "phone": "",
     "customerNo": "",
     "share": 1,
@@ -518,11 +561,12 @@ export const KOHOLMA_MEMBERS: AssociationMember[] = [
     "note": "Ej medlem"
   },
   {
-    "id": "ae0fb337-18fa-40c0-a56f-0d0bbabd3097",
+    "id": "503f9282-ab67-402e-a127-95d726c1ce4e",
     "name": "Robert Oneheim",
     "email": "",
     "property": "Koholma 1:54",
-    "address": "Söra Skolväg 4, 184 39 Åkersberga",
+    "address": "Söra Skolväg 4",
+    "postal": "184 39 Åkersberga",
     "phone": "",
     "customerNo": "",
     "share": 1,

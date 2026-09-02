@@ -158,8 +158,7 @@ export function MembersApp() {
             ...row,
             name: member.name || row.name,
             address: member.address || row.address,
-            property: member.property || row.property,
-            email: member.email || row.email,
+            postal: member.postal || row.postal,
             phone: member.phone || row.phone,
             note: member.note || row.note,
           };
@@ -186,7 +185,7 @@ export function MembersApp() {
     const needle = query.trim().toLowerCase();
     if (!needle) return register.members;
     return register.members.filter((member) =>
-      [member.name, member.email, member.property, member.address, member.phone].join(" ").toLowerCase().includes(needle),
+      [member.name, member.email, member.property, member.address, member.postal, member.phone].join(" ").toLowerCase().includes(needle),
     );
   }, [query, register.members]);
 
@@ -651,6 +650,12 @@ export function MembersApp() {
                     onBlur={() => patchMember(member.id, {}, true)}
                   />
                   <Field
+                    label="Postnr och ort"
+                    value={member.postal}
+                    onChange={(postal) => patchMember(member.id, { postal })}
+                    onBlur={() => patchMember(member.id, {}, true)}
+                  />
+                  <Field
                     label="Fastighet"
                     value={member.property}
                     onChange={(property) => patchMember(member.id, { property })}
@@ -732,6 +737,7 @@ function emptyMember(): AssociationMember {
     email: "",
     property: "",
     address: "",
+    postal: "",
     phone: "",
     customerNo: "",
     share: 1,
@@ -787,6 +793,7 @@ function MemberDialog({
       email: draft.email.trim().toLowerCase(),
       property: draft.property.trim(),
       address: draft.address.trim(),
+      postal: draft.postal.trim(),
       phone: draft.phone.trim(),
       note: draft.note.trim(),
     });
@@ -803,6 +810,7 @@ function MemberDialog({
           <div className="grid max-h-[min(60dvh,28rem)] gap-3 overflow-y-auto overscroll-contain pr-1">
             <Field label="Namn" value={draft.name} onChange={(name) => setDraft({ ...draft, name })} />
             <Field label="Adress" value={draft.address} onChange={(address) => setDraft({ ...draft, address })} />
+            <Field label="Postnr och ort" value={draft.postal} onChange={(postal) => setDraft({ ...draft, postal })} />
             <Field label="Fastighet" value={draft.property} onChange={(property) => setDraft({ ...draft, property })} />
             <Field label="E-post" value={draft.email} onChange={(email) => setDraft({ ...draft, email })} />
             <Field label="Telefon" value={draft.phone} onChange={(phone) => setDraft({ ...draft, phone })} />
@@ -853,7 +861,7 @@ function InvoiceFormDialog({
       memberId: member.id,
       name: member.name,
       address: parsed.street || member.address,
-      postal: parsed.postal || draft.postal,
+      postal: member.postal || parsed.postal || draft.postal,
       email: member.email,
       phone: member.phone,
       property: member.property,

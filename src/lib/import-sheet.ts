@@ -10,6 +10,7 @@ async function readCsvText(file: File): Promise<string> {
 function memberToRow(member: {
   name: string;
   address: string;
+  postal?: string;
   property: string;
   email: string;
   phone: string;
@@ -18,6 +19,7 @@ function memberToRow(member: {
   return {
     Namn: member.name,
     Adress: member.address,
+    Postnr: member.postal ?? "",
     Fastighet: member.property,
     Email: member.email,
     Telefon: member.phone,

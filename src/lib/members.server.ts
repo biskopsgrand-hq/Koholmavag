@@ -42,13 +42,22 @@ function asMember(raw: unknown): AssociationMember | null {
     email,
     property,
     address: String(row.address ?? "").trim(),
+    postal: String(row.postal ?? row.postnr ?? "").trim(),
     phone: String(row.phone ?? row.telefon ?? "").trim(),
     customerNo: String(row.customerNo ?? "").trim(),
     share: Number.isFinite(share) && share > 0 ? share : 1,
     fee: Number.isFinite(fee) && fee > 0 ? Math.round(fee) : 0,
     note: String(row.note ?? "").trim(),
   };
-  if (mapped.phone || mapped.address || mapped.email) return mapped;
+  if (!mapped.postal) {
+    const split = mapped.address.split(/[\n,]/).map((part) => part.trim()).filter(Boolean);
+    const postal = split.find((part) => /^\d{3}\s?\d{2}\b/.test(part)) ?? "";
+    if (postal) {
+      mapped.postal = postal;
+      mapped.address = split.filter((part) => part !== postal).join(", ");
+    }
+  }
+  if (mapped.phone || mapped.address || mapped.email || mapped.postal) return mapped;
   return repairMember(mapped);
 }
 

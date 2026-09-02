@@ -7,6 +7,7 @@ export type AssociationMember = {
   email: string;
   property: string;
   address: string;
+  postal: string;
   phone: string;
   customerNo: string;
   share: number;
@@ -133,9 +134,23 @@ function looksLikePostal(value: string): boolean {
   return /^\d{3}\s?\d{2}$/.test(tidyText(value));
 }
 
+export function looksLikePostalLine(value: string): boolean {
+  return /^\d{3}\s?\d{2}\b/.test(tidyText(value));
+}
+
+export function splitStreetAndPostal(address: string): { street: string; postal: string } {
+  const lines = address
+    .split(/[\n,]/)
+    .map(tidyText)
+    .filter(Boolean);
+  const postal = lines.find(looksLikePostalLine) ?? "";
+  const street = lines.filter((line) => line !== postal).join(", ");
+  return { street, postal };
+}
+
 function looksLikeStreet(value: string): boolean {
   const text = tidyText(value);
-  if (!text || looksLikePostal(text) || looksLikePhone(text) || looksLikeEmail(text) || looksLikeProperty(text)) return false;
+  if (!text || looksLikePostal(text) || looksLikePostalLine(text) || looksLikePhone(text) || looksLikeEmail(text) || looksLikeProperty(text)) return false;
   if (/\d+\s*:\s*\d+/.test(text)) return false;
   return /[a-zA-ZåäöÅÄÖ]/.test(text) && /\d/.test(text);
 }
@@ -198,7 +213,7 @@ function explodeValue(value: string): string[] {
   return [text];
 }
 
-function classifyValues(values: string[]): Pick<AssociationMember, "name" | "email" | "property" | "address" | "phone"> {
+function classifyValues(values: string[]): Pick<AssociationMember, "name" | "email" | "property" | "address" | "postal" | "phone"> {
   const tokens = values
     .flatMap(explodeValue)
     .map(tidyText)
@@ -208,6 +223,7 @@ function classifyValues(values: string[]): Pick<AssociationMember, "name" | "ema
   const phones = tokens.filter(looksLikePhone);
   const properties = tokens.filter(looksLikeProperty);
   const streets = tokens.filter(looksLikeStreet);
+  const postalLines = tokens.filter(looksLikePostalLine);
   const postals = tokens.filter(looksLikePostal);
   const cities: string[] = [];
   tokens.forEach((token, index) => {
@@ -218,14 +234,13 @@ function classifyValues(values: string[]): Pick<AssociationMember, "name" | "ema
   });
   const citySet = new Set(cities);
   const names = tokens.filter((token) => looksLikePerson(token) && !citySet.has(token));
-  const address = tidyText(
-    [streets[0] ?? "", [postals[0] ?? "", cities[0] ?? ""].filter(Boolean).join(" ")].filter(Boolean).join(", "),
-  );
+  const postal = tidyText(postalLines[0] ?? [postals[0] ?? "", cities[0] ?? ""].filter(Boolean).join(" "));
   return {
     name: tidyText(names[0] ?? ""),
     email: tidyText(emails[0] ?? "").toLowerCase(),
     property: tidyText(properties[0] ?? ""),
-    address,
+    address: tidyText(streets[0] ?? ""),
+    postal,
     phone: tidyText(phones[0] ?? ""),
   };
 }
@@ -236,18 +251,21 @@ export function repairMember(member: AssociationMember): AssociationMember | nul
     member.email,
     member.property,
     member.address,
+    member.postal,
     member.phone,
     member.note,
   ]);
   if (!classified.name && !classified.email && !classified.property && !classified.address) return null;
+  const split = splitStreetAndPostal([classified.address, classified.postal || member.postal].filter(Boolean).join(", "));
   return {
     ...member,
     name: classified.name || classified.property || classified.email || "Medlem",
     email: looksLikeEmail(classified.email) ? classified.email : "",
     property: classified.property,
-    address: classified.address,
-    phone: classified.phone,
-    note: "",
+    address: split.street || classified.address,
+    postal: split.postal || classified.postal || member.postal || "",
+    phone: classified.phone || member.phone,
+    note: member.note,
     customerNo: tidyText(member.customerNo),
     share: member.share > 0 ? member.share : 1,
   };
@@ -305,6 +323,7 @@ export function rowsToMembers(rows: Record<string, string>[]): AssociationMember
       email: pick(row, EMAIL_KEYS) || classified.email,
       property: pick(row, PROPERTY_KEYS) || classified.property,
       address: pick(row, ADDRESS_KEYS) || classified.address,
+      postal: pick(row, POSTAL_KEYS) || pick(row, CITY_KEYS) || classified.postal,
       phone: pick(row, PHONE_KEYS) || classified.phone,
       customerNo: pick(row, CUSTOMER_KEYS),
       share: parseShare(pick(row, SHARE_KEYS)),
@@ -351,12 +370,15 @@ export function memberFromSheetRow(cells: string[]): AssociationMember | null {
   const extra = tail
     .filter((cell) => !looksLikeEmail(cell) && !looksLikePhone(cell) && !looksLikeProperty(cell) && cell.length > 2)
     .join(" ");
+  const postalCell = addressParts.find(looksLikePostalLine) ?? "";
+  const streetParts = addressParts.filter((cell) => cell !== postalCell);
   const member: AssociationMember = {
     id: crypto.randomUUID(),
     name,
     email: emails[0] ?? "",
     property: properties.join(", "),
-    address: tidyText(addressParts.join(", ")),
+    address: tidyText(streetParts.join(", ")),
+    postal: tidyText(postalCell),
     phone: tidyText(phones[0] ?? ""),
     customerNo: "",
     share: 1,
@@ -383,6 +405,13 @@ function seedMatchKey(member: Pick<AssociationMember, "email" | "name">): string
   return keys;
 }
 
+export function ensurePostal(member: AssociationMember): AssociationMember {
+  if ((member.postal ?? "").trim()) return { ...member, postal: member.postal.trim() };
+  const split = splitStreetAndPostal(member.address);
+  if (!split.postal) return { ...member, postal: "" };
+  return { ...member, address: split.street, postal: split.postal };
+}
+
 export function applySeedPhones(members: AssociationMember[], seed: AssociationMember[]): { members: AssociationMember[]; changed: number } {
   const index = new Map<string, AssociationMember>();
   for (const row of seed) {
@@ -390,11 +419,16 @@ export function applySeedPhones(members: AssociationMember[], seed: AssociationM
   }
   let changed = 0;
   const next = members.map((member) => {
-    const hit = seedMatchKey(member).map((key) => index.get(key)).find(Boolean);
-    if (!hit?.phone) return member;
-    if (member.phone.trim()) return member;
-    changed += 1;
-    return { ...member, phone: hit.phone };
+    const base = ensurePostal(member);
+    const hit = seedMatchKey(base).map((key) => index.get(key)).find(Boolean);
+    let updated = base;
+    if (!updated.postal && hit?.postal) {
+      updated = { ...updated, postal: hit.postal };
+      if (!updated.address && hit.address) updated = { ...updated, address: hit.address };
+    }
+    if (!updated.phone.trim() && hit?.phone) updated = { ...updated, phone: hit.phone };
+    if (updated.postal !== member.postal || updated.phone !== member.phone || updated.address !== member.address) changed += 1;
+    return updated;
   });
   return { members: next, changed };
 }
