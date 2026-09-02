@@ -67,6 +67,7 @@ function parseRegister(raw: unknown): MemberRegister {
     dueDate: String(data.dueDate ?? ""),
     payment: String(data.payment ?? ""),
     message: String(data.message ?? ""),
+    listId: String(data.listId ?? ""),
   };
 }
 
@@ -107,6 +108,18 @@ export async function saveMemberRegister(userId: string, incoming: MemberRegiste
   const parsed = parseRegister(incoming);
   const existing = await readRow(REGISTER_ID);
   const fallback = existing.members.length > 0 ? existing : await readRow(BACKUP_ID);
+  const replaceAll = parsed.deletedIds.includes("__all__") || (parsed.listId && parsed.listId !== fallback.listId && parsed.members.length > 0);
+  if (replaceAll) {
+    const next: MemberRegister = {
+      ...EMPTY_REGISTER,
+      ...parsed,
+      deletedIds: fallback.members.map((member) => member.id),
+      members: parsed.members,
+    };
+    if (fallback.members.length > 0) await writeRow(BACKUP_ID, fallback);
+    await writeRow(REGISTER_ID, next);
+    return next;
+  }
   const deleted = [...new Set([...fallback.deletedIds, ...parsed.deletedIds])];
   const deletedSet = new Set(deleted);
   if (fallback.members.length > 0 && parsed.members.length === 0 && parsed.deletedIds.length === 0) {

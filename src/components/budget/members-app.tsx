@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { rowsFromFile } from "@/lib/import-sheet";
 import {
   EMPTY_REGISTER,
+  KOHOLMA_LIST_ID,
   memberFee,
   mergeMembers,
   repairMember,
@@ -26,6 +27,7 @@ import {
   type AssociationMember,
   type MemberRegister,
 } from "@/lib/members";
+import { KOHOLMA_MEMBERS } from "@/lib/members-seed";
 import { loadMembers, saveMembers } from "@/lib/members-fns";
 import { readMemberCache, writeMemberCache } from "@/lib/members-cache";
 import { downloadAllInvoicePdfs, downloadInvoiceZip, downloadSavedInvoice, openInvoiceGmail } from "@/lib/invoice-mail";
@@ -66,18 +68,16 @@ export function MembersApp() {
     void Promise.all([loadMembers({ data: {} }), loadInvoiceList({ data: {} })])
       .then(async ([members, rows]) => {
         let register = members;
-        const repaired = members.members.map(repairMember).filter((row): row is NonNullable<typeof row> => row !== null);
-        if (
-          repaired.length !== members.members.length ||
-          repaired.some(
-            (row, index) =>
-              row.name !== members.members[index]?.name ||
-              row.property !== members.members[index]?.property ||
-              row.address !== members.members[index]?.address ||
-              row.phone !== members.members[index]?.phone,
-          )
-        ) {
-          register = await saveMembers({ data: { ...members, members: repaired } });
+        if (register.listId !== KOHOLMA_LIST_ID) {
+          register = await saveMembers({
+            data: {
+              ...EMPTY_REGISTER,
+              ...register,
+              members: KOHOLMA_MEMBERS,
+              deletedIds: ["__all__"],
+              listId: KOHOLMA_LIST_ID,
+            },
+          });
         }
         if (register.members.length === 0) {
           const cached = readMemberCache();
@@ -138,7 +138,8 @@ export function MembersApp() {
       const next = await persist({
         ...register,
         members: incoming,
-        deletedIds: register.members.map((row) => row.id),
+        deletedIds: ["__all__"],
+        listId: file.name,
       });
       toast(
         `Läste in ${incoming.length} medlemmar, t.ex. ${incoming
@@ -588,6 +589,12 @@ export function MembersApp() {
                     label="Telefon"
                     value={member.phone}
                     onChange={(phone) => patchMember(member.id, { phone })}
+                    onBlur={() => patchMember(member.id, {}, true)}
+                  />
+                  <Field
+                    label="Notering"
+                    value={member.note}
+                    onChange={(note) => patchMember(member.id, { note })}
                     onBlur={() => patchMember(member.id, {}, true)}
                   />
                 </div>

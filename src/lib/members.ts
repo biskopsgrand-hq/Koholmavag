@@ -21,6 +21,7 @@ export type MemberRegister = {
   dueDate: string;
   payment: string;
   message: string;
+  listId?: string;
 };
 
 export const EMPTY_REGISTER: MemberRegister = {
@@ -30,7 +31,10 @@ export const EMPTY_REGISTER: MemberRegister = {
   dueDate: "",
   payment: "",
   message: "",
+  listId: "",
 };
+
+export const KOHOLMA_LIST_ID = "adresslista-koholma-2026";
 
 const NAME_KEYS = ["namn", "name", "medlem", "förnamn", "efternamn", "fulltnamn", "ägare", "lagfaren", "kontaktperson", "kontakt", "person", "innehavare"];
 const EMAIL_KEYS = ["e-post", "epost", "e post", "email", "e-mail", "mailadress"];
@@ -110,6 +114,12 @@ export function looksLikeProperty(value: string): boolean {
   return /^(koholma\s+)?\d+\s*:\s*\d+$/i.test(tidyText(value));
 }
 
+export function formatProperty(value: string): string {
+  const match = tidyText(value).match(/(\d+)\s*:\s*(\d+)/);
+  if (!match) return tidyText(value);
+  return `Koholma ${match[1]}:${match[2]}`;
+}
+
 export function looksLikePerson(value: string): boolean {
   const text = tidyText(value);
   if (text.length < 3 || text.includes("@") || looksLikeProperty(text) || looksLikePhone(text) || looksLikeStreet(text)) return false;
@@ -126,6 +136,7 @@ function looksLikePostal(value: string): boolean {
 function looksLikeStreet(value: string): boolean {
   const text = tidyText(value);
   if (!text || looksLikePostal(text) || looksLikePhone(text) || looksLikeEmail(text) || looksLikeProperty(text)) return false;
+  if (/\d+\s*:\s*\d+/.test(text)) return false;
   return /[a-zA-ZåäöÅÄÖ]/.test(text) && /\d/.test(text);
 }
 
@@ -137,6 +148,7 @@ const JUNK_WORDS = new Set([
 function isJunkToken(value: string): boolean {
   const text = tidyText(value);
   if (!text || text === ".") return true;
+  if (looksLikePhone(text) || looksLikeEmail(text) || looksLikeProperty(text) || looksLikePostal(text)) return false;
   if (JUNK_WORDS.has(normHeader(text))) return true;
   if (/^\d+$/.test(text) && text.length !== 5) return true;
   return false;
@@ -302,6 +314,67 @@ export function rowsToMembers(rows: Record<string, string>[]): AssociationMember
     if (repaired) members.push(repaired);
   }
   return members;
+}
+
+function emailsIn(text: string): string[] {
+  return (text.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g) ?? []).map((email) => email.toLowerCase());
+}
+
+export function memberFromSheetRow(cells: string[]): AssociationMember | null {
+  const values = cells.map(tidyText);
+  const name = values[0] ?? "";
+  if (!name || /^namn$/i.test(name)) return null;
+  const propIdx = values.findIndex((cell, index) => index >= 1 && looksLikeProperty(cell));
+  const addressParts = values.slice(1, propIdx === -1 ? 4 : propIdx).filter((cell) => cell && cell !== "0");
+  let tail = propIdx >= 0 ? values.slice(propIdx) : values.slice(4);
+  const properties: string[] = [];
+  if (tail[0] && looksLikeProperty(tail[0])) {
+    properties.push(formatProperty(tail[0]!));
+    tail = tail.slice(1);
+  }
+  let note = "";
+  if (/^(ja|nej)$/i.test(tail[0] ?? "")) {
+    if (/^nej$/i.test(tail[0]!)) note = "Ej medlem";
+    tail = tail.slice(1);
+  }
+  if (tail[0] && looksLikeProperty(tail[0])) {
+    properties.push(formatProperty(tail[0]!));
+    tail = tail.slice(1);
+  }
+  const blob = tail.join(" ");
+  const emails = emailsIn(blob);
+  const phones = tail.filter((cell) => looksLikePhone(cell) || /^\d{8,12}$/.test(cell));
+  if (phones.length === 0) {
+    const loose = blob.match(/0[\d][\d\s-]{6,}/g) ?? [];
+    phones.push(...loose.map(tidyText));
+  }
+  const extra = tail
+    .filter((cell) => !looksLikeEmail(cell) && !looksLikePhone(cell) && !looksLikeProperty(cell) && cell.length > 2)
+    .join(" ");
+  const member: AssociationMember = {
+    id: crypto.randomUUID(),
+    name,
+    email: emails[0] ?? "",
+    property: properties.join(", "),
+    address: tidyText(addressParts.join(", ")),
+    phone: tidyText(phones[0] ?? ""),
+    customerNo: "",
+    share: 1,
+    fee: 0,
+    note: [note, extra, emails.slice(1).join(", ")].filter(Boolean).join(" · "),
+  };
+  return member.name ? member : null;
+}
+
+export function membersFromSheet(matrix: unknown[][]): AssociationMember[] {
+  return matrix
+    .map((row) => memberFromSheetRow((Array.isArray(row) ? row : []).map((cell) => String(cell ?? ""))))
+    .filter((row): row is AssociationMember => row !== null);
+}
+
+export function isKoholmaAddressSheet(header: unknown[]): boolean {
+  const text = header.map((cell) => normHeader(String(cell ?? ""))).join(" ");
+  return text.includes("namn") && (text.includes("fastighet") || text.includes("mobilnr") || text.includes("email"));
 }
 
 export function memberKey(member: Pick<AssociationMember, "email" | "property" | "name">): string {
