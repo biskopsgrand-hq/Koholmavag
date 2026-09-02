@@ -18,8 +18,35 @@ async function requireApproved(userId: string) {
   }
 }
 
+function cleanPass(value: string): string {
+  return value.replace(/\s+/g, "").trim();
+}
+
+function smtpError(err: unknown): Error {
+  const message = err instanceof Error ? err.message : String(err ?? "Kunde inte skicka.");
+  if (/invalid login|username and password|badcredentials|eauth/i.test(message)) {
+    return new Error("Gmail avvisade lösenordet. Spara app-lösenordet igen under Fakturauppgifter.");
+  }
+  if (/quota|daily.*limit|user sending/i.test(message)) {
+    return new Error("Gmail har nått utskicksgränsen för idag.");
+  }
+  if (/unauthor|forbidden/i.test(message)) {
+    return new Error("Inloggningen släppte. Ladda om sidan och skicka igen.");
+  }
+  return new Error(message.replace(/pass(word)?[=:].*/gi, "").trim() || "Kunde inte skicka mejlet.");
+}
+
+function transporter(pass: string) {
+  return nodemailer.createTransport({
+    host: "smtp.gmail.com",
+    port: 465,
+    secure: true,
+    auth: { user: SELLER.email, pass },
+  });
+}
+
 async function readPass(): Promise<string> {
-  const envPass = process.env.GMAIL_APP_PASSWORD?.trim() || process.env.SMTP_PASS?.trim();
+  const envPass = cleanPass(process.env.GMAIL_APP_PASSWORD ?? process.env.SMTP_PASS ?? "");
   if (envPass) return envPass;
   const sql = await getSql();
   const rows = await sql.query<{ payload: unknown }>(
@@ -35,7 +62,7 @@ async function readPass(): Promise<string> {
     }
   }
   const data = parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : {};
-  return String(data.pass ?? data.password ?? "").trim();
+  return cleanPass(String(data.pass ?? data.password ?? ""));
 }
 
 export async function mailConfigured(userId: string): Promise<{ configured: boolean; from: string }> {
@@ -46,7 +73,7 @@ export async function mailConfigured(userId: string): Promise<{ configured: bool
 
 export async function saveMailPassword(userId: string, pass: string): Promise<{ configured: boolean; from: string }> {
   await requireApproved(userId);
-  const next = pass.trim();
+  const next = cleanPass(pass);
   if (next.length < 8) throw new Error("Lösenordet är för kort.");
   const sql = await getSql();
   await sql.query(
@@ -67,25 +94,39 @@ export async function sendInvoiceWithPdf(userId: string, invoice: Invoice): Prom
     throw new Error("Ange Gmail-app-lösenord under Fakturauppgifter för att skicka med PDF.");
   }
   const pdf = await buildInvoicePdf(invoice);
-  const transporter = nodemailer.createTransport({
-    host: "smtp.gmail.com",
-    port: 465,
-    secure: true,
-    auth: { user: SELLER.email, pass },
-  });
-  await transporter.sendMail({
+  const copy = Buffer.from(pdf);
+  const body = `${invoiceBodyText(invoice)}\n\nFakturan är bifogad som PDF.\n\nMed vänlig hälsning\n${SELLER.name}\n${SELLER.email}`;
+  const mail = {
     from: `"${SELLER.name}" <${SELLER.email}>`,
     to: invoice.email,
     replyTo: SELLER.email,
-    subject: invoiceMailSubject(invoice),
-    text: `${invoiceBodyText(invoice)}\n\nFakturan är bifogad som PDF.\n\nMed vänlig hälsning\n${SELLER.name}\n${SELLER.email}`,
+    subject: `${invoiceMailSubject(invoice)} · ${invoice.id.slice(0, 8)}`,
+    text: body,
+    messageId: `<faktura-${invoice.id}-${Date.now()}@koholmavagen>`,
+    headers: { "X-Koholma-Invoice": invoice.id },
     attachments: [
       {
         filename: invoiceFileName(invoice),
-        content: Buffer.from(pdf),
+        content: copy,
         contentType: "application/pdf",
       },
     ],
-  });
+  };
+  try {
+    await transporter(pass).sendMail(mail);
+  } catch (err) {
+    try {
+      await nodemailer
+        .createTransport({
+          host: "smtp.gmail.com",
+          port: 587,
+          secure: false,
+          auth: { user: SELLER.email, pass },
+        })
+        .sendMail(mail);
+    } catch (retryErr) {
+      throw smtpError(retryErr);
+    }
+  }
   return { ok: true };
 }

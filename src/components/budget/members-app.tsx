@@ -320,7 +320,7 @@ export function MembersApp() {
     }
   }
 
-  async function saveInvoice(invoice: Invoice) {
+  async function saveInvoice(invoice: Invoice, quiet = false) {
     if (!invoice.name.trim() || invoice.amount <= 0) {
       toast.error("Ange person och belopp.");
       return;
@@ -330,11 +330,12 @@ export function MembersApp() {
       ? invoices.map((row) => (row.id === invoice.id ? invoice : row))
       : [invoice, ...invoices];
     await persistInvoices(next);
-    toast(`Faktura ${invoice.number} är sparad.`);
+    if (!quiet) toast(`Faktura ${invoice.number} är sparad.`);
     return invoice;
   }
 
   async function sendInvoiceMail(invoice: Invoice) {
+    if (busy) return;
     if (!invoice.email.includes("@")) {
       toast.error("Ange e-post på fakturan först.");
       setDraftInvoice(invoice);
@@ -345,16 +346,24 @@ export function MembersApp() {
       setDraftInvoice(invoice);
       return;
     }
+    setBusy(true);
     toast("Skickar faktura med PDF från koholmavagen@gmail.com…", { id: "invoice-mail" });
     try {
-      await saveInvoice(invoice);
+      await saveInvoice(invoice, true);
       await withSessionRetry(() => postInvoiceMail({ data: invoice }));
       setDraftInvoice(null);
       setMailStep(null);
-      toast.success("Skickad från koholmavagen@gmail.com med PDF bifogad.", { id: "invoice-mail" });
+      toast.success(`Skickad till ${invoice.email} från koholmavagen@gmail.com med PDF.`, { id: "invoice-mail" });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Kunde inte skicka.";
-      toast.error(message, { id: "invoice-mail" });
+      toast.error(
+        /unauthor|forbidden|not authorized/i.test(message)
+          ? "Inloggningen släppte. Ladda om, logga in och skicka igen."
+          : message,
+        { id: "invoice-mail" },
+      );
+    } finally {
+      setBusy(false);
     }
   }
 
