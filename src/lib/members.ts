@@ -166,7 +166,15 @@ export function invoiceBody(
   return lines.filter((line) => line !== null).join("\n");
 }
 
+export function invoiceSubject(year: number): string {
+  return `Faktura ${APP_NAME} ${fiscalYearLabel(year)}`;
+}
+
 export function invoiceMailto(member: AssociationMember, register: MemberRegister, year: number): string {
-  const subject = `Faktura ${APP_NAME} ${fiscalYearLabel(year)}`;
-  return `mailto:${encodeURIComponent(member.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(invoiceBody(member, register, year))}`;
+  const body = [
+    invoiceBody(member, register, year),
+    "",
+    "Fakturan i PDF bifogas detta mejl.",
+  ].join("\n");
+  return `mailto:${encodeURIComponent(member.email)}?subject=${encodeURIComponent(invoiceSubject(year))}&body=${encodeURIComponent(body)}`;
 }

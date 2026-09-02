@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link } from "@tanstack/react-router";
-import { Mail, Pencil, Plus, Trash2, Upload } from "lucide-react";
+import { FileDown, Mail, Pencil, Plus, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { AccountChip } from "@/components/budget/account-chip";
 import { AdminNav } from "@/components/budget/auth-gate";
@@ -20,7 +20,6 @@ import { rowsFromFile } from "@/lib/import-sheet";
 import {
   EMPTY_REGISTER,
   invoiceBody,
-  invoiceMailto,
   memberFee,
   mergeMembers,
   rowsToMembers,
@@ -28,6 +27,7 @@ import {
   type MemberRegister,
 } from "@/lib/members";
 import { loadMembers, saveMembers } from "@/lib/members-fns";
+import { downloadAllInvoicePdfs, downloadInvoicePdf, mailInvoicePdf } from "@/lib/invoice-mail";
 import { currentFiscalYear, fiscalYearLabel, formatKr, parseAmountInput } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -168,11 +168,26 @@ export function MembersApp() {
             disabled={withEmail.length === 0}
             onClick={() => {
               void navigator.clipboard.writeText(withEmail.map((member) => member.email).join(", "));
-              toast("E-postadresserna är kopierade. Öppna Faktura på varje medlem för personligt mejl.");
+              toast("E-postadresserna är kopierade.");
             }}
           >
             <Mail />
             Kopiera e-post
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={register.members.length === 0 || busy}
+            onClick={() => {
+              setBusy(true);
+              void downloadAllInvoicePdfs(register.members, register, year)
+                .then(() => toast("PDF-fakturorna laddades ner."))
+                .catch(() => toast.error("Kunde inte skapa PDF."))
+                .finally(() => setBusy(false));
+            }}
+          >
+            <FileDown />
+            Ladda ner alla PDF
           </Button>
         </div>
       </section>
@@ -267,12 +282,14 @@ export function MembersApp() {
         onSave={(member) => void saveMember(member)}
       />
 
-      <InvoiceDialog
-        member={invoiceFor}
-        register={register}
-        year={year}
-        onClose={() => setInvoiceFor(null)}
-      />
+      {invoiceFor ? (
+        <InvoiceDialog
+          member={invoiceFor}
+          register={register}
+          year={year}
+          onClose={() => setInvoiceFor(null)}
+        />
+      ) : null}
     </div>
   );
 }
@@ -376,36 +393,66 @@ function InvoiceDialog({
   year,
   onClose,
 }: {
-  member: AssociationMember | null;
+  member: AssociationMember;
   register: MemberRegister;
   year: number;
   onClose: () => void;
 }) {
-  if (!member) return null;
+  const [working, setWorking] = useState(false);
   const body = invoiceBody(member, register, year);
+
+  async function sendPdf() {
+    setWorking(true);
+    try {
+      const mode = await mailInvoicePdf(member, register, year);
+      toast(
+        mode === "shared"
+          ? "Välj e-post i delningsmenyn. PDF:en följer med."
+          : "PDF:en laddades ner. Bifoga den i mejlet som öppnas.",
+      );
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
+      toast.error("Kunde inte skapa PDF-fakturan.");
+    } finally {
+      setWorking(false);
+    }
+  }
+
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Faktura {member.name}</DialogTitle>
           <DialogDescription>
-            {formatKr(memberFee(member, register.defaultFee))} för {fiscalYearLabel(year)}
+            {formatKr(memberFee(member, register.defaultFee))} för {fiscalYearLabel(year)} · PDF
           </DialogDescription>
         </DialogHeader>
         <pre className={cn("max-h-64 overflow-auto rounded-lg bg-bg p-4 text-sm whitespace-pre-wrap text-ink")}>
           {body}
         </pre>
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose}>
+          <Button type="button" variant="outline" disabled={working} onClick={onClose}>
             Stäng
           </Button>
-          {member.email.includes("@") ? (
-            <Button asChild>
-              <a href={invoiceMailto(member, register, year)}>Öppna mejl</a>
-            </Button>
-          ) : (
-            <p className="text-sm text-muted">Saknar e-post.</p>
-          )}
+          <Button
+            type="button"
+            variant="outline"
+            disabled={working}
+            onClick={() => {
+              setWorking(true);
+              void downloadInvoicePdf(member, register, year)
+                .then(() => toast("PDF:en laddades ner."))
+                .catch(() => toast.error("Kunde inte skapa PDF."))
+                .finally(() => setWorking(false));
+            }}
+          >
+            <FileDown />
+            Ladda ner PDF
+          </Button>
+          <Button type="button" disabled={working || !member.email.includes("@")} onClick={() => void sendPdf()}>
+            <Mail />
+            {working ? "Skapar PDF…" : "Maila PDF"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
