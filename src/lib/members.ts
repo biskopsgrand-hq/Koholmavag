@@ -77,14 +77,28 @@ function columnValues(row: Record<string, string>): string[] {
 }
 
 export function tidyText(value: string): string {
-  return value
+  const fixed = fixMojibake(value);
+  return fixed
     .replace(/\u00a0/g, " ")
     .replace(/[\t\f\v]+/g, " ")
     .replace(/\|/g, " ")
     .replace(/\s+/g, " ")
     .replace(/(?:\s*,\s*)+/g, ", ")
     .replace(/^[\s,;]+|[\s,;]+$/g, "")
+    .replace(/^\.+$/, "")
     .trim();
+}
+
+function fixMojibake(value: string): string {
+  if (!/[ÃÂ]/.test(value)) return value;
+  try {
+    const bytes = Uint8Array.from(Array.from(value, (char) => char.charCodeAt(0) & 0xff));
+    const decoded = new TextDecoder("utf-8").decode(bytes);
+    if (!decoded.includes("\uFFFD") && decoded !== value) return decoded;
+  } catch {
+    /* keep original */
+  }
+  return value;
 }
 
 function looksLikePhone(value: string): boolean {
@@ -98,11 +112,34 @@ export function looksLikeProperty(value: string): boolean {
 
 export function looksLikePerson(value: string): boolean {
   const text = tidyText(value);
-  if (text.length < 3 || text.includes("@") || looksLikeProperty(text) || looksLikePhone(text)) return false;
-  if (/^\d+([.,]\d+)?$/.test(text) || /^\d{3}\s?\d{2}/.test(text)) return false;
+  if (text.length < 3 || text.includes("@") || looksLikeProperty(text) || looksLikePhone(text) || looksLikeStreet(text)) return false;
+  if (isJunkToken(text) || looksLikePostal(text)) return false;
   if (/\d/.test(text)) return false;
   if (HEADER_WORDS.includes(normHeader(text))) return false;
   return /[a-zA-ZåäöÅÄÖ]/.test(text);
+}
+
+function looksLikePostal(value: string): boolean {
+  return /^\d{3}\s?\d{2}$/.test(tidyText(value));
+}
+
+function looksLikeStreet(value: string): boolean {
+  const text = tidyText(value);
+  if (!text || looksLikePostal(text) || looksLikePhone(text) || looksLikeEmail(text) || looksLikeProperty(text)) return false;
+  return /[a-zA-ZåäöÅÄÖ]/.test(text) && /\d/.test(text);
+}
+
+const JUNK_WORDS = new Set([
+  "sevat", "sek", "vat", "company", "private", "print", "email", "true", "false",
+  "ab", "hb", "kb", "a", "b", "c", "yes", "no", "ja", "nej", "none", "null",
+]);
+
+function isJunkToken(value: string): boolean {
+  const text = tidyText(value);
+  if (!text || text === ".") return true;
+  if (JUNK_WORDS.has(normHeader(text))) return true;
+  if (/^\d+$/.test(text) && text.length !== 5) return true;
+  return false;
 }
 
 function looksLikeHeaderRow(value: string): boolean {
@@ -111,42 +148,6 @@ function looksLikeHeaderRow(value: string): boolean {
 
 function looksLikeEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
-}
-
-export function repairMember(member: AssociationMember): AssociationMember | null {
-  const tokens = [member.name, member.email, member.property, member.address, member.phone, member.note]
-    .flatMap((value) => String(value ?? "").split(/[,;]/))
-    .map(tidyText)
-    .filter((token) => token.length > 0 && !looksLikeHeaderRow(token) && !/^\d+([.,]\d+)?$/.test(token));
-
-  if (tokens.length === 0) return null;
-
-  const emails = tokens.filter(looksLikeEmail);
-  const phones = tokens.filter(looksLikePhone);
-  const properties = tokens.filter(looksLikeProperty);
-  const used = new Set([...emails, ...phones, ...properties]);
-  const rest = tokens.filter((token) => !used.has(token));
-  const names = rest.filter(looksLikePerson);
-  const addressParts = rest.filter((token) => !names.includes(token));
-
-  const name = tidyText(names[0] ?? "");
-  const property = tidyText(properties[0] ?? "");
-  const email = tidyText(emails[0] ?? "").toLowerCase();
-  const phone = tidyText(phones[0] ?? "");
-  const address = tidyText(addressParts.join(", "));
-
-  if (!name && !email && !property) return null;
-  return {
-    ...member,
-    name: name || property || email || "Medlem",
-    email: looksLikeEmail(email) ? email : "",
-    property,
-    address,
-    phone,
-    note: "",
-    customerNo: tidyText(member.customerNo),
-    share: member.share > 0 ? member.share : 1,
-  };
 }
 
 function splitCsvLine(line: string, delimiter: string): string[] {
@@ -175,6 +176,71 @@ function splitCsvLine(line: string, delimiter: string): string[] {
   return cells.map((cell) => cell.trim());
 }
 
+function explodeValue(value: string): string[] {
+  const text = String(value ?? "");
+  const commas = (text.match(/,/g) ?? []).length;
+  const semis = (text.match(/;/g) ?? []).length;
+  if (commas >= 5 || semis >= 5) {
+    return splitCsvLine(text, commas >= semis ? "," : ";").flatMap((cell) => explodeValue(cell));
+  }
+  return [text];
+}
+
+function classifyValues(values: string[]): Pick<AssociationMember, "name" | "email" | "property" | "address" | "phone"> {
+  const tokens = values
+    .flatMap(explodeValue)
+    .map(tidyText)
+    .filter((token) => token.length > 0 && !looksLikeHeaderRow(token) && !isJunkToken(token));
+
+  const emails = tokens.filter(looksLikeEmail);
+  const phones = tokens.filter(looksLikePhone);
+  const properties = tokens.filter(looksLikeProperty);
+  const streets = tokens.filter(looksLikeStreet);
+  const postals = tokens.filter(looksLikePostal);
+  const cities: string[] = [];
+  tokens.forEach((token, index) => {
+    if (looksLikePostal(token)) {
+      const next = tokens[index + 1];
+      if (next && looksLikePerson(next) && !looksLikeEmail(next)) cities.push(next);
+    }
+  });
+  const citySet = new Set(cities);
+  const names = tokens.filter((token) => looksLikePerson(token) && !citySet.has(token));
+  const address = tidyText(
+    [streets[0] ?? "", [postals[0] ?? "", cities[0] ?? ""].filter(Boolean).join(" ")].filter(Boolean).join(", "),
+  );
+  return {
+    name: tidyText(names[0] ?? ""),
+    email: tidyText(emails[0] ?? "").toLowerCase(),
+    property: tidyText(properties[0] ?? ""),
+    address,
+    phone: tidyText(phones[0] ?? ""),
+  };
+}
+
+export function repairMember(member: AssociationMember): AssociationMember | null {
+  const classified = classifyValues([
+    member.name,
+    member.email,
+    member.property,
+    member.address,
+    member.phone,
+    member.note,
+  ]);
+  if (!classified.name && !classified.email && !classified.property && !classified.address) return null;
+  return {
+    ...member,
+    name: classified.name || classified.property || classified.email || "Medlem",
+    email: looksLikeEmail(classified.email) ? classified.email : "",
+    property: classified.property,
+    address: classified.address,
+    phone: classified.phone,
+    note: "",
+    customerNo: tidyText(member.customerNo),
+    share: member.share > 0 ? member.share : 1,
+  };
+}
+
 function detectDelimiter(headerLine: string): string {
   const options: { d: string; n: number }[] = [
     { d: ";", n: (headerLine.match(/;/g) ?? []).length },
@@ -194,7 +260,7 @@ export function parseCsvText(text: string): Record<string, string>[] {
   const hasHeader = first.some((cell) => HEADER_WORDS.includes(normHeader(cell)) || headerMatches(cell, NAME_KEYS) || headerMatches(cell, PROPERTY_KEYS));
   const headers = hasHeader
     ? first.map((cell, index) => cell || `kolumn${index + 1}`)
-    : first.map((_, index) => (index === 0 ? "Fastighetsbeteckning" : index === 1 ? "Namn" : index === 2 ? "Andel" : `kolumn${index + 1}`));
+    : first.map((_, index) => `kolumn${index + 1}`);
   const body = hasHeader ? lines.slice(1) : lines;
   return body.map((line) => {
     const cells = splitCsvLine(line, delimiter);
@@ -220,26 +286,18 @@ export function rowsToMembers(rows: Record<string, string>[]): AssociationMember
   const members: AssociationMember[] = [];
   for (const row of rows) {
     const values = columnValues(row);
-    const propertyPick = pick(row, PROPERTY_KEYS) || values.find(looksLikeProperty) || "";
-    const emailPick = pick(row, EMAIL_KEYS) || values.find(looksLikeEmail) || "";
-    const namePick =
-      pick(row, NAME_KEYS) ||
-      values.find((value) => looksLikePerson(value) && value !== propertyPick && value !== emailPick) ||
-      "";
-    const phonePick = pick(row, PHONE_KEYS) || values.find(looksLikePhone) || "";
-    const postal = [pick(row, POSTAL_KEYS), pick(row, CITY_KEYS)].filter(Boolean).join(" ");
-    const address = tidyText([pick(row, ADDRESS_KEYS), postal].filter(Boolean).join(", "));
+    const classified = classifyValues(values);
     const repaired = repairMember({
       id: crypto.randomUUID(),
-      name: tidyText(namePick),
-      email: tidyText(emailPick),
-      property: tidyText(propertyPick),
-      address,
-      phone: tidyText(phonePick),
-      customerNo: tidyText(pick(row, CUSTOMER_KEYS)),
-      share: parseShare(pick(row, SHARE_KEYS) || values.find((value) => /^\d+([.,]\d+)?$/.test(value)) || ""),
+      name: pick(row, NAME_KEYS) || classified.name,
+      email: pick(row, EMAIL_KEYS) || classified.email,
+      property: pick(row, PROPERTY_KEYS) || classified.property,
+      address: pick(row, ADDRESS_KEYS) || classified.address,
+      phone: pick(row, PHONE_KEYS) || classified.phone,
+      customerNo: pick(row, CUSTOMER_KEYS),
+      share: parseShare(pick(row, SHARE_KEYS)),
       fee: parseFee(pick(row, FEE_KEYS)),
-      note: pick(row, NOTE_KEYS),
+      note: "",
     });
     if (repaired) members.push(repaired);
   }
