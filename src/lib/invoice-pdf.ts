@@ -1,13 +1,10 @@
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
-import { APP_NAME } from "@/lib/brand";
-import { fiscalYearLabel, formatKr } from "@/lib/format";
+import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
+import { formatIsoDate, formatMoney } from "@/lib/format";
 import { invoiceTotals, type Invoice } from "@/lib/invoices";
+import { SELLER } from "@/lib/seller";
 
-const PINE = rgb(30 / 255, 70 / 255, 56 / 255);
-const INK = rgb(26 / 255, 23 / 255, 20 / 255);
-const MUTED = rgb(90 / 255, 84 / 255, 76 / 255);
-const RULE = rgb(214 / 255, 206 / 255, 190 / 255);
-const CREAM = rgb(239 / 255, 233 / 255, 220 / 255);
+const BLACK = rgb(0, 0, 0);
+const GRAY = rgb(0.35, 0.35, 0.35);
 
 function slug(value: string): string {
   return value
@@ -20,138 +17,137 @@ function slug(value: string): string {
 }
 
 export function invoiceFileName(invoice: Invoice): string {
-  return `faktura-${invoice.number}-${slug(invoice.property || invoice.name) || "mottagare"}.pdf`;
+  return `faktura-${invoice.number}-${slug(invoice.name) || "mottagare"}.pdf`;
 }
 
-function wrap(text: string, font: { widthOfTextAtSize: (t: string, s: number) => number }, size: number, max: number): string[] {
-  const words = text.split(/\s+/).filter(Boolean);
-  const lines: string[] = [];
-  let current = "";
-  for (const word of words) {
-    const next = current ? `${current} ${word}` : word;
-    if (font.widthOfTextAtSize(next, size) <= max) current = next;
-    else {
-      if (current) lines.push(current);
-      current = word;
-    }
-  }
-  if (current) lines.push(current);
-  return lines.length > 0 ? lines : [""];
+function text(
+  page: PDFPage,
+  value: string,
+  x: number,
+  y: number,
+  font: PDFFont,
+  size: number,
+  color = BLACK,
+) {
+  if (!value) return;
+  page.drawText(value, { x, y, size, font, color });
 }
 
-export async function buildInvoicePdf(invoice: Invoice, payment: string, message = ""): Promise<Uint8Array> {
-  const { net, vat, total } = invoiceTotals(invoice);
-  const issued = new Intl.DateTimeFormat("sv-SE", { dateStyle: "long" }).format(new Date(invoice.issuedAt));
+function right(
+  page: PDFPage,
+  value: string,
+  x: number,
+  y: number,
+  font: PDFFont,
+  size: number,
+  color = BLACK,
+) {
+  if (!value) return;
+  page.drawText(value, { x: x - font.widthOfTextAtSize(value, size), y, size, font, color });
+}
+
+function pair(
+  page: PDFPage,
+  label: string,
+  value: string,
+  labelX: number,
+  valueX: number,
+  y: number,
+  regular: PDFFont,
+  bold: PDFFont,
+) {
+  text(page, label, labelX, y, regular, 9, GRAY);
+  text(page, value, valueX, y, regular, 9);
+}
+
+export async function buildInvoicePdf(invoice: Invoice): Promise<Uint8Array> {
+  const { qty, unit, net, vat, total } = invoiceTotals(invoice);
   const pdf = await PDFDocument.create();
   const page = pdf.addPage([595.28, 841.89]);
-  const helvetica = await pdf.embedFont(StandardFonts.Helvetica);
+  const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
-  const { width, height } = page.getSize();
+  const width = page.getWidth();
+  const left = 48;
+  const rightEdge = width - 48;
 
-  page.drawRectangle({ x: 0, y: height - 96, width, height: 96, color: PINE });
-  page.drawText(APP_NAME, { x: 48, y: height - 48, size: 16, font: bold, color: rgb(1, 1, 1) });
-  page.drawText("Samfällighet · Rådmansö", { x: 48, y: height - 68, size: 10, font: helvetica, color: CREAM });
-  page.drawText("FAKTURA", {
-    x: width - 48 - bold.widthOfTextAtSize("FAKTURA", 18),
-    y: height - 52,
-    size: 18,
-    font: bold,
-    color: rgb(1, 1, 1),
-  });
+  text(page, "Sida 1(1)", rightEdge - regular.widthOfTextAtSize("Sida 1(1)", 8), 812, regular, 8, GRAY);
+  text(page, SELLER.name, left, 784, bold, 14);
+  text(page, "Faktura", 360, 784, bold, 16);
 
-  let y = height - 140;
-  page.drawText("Mottagare", { x: 48, y, size: 9, font: bold, color: MUTED });
-  y -= 18;
-  for (const line of [invoice.name, invoice.property, invoice.address].filter(Boolean)) {
-    page.drawText(line, { x: 48, y, size: 11, font: helvetica, color: INK });
-    y -= 16;
+  pair(page, "Fakturadatum", formatIsoDate(invoice.issuedAt), 360, 455, 752, regular, bold);
+  pair(page, "Fakturanr", invoice.number, 360, 455, 738, regular, bold);
+  pair(page, "OCR", invoice.ocr || invoice.number, 360, 455, 724, regular, bold);
+
+  let y = 680;
+  text(page, invoice.name, 360, y, regular, 10);
+  y -= 14;
+  if (invoice.address) {
+    text(page, invoice.address, 360, y, regular, 10);
+    y -= 14;
+  }
+  if (invoice.postal) {
+    text(page, invoice.postal, 360, y, regular, 10);
   }
 
-  const metaX = 340;
-  let metaY = height - 140;
-  const meta = [
-    ["Fakturanr", invoice.number],
-    ["Fakturadatum", issued],
-    ["Räkenskapsår", fiscalYearLabel(invoice.year)],
-    invoice.dueDate ? ["Förfallodag", invoice.dueDate] : null,
-    ["Status", invoice.paid ? "Betald" : "Obetald"],
-  ].filter((row): row is [string, string] => row !== null);
-  for (const [label, value] of meta) {
-    page.drawText(label, { x: metaX, y: metaY, size: 9, font: bold, color: MUTED });
-    page.drawText(value, { x: metaX + 90, y: metaY, size: 10, font: helvetica, color: INK });
-    metaY -= 16;
+  pair(page, "Kundnr", invoice.customerNo || "—", left, 130, 600, regular, bold);
+  pair(page, "Ert ordernr", invoice.customerNo || invoice.number, left, 130, 586, regular, bold);
+  pair(page, "Vår referens", SELLER.reference, 360, 455, 600, regular, bold);
+  pair(page, "Betalningsvillkor", SELLER.paymentTerms, 360, 455, 586, regular, bold);
+  pair(page, "Förfallodatum", formatIsoDate(invoice.dueDate), 360, 455, 572, regular, bold);
+  pair(page, "Dröjsmålsränta", SELLER.lateInterest, 360, 455, 558, regular, bold);
+
+  const tableTop = 520;
+  page.drawLine({ start: { x: left, y: tableTop + 16 }, end: { x: rightEdge, y: tableTop + 16 }, thickness: 0.8, color: BLACK });
+  text(page, "Artnr", left, tableTop, bold, 8);
+  text(page, "Benämning", 95, tableTop, bold, 8);
+  right(page, "Lev ant", 390, tableTop, bold, 8);
+  right(page, "À-pris", 480, tableTop, bold, 8);
+  right(page, "Summa", rightEdge, tableTop, bold, 8);
+  page.drawLine({ start: { x: left, y: tableTop - 8 }, end: { x: rightEdge, y: tableTop - 8 }, thickness: 0.6, color: BLACK });
+
+  const rowY = tableTop - 28;
+  text(page, "1", left, rowY, regular, 9);
+  text(page, invoice.description || SELLER.itemName, 95, rowY, regular, 9);
+  right(page, formatMoney(qty), 390, rowY, regular, 9);
+  right(page, formatMoney(unit), 480, rowY, regular, 9);
+  right(page, formatMoney(net), rightEdge, rowY, regular, 9);
+
+  if (invoice.property) {
+    text(page, invoice.property, left, 168, regular, 9);
   }
 
-  y = Math.min(y, metaY) - 28;
-  page.drawRectangle({ x: 48, y: y - 8, width: width - 96, height: 28, color: CREAM });
-  page.drawText("Beskrivning", { x: 60, y, size: 10, font: bold, color: INK });
-  page.drawText("Belopp", {
-    x: width - 48 - bold.widthOfTextAtSize("Belopp", 10),
-    y,
-    size: 10,
-    font: bold,
-    color: INK,
-  });
-
-  y -= 36;
-  page.drawText(invoice.description || `Årsavgift ${fiscalYearLabel(invoice.year)}`, {
-    x: 60,
-    y,
-    size: 11,
-    font: helvetica,
-    color: INK,
-  });
-  const netLabel = formatKr(net);
-  page.drawText(netLabel, {
-    x: width - 48 - helvetica.widthOfTextAtSize(netLabel, 11),
-    y,
-    size: 11,
-    font: helvetica,
-    color: INK,
-  });
-
-  y -= 22;
-  page.drawText(`Moms ${invoice.vatRate} %`, { x: 60, y, size: 11, font: helvetica, color: INK });
-  const vatLabel = formatKr(vat);
-  page.drawText(vatLabel, {
-    x: width - 48 - helvetica.widthOfTextAtSize(vatLabel, 11),
-    y,
-    size: 11,
-    font: helvetica,
-    color: INK,
-  });
-
-  y -= 20;
-  page.drawLine({ start: { x: 48, y }, end: { x: width - 48, y }, thickness: 1, color: RULE });
-  y -= 24;
-  page.drawText("Att betala", { x: 60, y, size: 12, font: bold, color: INK });
-  const totalLabel = formatKr(total);
-  page.drawText(totalLabel, {
-    x: width - 48 - bold.widthOfTextAtSize(totalLabel, 14),
-    y,
-    size: 14,
-    font: bold,
-    color: PINE,
-  });
-
-  y -= 48;
-  page.drawText("Betalning", { x: 48, y, size: 9, font: bold, color: MUTED });
-  y -= 18;
-  if (payment) {
-    page.drawText(payment, { x: 48, y, size: 11, font: helvetica, color: INK });
-    y -= 16;
+  const sumY = 148;
+  page.drawLine({ start: { x: left, y: sumY + 16 }, end: { x: rightEdge, y: sumY + 16 }, thickness: 0.6, color: BLACK });
+  text(page, "Exkl. moms", left, sumY, regular, 8, GRAY);
+  text(page, "Totalt", 220, sumY, regular, 8, GRAY);
+  right(page, "ATT BETALA", rightEdge, sumY, bold, 8);
+  text(page, formatMoney(net), left, sumY - 16, regular, 10);
+  text(page, formatMoney(total), 220, sumY - 16, regular, 10);
+  right(page, `SEK ${formatMoney(total)}`, rightEdge, sumY - 16, bold, 12);
+  if (vat > 0) {
+    text(page, `Moms ${invoice.vatRate} % ${formatMoney(vat)}`, left, sumY - 32, regular, 8, GRAY);
   }
-  page.drawText(`Ange referens: ${invoice.number}`, { x: 48, y, size: 11, font: helvetica, color: INK });
-  y -= 28;
-  if (message) {
-    for (const line of wrap(message, helvetica, 10, width - 96)) {
-      page.drawText(line, { x: 48, y, size: 10, font: helvetica, color: INK });
-      y -= 14;
-    }
-  }
+  page.drawLine({ start: { x: left, y: sumY - 26 }, end: { x: rightEdge, y: sumY - 26 }, thickness: 1, color: BLACK });
 
-  page.drawLine({ start: { x: 48, y: 56 }, end: { x: width - 48, y: 56 }, thickness: 1, color: RULE });
-  page.drawText(APP_NAME, { x: 48, y: 36, size: 9, font: helvetica, color: MUTED });
+  const foot = 78;
+  text(page, "Adress", left, foot, bold, 7, GRAY);
+  text(page, SELLER.name, left, foot - 12, regular, 8);
+  text(page, SELLER.street, left, foot - 24, regular, 8);
+  text(page, SELLER.postal, left, foot - 36, regular, 8);
+  text(page, SELLER.country, left, foot - 48, regular, 8);
+
+  text(page, "Telefon", 200, foot, bold, 7, GRAY);
+  text(page, SELLER.phone, 200, foot - 12, regular, 8);
+  text(page, "E-post", 200, foot - 28, bold, 7, GRAY);
+  text(page, SELLER.email, 200, foot - 40, regular, 8);
+
+  text(page, "Plusgiro", 360, foot, bold, 7, GRAY);
+  text(page, SELLER.plusgiro, 360, foot - 12, regular, 8);
+  text(page, "Bankgiro", 360, foot - 28, bold, 7, GRAY);
+  text(page, SELLER.bankgiro, 360, foot - 40, regular, 8);
+
+  text(page, "Organisationsnr", 470, foot, bold, 7, GRAY);
+  text(page, SELLER.orgNr, 470, foot - 12, regular, 8);
 
   return pdf.save();
 }

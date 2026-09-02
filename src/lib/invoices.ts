@@ -1,6 +1,6 @@
-import { APP_NAME } from "@/lib/brand";
-import { fiscalPeriodLabel, fiscalYearLabel, formatKr } from "@/lib/format";
+import { formatIsoDate, formatMoney } from "@/lib/format";
 import { memberFee, type AssociationMember, type MemberRegister } from "@/lib/members";
+import { SELLER } from "@/lib/seller";
 
 export const VAT_RATES = [0, 12, 25] as const;
 export type VatRate = (typeof VAT_RATES)[number];
@@ -8,13 +8,17 @@ export type VatRate = (typeof VAT_RATES)[number];
 export type Invoice = {
   id: string;
   number: string;
+  ocr: string;
+  customerNo: string;
   memberId: string | null;
   name: string;
   address: string;
+  postal: string;
   email: string;
   property: string;
   description: string;
   amount: number;
+  qty: number;
   vatRate: VatRate;
   dueDate: string;
   issuedAt: string;
@@ -29,20 +33,61 @@ export function parseVatRate(value: unknown): VatRate {
   return 0;
 }
 
-export function invoiceTotals(invoice: Pick<Invoice, "amount" | "vatRate">) {
-  const net = Math.max(0, Math.round(invoice.amount));
+export function invoiceTotals(invoice: Pick<Invoice, "amount" | "vatRate" | "qty">) {
+  const qty = invoice.qty > 0 ? invoice.qty : 1;
+  const net = Math.max(0, Math.round(invoice.amount * qty));
   const vat = Math.round(net * invoice.vatRate / 100);
-  return { net, vat, total: net + vat };
+  return { qty, unit: Math.round(invoice.amount), net, vat, total: net + vat };
 }
 
-export function nextInvoiceNumber(invoices: Invoice[], year: number): string {
+function seqFromNumber(number: string): number {
+  if (/^\d+$/.test(number.trim())) return Number(number.trim());
+  const last = number.split("-").at(-1);
+  return Number(last) || 0;
+}
+
+export function nextInvoiceNumber(invoices: Invoice[]): string {
   let max = 0;
   for (const invoice of invoices) {
-    if (invoice.year !== year) continue;
-    const seq = Number(invoice.number.split("-").at(-1));
-    if (Number.isFinite(seq) && seq > max) max = seq;
+    const seq = seqFromNumber(invoice.number);
+    if (seq > max) max = seq;
   }
-  return `F-${year}-${String(max + 1).padStart(3, "0")}`;
+  return String(max + 1);
+}
+
+export function nextCustomerNo(invoices: Invoice[], members: AssociationMember[]): string {
+  let max = 0;
+  for (const invoice of invoices) {
+    const n = Number(invoice.customerNo);
+    if (Number.isFinite(n) && n > max) max = n;
+  }
+  for (const member of members) {
+    const n = Number(member.customerNo);
+    if (Number.isFinite(n) && n > max) max = n;
+  }
+  return String(max + 1);
+}
+
+export function makeOcr(number: string, customerNo: string): string {
+  const digits = `${number.replace(/\D/g, "")}${customerNo.replace(/\D/g, "")}`;
+  return digits || number;
+}
+
+export function dueInDays(issuedAt: string, days = 30): string {
+  const date = new Date(issuedAt.slice(0, 10) || Date.now());
+  if (Number.isNaN(date.getTime())) return "";
+  date.setDate(date.getDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+export function splitAddress(address: string): { street: string; postal: string } {
+  const lines = address
+    .split(/[\n,]/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const postal = lines.find((line) => /^\d{3}\s?\d{2}/.test(line)) ?? "";
+  const street = lines.filter((line) => line !== postal).join(", ");
+  return { street, postal };
 }
 
 export function invoiceFromMember(
@@ -50,57 +95,64 @@ export function invoiceFromMember(
   register: MemberRegister,
   year: number,
   number: string,
+  customerNo: string,
 ): Invoice {
+  const issuedAt = new Date().toISOString();
+  const parsed = splitAddress(member.address);
   return {
     id: crypto.randomUUID(),
     number,
+    ocr: makeOcr(number, member.customerNo || customerNo),
+    customerNo: member.customerNo || customerNo,
     memberId: member.id,
     name: member.name,
-    address: member.address,
+    address: parsed.street || member.address,
+    postal: parsed.postal,
     email: member.email,
     property: member.property,
-    description: `Årsavgift ${fiscalPeriodLabel(year)}`,
+    description: SELLER.itemName,
     amount: memberFee(member, register.defaultFee),
+    qty: 1,
     vatRate: 0,
-    dueDate: register.dueDate,
-    issuedAt: new Date().toISOString(),
+    dueDate: register.dueDate || dueInDays(issuedAt),
+    issuedAt,
     paid: false,
     paidAt: null,
     year,
   };
 }
 
-export function invoiceBodyText(invoice: Invoice, payment: string): string {
+export function invoiceBodyText(invoice: Invoice): string {
   const { net, vat, total } = invoiceTotals(invoice);
   return [
-    `Faktura ${invoice.number} från ${APP_NAME}`,
+    `Faktura ${invoice.number} från ${SELLER.name}`,
     "",
-    `Mottagare: ${invoice.name}`,
-    invoice.property ? `Fastighet: ${invoice.property}` : null,
-    invoice.address ? `Adress: ${invoice.address}` : null,
-    invoice.email ? `E-post: ${invoice.email}` : null,
+    invoice.name,
+    invoice.address,
+    invoice.postal,
+    invoice.property ? invoice.property : null,
     "",
     invoice.description,
-    `Belopp exkl. moms: ${formatKr(net)}`,
-    `Moms ${invoice.vatRate} %: ${formatKr(vat)}`,
-    `Att betala: ${formatKr(total)}`,
-    invoice.dueDate ? `Förfallodag: ${invoice.dueDate}` : null,
-    `Referens: ${invoice.number}`,
-    payment ? `Betalning: ${payment}` : null,
+    `Exkl. moms: ${formatMoney(net)}`,
+    vat > 0 ? `Moms ${invoice.vatRate} %: ${formatMoney(vat)}` : null,
+    `Att betala: SEK ${formatMoney(total)}`,
+    `Förfallodatum: ${formatIsoDate(invoice.dueDate)}`,
+    `OCR: ${invoice.ocr}`,
+    `Bankgiro: ${SELLER.bankgiro}`,
+    `Plusgiro: ${SELLER.plusgiro}`,
     invoice.paid ? "Status: Betald" : "Status: Obetald",
     "",
-    "Med vänlig hälsning",
-    APP_NAME,
+    SELLER.name,
   ]
-    .filter((line) => line !== null)
+    .filter((line) => line !== null && String(line).trim().length > 0)
     .join("\n");
 }
 
 export function invoiceMailSubject(invoice: Invoice): string {
-  return `Faktura ${invoice.number} ${APP_NAME} ${fiscalYearLabel(invoice.year)}`;
+  return `Faktura ${invoice.number} ${SELLER.name}`;
 }
 
-export function invoiceMailtoLink(invoice: Invoice, payment: string): string {
-  const body = `${invoiceBodyText(invoice, payment)}\n\nFakturan i PDF bifogas detta mejl.`;
+export function invoiceMailtoLink(invoice: Invoice): string {
+  const body = `${invoiceBodyText(invoice)}\n\nFakturan i PDF bifogas detta mejl.`;
   return `mailto:${encodeURIComponent(invoice.email)}?subject=${encodeURIComponent(invoiceMailSubject(invoice))}&body=${encodeURIComponent(body)}`;
 }

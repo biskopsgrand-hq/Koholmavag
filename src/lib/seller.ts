@@ -1,0 +1,15 @@
+export const SELLER = {
+  name: "Koholma Vägsamfällighet",
+  street: "Koholma byväg 31",
+  postal: "76015 GRÄDDÖ",
+  country: "Sverige",
+  phone: "0703-954955",
+  email: "koholmavagen@gmail.com",
+  plusgiro: "263494-7",
+  bankgiro: "5640-1482",
+  orgNr: "717912-5724",
+  reference: "Kajsa Carlsson",
+  paymentTerms: "30 dagar",
+  lateInterest: "8%",
+  itemName: "Vägavgift Koholma",
+} as const;

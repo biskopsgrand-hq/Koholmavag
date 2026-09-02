@@ -27,6 +27,7 @@ function asMember(raw: unknown): AssociationMember | null {
     email,
     property: String(row.property ?? "").trim(),
     address: String(row.address ?? "").trim(),
+    customerNo: String(row.customerNo ?? "").trim(),
     share: Number.isFinite(share) && share > 0 ? share : 1,
     fee: Number.isFinite(fee) && fee > 0 ? Math.round(fee) : 0,
     note: String(row.note ?? "").trim(),

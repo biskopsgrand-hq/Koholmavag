@@ -28,9 +28,13 @@ import {
 import { loadMembers, saveMembers } from "@/lib/members-fns";
 import { downloadAllInvoicePdfs, downloadSavedInvoice, mailSavedInvoice } from "@/lib/invoice-mail";
 import {
+  dueInDays,
   invoiceFromMember,
   invoiceTotals,
+  makeOcr,
+  nextCustomerNo,
   nextInvoiceNumber,
+  splitAddress,
   VAT_RATES,
   type Invoice,
   type VatRate,
@@ -129,21 +133,33 @@ export function MembersApp() {
 
   function startInvoice(member?: AssociationMember) {
     if (member) {
-      setDraftInvoice(invoiceFromMember(member, register, year, nextInvoiceNumber(invoices, year)));
+      setDraftInvoice(
+        invoiceFromMember(
+          member,
+          register,
+          year,
+          nextInvoiceNumber(invoices),
+          member.customerNo || nextCustomerNo(invoices, register.members),
+        ),
+      );
       return;
     }
     setDraftInvoice({
       id: crypto.randomUUID(),
-      number: nextInvoiceNumber(invoices, year),
+      number: nextInvoiceNumber(invoices),
+      ocr: nextInvoiceNumber(invoices),
+      customerNo: nextCustomerNo(invoices, register.members),
       memberId: null,
       name: "",
       address: "",
+      postal: "",
       email: "",
       property: "",
-      description: `Årsavgift ${fiscalYearLabel(year)}`,
+      description: "Vägavgift Koholma",
       amount: register.defaultFee,
+      qty: 1,
       vatRate: 0,
-      dueDate: register.dueDate,
+      dueDate: register.dueDate || dueInDays(new Date().toISOString()),
       issuedAt: new Date().toISOString(),
       paid: false,
       paidAt: null,
@@ -267,7 +283,7 @@ export function MembersApp() {
             disabled={register.members.length === 0 || busy}
             onClick={() => {
               setBusy(true);
-              void downloadAllInvoicePdfs(register.members, register, year)
+              void downloadAllInvoicePdfs(register.members, register, year, invoices)
                 .then(() => toast("PDF-fakturorna laddades ner."))
                 .catch(() => toast.error("Kunde inte skapa PDF."))
                 .finally(() => setBusy(false));
@@ -437,8 +453,6 @@ export function MembersApp() {
       {openInvoice ? (
         <SavedInvoiceDialog
           invoice={openInvoice}
-          payment={register.payment}
-          message={register.message}
           onClose={() => setOpenInvoice(null)}
         />
       ) : null}
@@ -453,6 +467,7 @@ function emptyMember(): AssociationMember {
     email: "",
     property: "",
     address: "",
+    customerNo: "",
     share: 1,
     fee: 0,
     note: "",
@@ -560,13 +575,17 @@ function InvoiceFormDialog({
   function pickMember(id: string) {
     const member = members.find((row) => row.id === id);
     if (!member) return;
+    const parsed = splitAddress(member.address);
     setDraft({
       ...draft,
       memberId: member.id,
       name: member.name,
-      address: member.address,
+      address: parsed.street || member.address,
+      postal: parsed.postal || draft.postal,
       email: member.email,
       property: member.property,
+      customerNo: member.customerNo || draft.customerNo,
+      ocr: makeOcr(draft.number, member.customerNo || draft.customerNo),
       amount: member.fee || draft.amount,
     });
   }
@@ -577,9 +596,12 @@ function InvoiceFormDialog({
       ...draft,
       name: draft.name.trim(),
       address: draft.address.trim(),
+      postal: draft.postal.trim(),
       email: draft.email.trim().toLowerCase(),
       property: draft.property.trim(),
       description: draft.description.trim(),
+      customerNo: draft.customerNo.trim(),
+      ocr: makeOcr(draft.number, draft.customerNo),
     });
   }
 
@@ -610,8 +632,10 @@ function InvoiceFormDialog({
           ) : null}
           <Field label="Person" value={draft.name} onChange={(name) => setDraft({ ...draft, name })} />
           <Field label="Adress" value={draft.address} onChange={(address) => setDraft({ ...draft, address })} />
+          <Field label="Postnr och ort" value={draft.postal} onChange={(postal) => setDraft({ ...draft, postal })} />
           <Field label="E-post" value={draft.email} onChange={(email) => setDraft({ ...draft, email })} />
           <Field label="Fastighet" value={draft.property} onChange={(property) => setDraft({ ...draft, property })} />
+          <Field label="Kundnr" value={draft.customerNo} onChange={(customerNo) => setDraft({ ...draft, customerNo, ocr: draft.ocr || customerNo })} />
           <Field
             label="Beskrivning"
             value={draft.description}
@@ -659,13 +683,9 @@ function InvoiceFormDialog({
 
 function SavedInvoiceDialog({
   invoice,
-  payment,
-  message,
   onClose,
 }: {
   invoice: Invoice;
-  payment: string;
-  message: string;
   onClose: () => void;
 }) {
   const [working, setWorking] = useState(false);
@@ -674,7 +694,7 @@ function SavedInvoiceDialog({
   async function sendPdf() {
     setWorking(true);
     try {
-      const mode = await mailSavedInvoice(invoice, payment, message);
+      const mode = await mailSavedInvoice(invoice);
       toast(
         mode === "shared"
           ? "Välj e-post i delningsmenyn. PDF:en följer med."
@@ -698,7 +718,7 @@ function SavedInvoiceDialog({
           </DialogDescription>
         </DialogHeader>
         <p className="text-sm leading-relaxed text-ink">
-          {invoice.address || "Ingen adress"}
+          {invoice.address}{invoice.postal ? `, ${invoice.postal}` : ""}
           <br />
           {invoice.description}
           <br />
@@ -714,7 +734,7 @@ function SavedInvoiceDialog({
             disabled={working}
             onClick={() => {
               setWorking(true);
-              void downloadSavedInvoice(invoice, payment, message)
+              void downloadSavedInvoice(invoice)
                 .then(() => toast("PDF:en laddades ner."))
                 .catch(() => toast.error("Kunde inte skapa PDF."))
                 .finally(() => setWorking(false));

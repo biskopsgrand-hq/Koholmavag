@@ -10,6 +10,18 @@ export function formatKr(amount: number): string {
   }).format(amount);
 }
 
+export function formatMoney(amount: number): string {
+  return new Intl.NumberFormat("sv-SE", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
+}
+
+export function formatIsoDate(value: string): string {
+  const iso = value.slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso : value;
+}
+
 export function monthKeyFromDate(date: Date): string {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");

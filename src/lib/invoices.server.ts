@@ -15,16 +15,21 @@ function asInvoice(raw: unknown): Invoice | null {
   const name = String(row.name ?? "").trim();
   const amount = Math.round(Number(row.amount) || 0);
   if (!name || amount <= 0) return null;
+  const qty = Number(row.qty);
   return {
     id: String(row.id ?? crypto.randomUUID()),
-    number: String(row.number ?? "").trim() || "F-000",
+    number: String(row.number ?? "").trim() || "1",
+    ocr: String(row.ocr ?? row.number ?? "").trim(),
+    customerNo: String(row.customerNo ?? "").trim(),
     memberId: row.memberId ? String(row.memberId) : null,
     name,
     address: String(row.address ?? "").trim(),
+    postal: String(row.postal ?? "").trim(),
     email: String(row.email ?? "").trim().toLowerCase(),
     property: String(row.property ?? "").trim(),
     description: String(row.description ?? "").trim(),
     amount,
+    qty: Number.isFinite(qty) && qty > 0 ? qty : 1,
     vatRate: parseVatRate(row.vatRate),
     dueDate: String(row.dueDate ?? ""),
     issuedAt: String(row.issuedAt ?? new Date().toISOString()),
@@ -41,8 +46,14 @@ export async function loadInvoices(userId: string): Promise<Invoice[]> {
     `select payload from budget_ledger where id = $1 limit 1`,
     [INVOICES_ID],
   );
-  const payload = rows[0]?.payload;
-  const parsed = typeof payload === "string" ? JSON.parse(payload) : payload;
+  let parsed: unknown = rows[0]?.payload;
+  if (typeof parsed === "string") {
+    try {
+      parsed = JSON.parse(parsed);
+    } catch {
+      parsed = {};
+    }
+  }
   const data = parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : {};
   const list = Array.isArray(data.invoices) ? data.invoices : Array.isArray(parsed) ? parsed : [];
   return list.map(asInvoice).filter((row): row is Invoice => row !== null);

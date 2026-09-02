@@ -7,6 +7,7 @@ export type AssociationMember = {
   email: string;
   property: string;
   address: string;
+  customerNo: string;
   share: number;
   fee: number;
   note: string;
@@ -114,6 +115,7 @@ export function rowsToMembers(rows: Record<string, string>[]): AssociationMember
       email,
       property,
       address: pick(row, ADDRESS_KEYS),
+      customerNo: pick(row, ["kundnr", "kundnummer", "customer"]),
       share: parseShare(pick(row, SHARE_KEYS)),
       fee: parseFee(pick(row, FEE_KEYS)),
       note: pick(row, NOTE_KEYS),
