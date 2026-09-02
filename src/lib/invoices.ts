@@ -41,9 +41,10 @@ export function invoiceTotals(invoice: Pick<Invoice, "amount" | "vatRate" | "qty
   return { qty, unit: Math.round(invoice.amount), net, vat, total: net + vat };
 }
 
-function seqFromNumber(number: string): number {
-  if (/^\d+$/.test(number.trim())) return Number(number.trim());
-  const last = number.split("-").at(-1);
+function seqFromNumber(number: unknown): number {
+  const text = String(number ?? "").trim();
+  if (/^\d+$/.test(text)) return Number(text);
+  const last = text.split("-").at(-1);
   return Number(last) || 0;
 }
 

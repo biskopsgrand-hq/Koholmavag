@@ -255,40 +255,42 @@ export function MembersApp() {
   }
 
   function startInvoice(member?: AssociationMember) {
-    if (member) {
-      setDraftInvoice(
-        invoiceFromMember(
-          member,
-          register,
-          year,
-          nextInvoiceNumber(invoices),
-          member.customerNo || nextCustomerNo(invoices, register.members),
-        ),
-      );
-      return;
+    try {
+      const number = nextInvoiceNumber(invoices);
+      const customerNo = member?.customerNo || nextCustomerNo(invoices, register.members);
+      const id = globalThis.crypto?.randomUUID?.() ?? `inv-${Date.now()}`;
+      if (member) {
+        setDraftInvoice({
+          ...invoiceFromMember(member, register, year, number, customerNo),
+          id,
+        });
+        return;
+      }
+      setDraftInvoice({
+        id,
+        number,
+        ocr: number,
+        customerNo,
+        memberId: null,
+        name: "",
+        address: "",
+        postal: "",
+        email: "",
+        phone: "",
+        property: "",
+        description: "Vägavgift Koholma",
+        amount: register.defaultFee,
+        qty: 1,
+        vatRate: 0,
+        dueDate: register.dueDate || dueInDays(new Date().toISOString()),
+        issuedAt: new Date().toISOString(),
+        paid: false,
+        paidAt: null,
+        year,
+      });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Kunde inte öppna fakturan.");
     }
-    setDraftInvoice({
-      id: crypto.randomUUID(),
-      number: nextInvoiceNumber(invoices),
-      ocr: nextInvoiceNumber(invoices),
-      customerNo: nextCustomerNo(invoices, register.members),
-      memberId: null,
-      name: "",
-      address: "",
-      postal: "",
-      email: "",
-      phone: "",
-      property: "",
-      description: "Vägavgift Koholma",
-      amount: register.defaultFee,
-      qty: 1,
-      vatRate: 0,
-      dueDate: register.dueDate || dueInDays(new Date().toISOString()),
-      issuedAt: new Date().toISOString(),
-      paid: false,
-      paidAt: null,
-      year,
-    });
   }
 
   async function saveInvoice(invoice: Invoice) {
@@ -301,7 +303,6 @@ export function MembersApp() {
       ? invoices.map((row) => (row.id === invoice.id ? invoice : row))
       : [invoice, ...invoices];
     await persistInvoices(next);
-    setDraftInvoice(null);
     toast(`Faktura ${invoice.number} är sparad.`);
     return invoice;
   }
@@ -312,8 +313,14 @@ export function MembersApp() {
       setDraftInvoice(invoice);
       return;
     }
+    if (!invoice.name.trim() || invoice.amount <= 0) {
+      toast.error("Ange person och belopp.");
+      setDraftInvoice(invoice);
+      return;
+    }
     openInvoiceGmail(invoice);
     setMailStep(invoice);
+    void saveInvoice(invoice).then(() => setDraftInvoice(null));
   }
 
   function toggleSelected(id: string) {
@@ -625,7 +632,7 @@ export function MembersApp() {
                   />
                   <p className="min-w-0 flex-1 font-medium text-ink">{member.name || "Ny medlem"}</p>
                   <div className="flex flex-wrap items-center gap-2">
-                    <Button variant="outline" onClick={() => startInvoice(member)}>
+                    <Button type="button" variant="outline" onClick={() => startInvoice(member)}>
                       Faktura
                     </Button>
                     <Button variant="outline" size="icon-sm" onClick={() => void removeMember(member.id)} aria-label="Ta bort">
@@ -706,12 +713,8 @@ export function MembersApp() {
           invoice={draftInvoice}
           members={register.members}
           onClose={() => setDraftInvoice(null)}
-          onSave={(invoice) => void saveInvoice(invoice)}
-          onSaveAndMail={(invoice) => {
-            void saveInvoice(invoice).then((saved) => {
-              if (saved) void sendInvoiceMail(saved);
-            });
-          }}
+          onSave={(invoice) => void saveInvoice(invoice).then((saved) => saved && setDraftInvoice(null))}
+          onSaveAndMail={(invoice) => sendInvoiceMail(invoice)}
         />
       ) : null}
 
@@ -903,7 +906,7 @@ function InvoiceFormDialog({
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{invoice.number}</DialogTitle>
+          <DialogTitle>{invoice.name ? `Faktura till ${invoice.name}` : "Ny faktura"}</DialogTitle>
           <DialogDescription>Person, adress, belopp och moms sparas på fakturan.</DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="flex min-h-0 flex-col gap-3">
