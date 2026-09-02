@@ -27,7 +27,7 @@ export async function mailSavedInvoice(invoice: Invoice): Promise<"shared" | "do
     return "shared";
   }
   downloadPdf(bytes, filename);
-  if (invoice.email.includes("@")) window.location.href = invoiceMailtoLink(invoice);
+  if (invoice.email.includes("@")) window.open(invoiceMailtoLink(invoice), "_blank", "noopener");
   return "download";
 }
 
@@ -63,4 +63,16 @@ export async function downloadAllInvoicePdfs(
   }
   const zipped = zipSync(files);
   downloadPdf(zipped, `fakturor-${year}-${year + 1}.zip`, "application/zip");
+}
+
+export async function downloadInvoiceZip(invoices: Invoice[], filename: string) {
+  if (invoices.length === 1) {
+    await downloadSavedInvoice(invoices[0]!);
+    return;
+  }
+  const files: Record<string, Uint8Array> = {};
+  for (const invoice of invoices) {
+    files[invoiceFileName(invoice)] = await buildInvoicePdf(invoice);
+  }
+  downloadPdf(zipSync(files), filename, "application/zip");
 }

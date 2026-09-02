@@ -26,7 +26,7 @@ import {
   type MemberRegister,
 } from "@/lib/members";
 import { loadMembers, saveMembers } from "@/lib/members-fns";
-import { downloadAllInvoicePdfs, downloadSavedInvoice, mailSavedInvoice } from "@/lib/invoice-mail";
+import { downloadAllInvoicePdfs, downloadInvoiceZip, downloadSavedInvoice, mailSavedInvoice } from "@/lib/invoice-mail";
 import {
   dueInDays,
   invoiceFromMember,
@@ -55,6 +55,8 @@ export function MembersApp() {
   const [openInvoice, setOpenInvoice] = useState<Invoice | null>(null);
   const [busy, setBusy] = useState(false);
   const [invoiceFilter, setInvoiceFilter] = useState<"all" | "unpaid" | "paid">("all");
+  const [selected, setSelected] = useState<string[]>([]);
+  const [bulkQueue, setBulkQueue] = useState<Invoice[] | null>(null);
 
   useEffect(() => {
     void Promise.all([loadMembers({ data: {} }), loadInvoiceList({ data: {} })])
@@ -199,6 +201,41 @@ export function MembersApp() {
       if (err instanceof Error && err.name === "AbortError") return;
       toast.error("Kunde inte öppna mejlet.");
     }
+  }
+
+  function toggleSelected(id: string) {
+    setSelected((current) => (current.includes(id) ? current.filter((row) => row !== id) : [...current, id]));
+  }
+
+  const selectedMembers = register.members.filter((member) => selected.includes(member.id));
+  const selectedWithEmail = selectedMembers.filter((member) => member.email.includes("@"));
+  const allVisibleSelected = visible.length > 0 && visible.every((member) => selected.includes(member.id));
+
+  async function startBulkMail() {
+    if (selectedWithEmail.length === 0) {
+      toast.error("Markera medlemmar som har e-post.");
+      return;
+    }
+    let next = [...invoices];
+    const queue: Invoice[] = [];
+    for (const member of selectedWithEmail) {
+      const existing = next.find((invoice) => invoice.memberId === member.id && invoice.year === year && !invoice.paid);
+      if (existing) {
+        queue.push(existing);
+        continue;
+      }
+      const created = invoiceFromMember(
+        member,
+        register,
+        year,
+        nextInvoiceNumber(next),
+        member.customerNo || nextCustomerNo(next, register.members),
+      );
+      next = [created, ...next];
+      queue.push(created);
+    }
+    await persistInvoices(next);
+    setBulkQueue(queue);
   }
 
   async function togglePaid(invoice: Invoice) {
@@ -422,19 +459,53 @@ export function MembersApp() {
             className="sm:max-w-xs"
           />
         </div>
+        {visible.length > 0 ? (
+          <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                if (allVisibleSelected) setSelected((current) => current.filter((id) => !visible.some((member) => member.id === id)));
+                else setSelected([...new Set([...selected, ...visible.map((member) => member.id)])]);
+              }}
+            >
+              {allVisibleSelected ? "Avmarkera synliga" : "Markera synliga"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setSelected(withEmail.map((member) => member.id))}
+            >
+              Markera alla med e-post
+            </Button>
+            <Button type="button" disabled={selectedWithEmail.length === 0} onClick={() => void startBulkMail()}>
+              <Mail />
+              Maila markerade{selectedWithEmail.length > 0 ? ` (${selectedWithEmail.length})` : ""}
+            </Button>
+          </div>
+        ) : null}
         {visible.length === 0 ? (
           <p className="text-sm text-muted">Inga medlemmar ännu. Läs in en fil eller lägg till för hand.</p>
         ) : (
           <ul className="divide-y divide-line">
             {visible.map((member) => (
               <li key={member.id} className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0">
-                  <p className="font-medium text-ink">{member.name}</p>
-                  <p className="truncate text-sm text-muted">
-                    {member.property || "Ingen fastighet"}
-                    {member.email ? ` · ${member.email}` : " · saknar e-post"}
-                  </p>
-                </div>
+                <label className="flex min-h-11 min-w-0 cursor-pointer items-start gap-3">
+                  <input
+                    type="checkbox"
+                    className="mt-1 size-5 shrink-0 accent-pine"
+                    checked={selected.includes(member.id)}
+                    onChange={() => toggleSelected(member.id)}
+                    aria-label={`Markera ${member.name}`}
+                  />
+                  <span className="min-w-0">
+                    <span className="block font-medium text-ink">{member.name}</span>
+                    <span className="block truncate text-sm text-muted">
+                      {member.property || "Ingen fastighet"}
+                      {member.email ? ` · ${member.email}` : " · saknar e-post"}
+                    </span>
+                  </span>
+                </label>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-sm tabular-nums text-ink">{formatKr(memberFee(member, register.defaultFee))}</span>
                   <Button variant="outline" onClick={() => startInvoice(member)}>
@@ -480,10 +551,11 @@ export function MembersApp() {
       ) : null}
 
       {openInvoice ? (
-        <SavedInvoiceDialog
-          invoice={openInvoice}
-          onClose={() => setOpenInvoice(null)}
-        />
+        <SavedInvoiceDialog invoice={openInvoice} onClose={() => setOpenInvoice(null)} />
+      ) : null}
+
+      {bulkQueue ? (
+        <BulkMailDialog invoices={bulkQueue} onClose={() => setBulkQueue(null)} />
       ) : null}
     </div>
   );
@@ -786,6 +858,86 @@ function SavedInvoiceDialog({
             <Mail />
             {working ? "Skapar PDF…" : "Maila PDF"}
           </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function BulkMailDialog({
+  invoices,
+  onClose,
+}: {
+  invoices: Invoice[];
+  onClose: () => void;
+}) {
+  const [index, setIndex] = useState(0);
+  const [working, setWorking] = useState(false);
+  const current = invoices[index];
+  if (!current) return null;
+  const invoice = current;
+
+  async function sendCurrent() {
+    setWorking(true);
+    try {
+      const mode = await mailSavedInvoice(invoice);
+      toast(
+        mode === "shared"
+          ? "Välj e-post. PDF:en följer med."
+          : `PDF för ${invoice.name} laddades ner. Bifoga den i mejlet.`,
+      );
+      if (index + 1 < invoices.length) setIndex(index + 1);
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return;
+      toast.error("Kunde inte öppna mejlet.");
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Massutskick</DialogTitle>
+          <DialogDescription>
+            {index + 1} av {invoices.length} · {current.name}
+          </DialogDescription>
+        </DialogHeader>
+        <p className="text-sm leading-relaxed text-ink">
+          Mejlet öppnas till {current.email}. PDF:en laddas ner samtidigt — bifoga den och skicka, klicka sedan Nästa.
+        </p>
+        <p className="text-sm text-muted">
+          {current.property || current.address || "Ingen fastighet"} · {formatKr(invoiceTotals(current).total)}
+        </p>
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setWorking(true);
+              void downloadInvoiceZip(invoices, "fakturor-markerade.zip")
+                .then(() => toast("PDF:erna laddades ner."))
+                .catch(() => toast.error("Kunde inte skapa PDF."))
+                .finally(() => setWorking(false));
+            }}
+          >
+            <FileDown />
+            Ladda ner alla PDF
+          </Button>
+          <Button type="button" disabled={working} onClick={() => void sendCurrent()}>
+            <Mail />
+            {working ? "Öppnar…" : `Maila ${current.name}`}
+          </Button>
+          {index + 1 < invoices.length ? (
+            <Button type="button" variant="outline" onClick={() => setIndex(index + 1)}>
+              Hoppa över
+            </Button>
+          ) : (
+            <Button type="button" variant="outline" onClick={onClose}>
+              Klar
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
