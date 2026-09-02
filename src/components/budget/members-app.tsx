@@ -206,12 +206,8 @@ export function MembersApp() {
       return;
     }
     try {
-      const mode = await mailSavedInvoice(invoice);
-      toast(
-        mode === "shared"
-          ? "Välj e-post. PDF:en följer med."
-          : "PDF:en laddades ner och mejlet öppnas. Bifoga PDF:en i mejlet.",
-      );
+      await mailSavedInvoice(invoice);
+      toast("Gmail öppnas som koholmavagen@gmail.com. Bifoga den nerladdade PDF:en och skicka.");
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
       toast.error("Kunde inte öppna mejlet.");
@@ -820,12 +816,8 @@ function SavedInvoiceDialog({
   async function sendPdf() {
     setWorking(true);
     try {
-      const mode = await mailSavedInvoice(invoice);
-      toast(
-        mode === "shared"
-          ? "Välj e-post i delningsmenyn. PDF:en följer med."
-          : "PDF:en laddades ner. Bifoga den i mejlet som öppnas.",
-      );
+      await mailSavedInvoice(invoice);
+      toast("Gmail öppnas som koholmavagen@gmail.com. Bifoga den nerladdade PDF:en och skicka.");
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
       toast.error("Kunde inte skapa PDF-fakturan.");
@@ -895,12 +887,8 @@ function BulkMailDialog({
   async function sendCurrent() {
     setWorking(true);
     try {
-      const mode = await mailSavedInvoice(invoice);
-      toast(
-        mode === "shared"
-          ? "Välj e-post. PDF:en följer med."
-          : `PDF för ${invoice.name} laddades ner. Bifoga den i mejlet.`,
-      );
+      await mailSavedInvoice(invoice);
+      toast(`Gmail öppnas till ${invoice.name} från koholmavagen@gmail.com. Bifoga PDF:en.`);
       if (index + 1 < invoices.length) setIndex(index + 1);
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") return;
@@ -920,7 +908,7 @@ function BulkMailDialog({
           </DialogDescription>
         </DialogHeader>
         <p className="text-sm leading-relaxed text-ink">
-          Mejlet öppnas till {current.email}. PDF:en laddas ner samtidigt — bifoga den och skicka, klicka sedan Nästa.
+          Mejlet öppnas i Gmail som koholmavagen@gmail.com till {current.email}. Bifoga PDF:en och skicka, klicka sedan Nästa.
         </p>
         <p className="text-sm text-muted">
           {current.property || current.address || "Ingen fastighet"} · {formatKr(invoiceTotals(current).total)}

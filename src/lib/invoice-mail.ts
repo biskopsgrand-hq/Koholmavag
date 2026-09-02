@@ -1,9 +1,7 @@
 import { zipSync } from "fflate";
 import {
-  invoiceBodyText,
   invoiceFromMember,
-  invoiceMailtoLink,
-  invoiceMailSubject,
+  invoiceGmailLink,
   nextCustomerNo,
   nextInvoiceNumber,
   type Invoice,
@@ -11,24 +9,12 @@ import {
 import { buildInvoicePdf, downloadPdf, invoiceFileName } from "@/lib/invoice-pdf";
 import type { AssociationMember, MemberRegister } from "@/lib/members";
 
-export async function mailSavedInvoice(invoice: Invoice): Promise<"shared" | "download"> {
+export async function mailSavedInvoice(invoice: Invoice): Promise<void> {
   const bytes = await buildInvoicePdf(invoice);
-  const filename = invoiceFileName(invoice);
-  const copy = new ArrayBuffer(bytes.byteLength);
-  new Uint8Array(copy).set(bytes);
-  const file = new File([copy], filename, { type: "application/pdf" });
-  const shareData = {
-    files: [file],
-    title: invoiceMailSubject(invoice),
-    text: invoiceBodyText(invoice),
-  };
-  if (typeof navigator.canShare === "function" && navigator.canShare(shareData)) {
-    await navigator.share(shareData);
-    return "shared";
+  downloadPdf(bytes, invoiceFileName(invoice));
+  if (invoice.email.includes("@")) {
+    window.open(invoiceGmailLink(invoice), "_blank", "noopener");
   }
-  downloadPdf(bytes, filename);
-  if (invoice.email.includes("@")) window.open(invoiceMailtoLink(invoice), "_blank", "noopener");
-  return "download";
 }
 
 export async function downloadSavedInvoice(invoice: Invoice) {

@@ -152,7 +152,23 @@ export function invoiceMailSubject(invoice: Invoice): string {
   return `Faktura ${invoice.number} ${SELLER.name}`;
 }
 
+export function invoiceMailBody(invoice: Invoice): string {
+  return `${invoiceBodyText(invoice)}\n\nFakturan i PDF bifogas detta mejl.\n\nMed vänlig hälsning\n${SELLER.name}\n${SELLER.email}`;
+}
+
+export function invoiceGmailLink(invoice: Invoice): string {
+  const params = new URLSearchParams({
+    view: "cm",
+    fs: "1",
+    tf: "1",
+    authuser: SELLER.email,
+    to: invoice.email,
+    su: invoiceMailSubject(invoice),
+    body: invoiceMailBody(invoice),
+  });
+  return `https://mail.google.com/mail/?${params.toString()}`;
+}
+
 export function invoiceMailtoLink(invoice: Invoice): string {
-  const body = `${invoiceBodyText(invoice)}\n\nFakturan i PDF bifogas detta mejl.`;
-  return `mailto:${encodeURIComponent(invoice.email)}?subject=${encodeURIComponent(invoiceMailSubject(invoice))}&body=${encodeURIComponent(body)}`;
+  return `mailto:${encodeURIComponent(invoice.email)}?subject=${encodeURIComponent(invoiceMailSubject(invoice))}&body=${encodeURIComponent(invoiceMailBody(invoice))}`;
 }
