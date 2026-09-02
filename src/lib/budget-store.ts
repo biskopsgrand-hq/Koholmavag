@@ -101,6 +101,30 @@ function payloadFromState(state: Pick<BudgetState, "monthlyBudget" | "categories
   };
 }
 
+function mergeLedgers(
+  base: { monthlyBudget: number; categories: Category[]; transactions: Transaction[]; yearBooks: Record<string, YearBook> },
+  extra?: { monthlyBudget?: number; categories?: Category[]; transactions?: Transaction[]; yearBooks?: Record<string, YearBook> } | null,
+) {
+  const byId = new Map<string, Transaction>();
+  for (const tx of base.transactions) {
+    if (!deletedIds.has(tx.id) && tx.amount > 0) byId.set(tx.id, tx);
+  }
+  for (const tx of extra?.transactions ?? []) {
+    if (!deletedIds.has(tx.id) && tx.amount > 0) byId.set(tx.id, tx);
+  }
+  return {
+    monthlyBudget: extra?.monthlyBudget || base.monthlyBudget,
+    categories:
+      extra?.categories && extra.categories.length > 0
+        ? extra.categories
+        : base.categories.length > 0
+          ? base.categories
+          : DEFAULT_CATEGORIES,
+    transactions: [...byId.values()],
+    yearBooks: { ...base.yearBooks, ...(extra?.yearBooks ?? {}) },
+  };
+}
+
 function applyLedger(
   payload: {
     monthlyBudget: number;
@@ -111,23 +135,27 @@ function applyLedger(
   },
 ) {
   const current = useBudgetStore.getState();
-  const transactions = payload.transactions.filter((tx) => !deletedIds.has(tx.id) && tx.amount > 0);
-  if (transactions.length === 0 && current.transactions.length > 0) return;
   for (const id of payload.deletedIds ?? []) deletedIds.add(id);
+  const merged = mergeLedgers(
+    {
+      monthlyBudget: current.monthlyBudget,
+      categories: current.categories,
+      transactions: current.transactions,
+      yearBooks: current.yearBooks,
+    },
+    payload,
+  );
+  if (merged.transactions.length === 0 && current.transactions.length > 0) return;
   useBudgetStore.setState({
-    monthlyBudget: payload.monthlyBudget,
-    categories: payload.categories.length > 0 ? payload.categories : DEFAULT_CATEGORIES,
-    transactions,
-    yearBooks: Object.keys(payload.yearBooks).length > 0
-      ? normalizeYearBooks(payload.yearBooks)
-      : current.yearBooks,
+    monthlyBudget: merged.monthlyBudget,
+    categories: merged.categories,
+    transactions: merged.transactions,
+    yearBooks: Object.keys(merged.yearBooks).length > 0 ? normalizeYearBooks(merged.yearBooks) : current.yearBooks,
     ready: true,
   });
-  rememberLocalBackup(
-    transactions,
-    Object.keys(payload.yearBooks).length > 0 ? normalizeYearBooks(payload.yearBooks) : current.yearBooks,
-    payload.categories.length > 0 ? payload.categories : DEFAULT_CATEGORIES,
-  );
+  if (merged.transactions.length > 0) {
+    rememberLocalBackup(merged.transactions, merged.yearBooks, merged.categories);
+  }
 }
 
 function coerceAmount(value: unknown): number {
@@ -265,7 +293,7 @@ function queueSave() {
   window.clearTimeout(saveTimer);
   saveTimer = window.setTimeout(() => {
     const snapshot = useBudgetStore.getState();
-    if (!snapshot.ready) {
+    if (!snapshot.ready || snapshot.transactions.length === 0) {
       savePending = false;
       return;
     }
@@ -289,21 +317,26 @@ function queueSave() {
 export async function hydrateSharedBudget(): Promise<void> {
   if (hydratePromise) return hydratePromise;
   hydratePromise = (async () => {
-    const { loadBudget } = await import("@/lib/budget-fns");
+    const { loadBudget, saveBudget } = await import("@/lib/budget-fns");
     let lastError: unknown;
+    const local = readAllLocalLedgers();
     for (let attempt = 0; attempt < 6; attempt += 1) {
       try {
         const remote = await loadBudget({ data: {} });
-        applyLedger(remote);
+        const merged = mergeLedgers(remote, local);
+        applyLedger(merged);
+        if (merged.transactions.length > remote.transactions.length) {
+          const saved = await saveBudget({ data: { ...merged, deletedIds: [] } });
+          applyLedger(saved);
+        }
         return;
       } catch (err) {
         lastError = err;
         await new Promise((resolve) => window.setTimeout(resolve, 400 * (attempt + 1)));
       }
     }
-    const recovered = readAllLocalLedgers();
-    if (recovered) {
-      applyLedger(recovered);
+    if (local) {
+      applyLedger(local);
       return;
     }
     console.error("budget hydrate failed", lastError);
@@ -332,6 +365,7 @@ export async function refreshSharedBudget(): Promise<void> {
     const { loadBudget } = await import("@/lib/budget-fns");
     const remote = await loadBudget({ data: {} });
     if (savePending) return;
+    if (remote.transactions.length === 0) return;
     applyLedger(remote);
   } catch {
     /* keep current snapshot until next refresh */

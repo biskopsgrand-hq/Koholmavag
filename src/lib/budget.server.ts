@@ -139,13 +139,13 @@ export async function loadSharedBudget(userId: string): Promise<LoadedBudget> {
   const rows = await sql<{ id: string; payload: unknown }>`
     select id, payload from budget_ledger
   `;
-  let best: BudgetPayload | null = null;
+  const skip = new Set(["directory", "members", "members-backup", "invoices", "invoices-backup"]);
+  let best: BudgetPayload = EMPTY_PAYLOAD;
   for (const row of rows) {
-    if (row.id === "directory") continue;
+    if (skip.has(row.id)) continue;
     const parsed = parsePayload(row.payload);
-    if (!best || parsed.transactions.length > best.transactions.length) best = parsed;
+    best = mergePayloads(best, parsed);
   }
-  if (!best) return { ...EMPTY_PAYLOAD, existed: false };
   return { ...best, existed: best.transactions.length > 0 };
 }
 
@@ -164,7 +164,10 @@ export async function saveSharedBudget(userId: string, payload: BudgetPayload): 
     return richest;
   }
   const next = richest.transactions.length > 0 ? mergePayloads(richest, incoming) : incoming;
-  if (existing.transactions.length > 0) {
+  if (next.transactions.length === 0) {
+    return richest.transactions.length > 0 ? richest : next;
+  }
+  if (existing.transactions.length >= backup.transactions.length && existing.transactions.length > 0) {
     await sql.query(
       `insert into budget_ledger (id, payload, updated_at)
        values ($1, $2::jsonb, now())
