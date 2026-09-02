@@ -2,12 +2,21 @@ import { zipSync } from "fflate";
 import {
   invoiceFromMember,
   invoiceGmailLink,
+  invoiceMailBody,
+  invoiceMailSubject,
   nextCustomerNo,
   nextInvoiceNumber,
   type Invoice,
 } from "@/lib/invoices";
 import { buildInvoicePdf, downloadPdf, invoiceFileName } from "@/lib/invoice-pdf";
 import type { AssociationMember, MemberRegister } from "@/lib/members";
+import { SELLER } from "@/lib/seller";
+
+function pdfFile(bytes: Uint8Array, filename: string): File {
+  const copy = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(copy).set(bytes);
+  return new File([copy], filename, { type: "application/pdf" });
+}
 
 export function openInvoiceGmail(invoice: Invoice) {
   const href = invoiceGmailLink(invoice);
@@ -18,6 +27,28 @@ export function openInvoiceGmail(invoice: Invoice) {
   document.body.appendChild(link);
   link.click();
   link.remove();
+}
+
+export async function shareInvoiceWithPdf(invoice: Invoice): Promise<"shared" | "gmail"> {
+  const bytes = await buildInvoicePdf(invoice);
+  const filename = invoiceFileName(invoice);
+  const file = pdfFile(bytes, filename);
+  const payload = {
+    files: [file],
+    title: invoiceMailSubject(invoice),
+    text: `Från: ${SELLER.email}\nTill: ${invoice.email}\n\n${invoiceMailBody(invoice)}`,
+  };
+  if (navigator.canShare?.(payload)) {
+    try {
+      await navigator.share(payload);
+      return "shared";
+    } catch (err) {
+      if (err instanceof Error && err.name === "AbortError") return "shared";
+    }
+  }
+  downloadPdf(bytes, filename);
+  openInvoiceGmail(invoice);
+  return "gmail";
 }
 
 export async function downloadSavedInvoice(invoice: Invoice) {

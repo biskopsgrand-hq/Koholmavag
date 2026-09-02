@@ -34,7 +34,7 @@ import {
 import { KOHOLMA_MEMBERS } from "@/lib/members-seed";
 import { loadMembers, saveMembers } from "@/lib/members-fns";
 import { readMemberCache, writeMemberCache } from "@/lib/members-cache";
-import { downloadAllInvoicePdfs, downloadInvoiceZip, downloadSavedInvoice, openInvoiceGmail } from "@/lib/invoice-mail";
+import { downloadAllInvoicePdfs, downloadInvoiceZip, downloadSavedInvoice, shareInvoiceWithPdf } from "@/lib/invoice-mail";
 import {
   dueInDays,
   invoiceFromMember,
@@ -307,7 +307,7 @@ export function MembersApp() {
     return invoice;
   }
 
-  function sendInvoiceMail(invoice: Invoice) {
+  async function sendInvoiceMail(invoice: Invoice) {
     if (!invoice.email.includes("@")) {
       toast.error("Ange e-post på fakturan först.");
       setDraftInvoice(invoice);
@@ -318,9 +318,21 @@ export function MembersApp() {
       setDraftInvoice(invoice);
       return;
     }
-    openInvoiceGmail(invoice);
     setMailStep(invoice);
-    void saveInvoice(invoice).then(() => setDraftInvoice(null));
+    toast("Skapar PDF…", { id: "invoice-mail" });
+    try {
+      const result = await shareInvoiceWithPdf(invoice);
+      await saveInvoice(invoice);
+      setDraftInvoice(null);
+      toast.success(
+        result === "shared"
+          ? "Välj Gmail och koholmavagen@gmail.com. PDF:en följer med."
+          : "PDF:en laddades ner. Bifoga den i Gmail innan du skickar.",
+        { id: "invoice-mail" },
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Kunde inte skapa PDF.", { id: "invoice-mail" });
+    }
   }
 
   function toggleSelected(id: string) {
@@ -1063,7 +1075,17 @@ function BulkMailDialog({
   const invoice = current;
 
   function sendCurrent() {
-    openInvoiceGmail(invoice);
+    setWorking(true);
+    void shareInvoiceWithPdf(invoice)
+      .then((result) => {
+        toast.success(
+          result === "shared"
+            ? "Välj Gmail och koholmavagen@gmail.com. PDF:en följer med."
+            : "PDF:en laddades ner. Bifoga den i Gmail innan du skickar.",
+        );
+      })
+      .catch(() => toast.error("Kunde inte skapa PDF."))
+      .finally(() => setWorking(false));
   }
 
   return (
@@ -1076,7 +1098,7 @@ function BulkMailDialog({
           </DialogDescription>
         </DialogHeader>
         <p className="text-sm leading-relaxed text-ink">
-          Appen skickar inte mejlet själv. Gmail öppnas som {SELLER.email}. Välj det kontot om Google frågar, bifoga PDF:en och klicka Skicka.
+          Appen kan inte lägga PDF:en i Gmail själv via webben. Välj Gmail i delningsmenyn så följer PDF:en med, och välj avsändaren {SELLER.email}.
         </p>
         <p className="text-sm text-muted">
           {current.property || current.address || "Ingen fastighet"} · {formatKr(invoiceTotals(current).total)}
@@ -1160,7 +1182,7 @@ function MailStepDialog({
             Faktura {invoice.number}
           </p>
           <p className="text-muted">
-            Gmail ska öppnas. Ladda ner PDF:en och bifoga den i mejlet, välj {SELLER.email}, klicka Skicka.
+            Välj Gmail i delningsmenyn så följer PDF:en med. Avsändare: {SELLER.email}.
           </p>
         </div>
         <DialogFooter>
@@ -1176,7 +1198,20 @@ function MailStepDialog({
             <FileDown />
             Ladda ner PDF
           </Button>
-          <Button type="button" onClick={() => openInvoiceGmail(invoice)}>
+          <Button
+            type="button"
+            onClick={() => {
+              void shareInvoiceWithPdf(invoice)
+                .then((result) => {
+                  toast.success(
+                    result === "shared"
+                      ? "Välj Gmail och koholmavagen@gmail.com. PDF:en följer med."
+                      : "PDF:en laddades ner. Bifoga den i Gmail innan du skickar.",
+                  );
+                })
+                .catch(() => toast.error("Kunde inte skapa PDF."));
+            }}
+          >
             <Mail />
             Öppna Gmail som {SELLER.email}
           </Button>
