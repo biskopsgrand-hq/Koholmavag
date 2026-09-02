@@ -27,11 +27,10 @@ import {
 } from "@/lib/members";
 import { loadMembers, saveMembers } from "@/lib/members-fns";
 import { readMemberCache, writeMemberCache } from "@/lib/members-cache";
-import { downloadAllInvoicePdfs, downloadInvoiceZip, downloadSavedInvoice } from "@/lib/invoice-mail";
+import { downloadAllInvoicePdfs, downloadInvoiceZip, downloadSavedInvoice, openInvoiceGmail } from "@/lib/invoice-mail";
 import {
   dueInDays,
   invoiceFromMember,
-  invoiceGmailLink,
   invoiceTotals,
   makeOcr,
   nextCustomerNo,
@@ -202,19 +201,14 @@ export function MembersApp() {
     return invoice;
   }
 
-  async function sendInvoiceMail(invoice: Invoice) {
+  function sendInvoiceMail(invoice: Invoice) {
     if (!invoice.email.includes("@")) {
       toast.error("Ange e-post på fakturan först.");
       setDraftInvoice(invoice);
       return;
     }
-    try {
-      await downloadSavedInvoice(invoice);
-      setMailStep(invoice);
-    } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") return;
-      toast.error("Kunde inte skapa PDF-fakturan.");
-    }
+    openInvoiceGmail(invoice);
+    setMailStep(invoice);
   }
 
   function toggleSelected(id: string) {
@@ -885,18 +879,8 @@ function BulkMailDialog({
   if (!current) return null;
   const invoice = current;
 
-  async function sendCurrent() {
-    setWorking(true);
-    try {
-      await downloadSavedInvoice(invoice);
-      window.open(invoiceGmailLink(invoice), "_blank", "noopener");
-      toast("Välj koholmavagen@gmail.com i Google, bifoga PDF:en och klicka Skicka.");
-    } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") return;
-      toast.error("Kunde inte öppna mejlet.");
-    } finally {
-      setWorking(false);
-    }
+  function sendCurrent() {
+    openInvoiceGmail(invoice);
   }
 
   return (
@@ -929,9 +913,24 @@ function BulkMailDialog({
             <FileDown />
             Ladda ner alla PDF
           </Button>
-          <Button type="button" disabled={working} onClick={() => void sendCurrent()}>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={working}
+            onClick={() => {
+              setWorking(true);
+              void downloadSavedInvoice(invoice)
+                .then(() => toast("PDF:en laddades ner. Bifoga den i Gmail."))
+                .catch(() => toast.error("Kunde inte skapa PDF."))
+                .finally(() => setWorking(false));
+            }}
+          >
+            <FileDown />
+            Ladda ner PDF
+          </Button>
+          <Button type="button" onClick={sendCurrent}>
             <Mail />
-            {working ? "Öppnar…" : `Maila ${current.name}`}
+            Öppna Gmail
           </Button>
           {index + 1 < invoices.length ? (
             <Button type="button" variant="outline" onClick={() => setIndex(index + 1)}>
@@ -976,16 +975,25 @@ function MailStepDialog({
             Faktura {invoice.number}
           </p>
           <p className="text-muted">
-            PDF:en är nerladdad. Välj kontot {SELLER.email} hos Google, bifoga PDF:en och klicka Skicka.
+            Gmail ska öppnas. Ladda ner PDF:en och bifoga den i mejlet, välj {SELLER.email}, klicka Skicka.
           </p>
         </div>
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose}>
-            Avbryt
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              void downloadSavedInvoice(invoice)
+                .then(() => toast("PDF:en laddades ner. Bifoga den i Gmail."))
+                .catch(() => toast.error("Kunde inte skapa PDF."));
+            }}
+          >
+            <FileDown />
+            Ladda ner PDF
           </Button>
-          <Button type="button" onClick={() => window.open(invoiceGmailLink(invoice), "_blank", "noopener")}>
+          <Button type="button" onClick={() => openInvoiceGmail(invoice)}>
             <Mail />
-            Öppna Gmail som {SELLER.email}
+            Öppna Gmail
           </Button>
         </DialogFooter>
       </DialogContent>

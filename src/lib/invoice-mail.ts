@@ -1,6 +1,7 @@
 import { zipSync } from "fflate";
 import {
   invoiceFromMember,
+  invoiceGmailLink,
   nextCustomerNo,
   nextInvoiceNumber,
   type Invoice,
@@ -8,8 +9,14 @@ import {
 import { buildInvoicePdf, downloadPdf, invoiceFileName } from "@/lib/invoice-pdf";
 import type { AssociationMember, MemberRegister } from "@/lib/members";
 
-export async function mailSavedInvoice(invoice: Invoice): Promise<void> {
-  await downloadSavedInvoice(invoice);
+export function openInvoiceGmail(invoice: Invoice) {
+  const link = document.createElement("a");
+  link.href = invoiceGmailLink(invoice);
+  link.target = "_blank";
+  link.rel = "noopener";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
 }
 
 export async function downloadSavedInvoice(invoice: Invoice) {

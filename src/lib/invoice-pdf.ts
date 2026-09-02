@@ -155,7 +155,7 @@ export async function buildInvoicePdf(invoice: Invoice): Promise<Uint8Array> {
 export function downloadPdf(bytes: Uint8Array, filename: string, mime = "application/pdf") {
   const copy = new ArrayBuffer(bytes.byteLength);
   new Uint8Array(copy).set(bytes);
-  const blob = new Blob([copy], { type: mime });
+  const blob = new Blob([copy], { type: mime === "application/pdf" ? "application/octet-stream" : mime });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
