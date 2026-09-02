@@ -11,16 +11,13 @@ import type { AssociationMember, MemberRegister } from "@/lib/members";
 
 export function openInvoiceGmail(invoice: Invoice) {
   const href = invoiceGmailLink(invoice);
-  const opened = window.open(href, "_blank", "noopener,noreferrer");
-  if (opened) return;
   const link = document.createElement("a");
   link.href = href;
   link.target = "_blank";
-  link.rel = "noopener";
+  link.rel = "noopener noreferrer";
   document.body.appendChild(link);
   link.click();
   link.remove();
-  window.location.href = href;
 }
 
 export async function downloadSavedInvoice(invoice: Invoice) {

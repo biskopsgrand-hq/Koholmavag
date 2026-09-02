@@ -987,7 +987,7 @@ function InvoiceFormDialog({
             <Button type="submit">Spara</Button>
             <Button type="button" onClick={() => onSaveAndMail(prepared())}>
               <Mail />
-              Maila
+              Maila från {SELLER.email}
             </Button>
           </DialogFooter>
         </form>
@@ -1041,7 +1041,7 @@ function SavedInvoiceDialog({
           </Button>
           <Button type="button" disabled={!invoice.email.includes("@")} onClick={() => onMail(invoice)}>
             <Mail />
-            Maila
+            Maila från {SELLER.email}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1076,7 +1076,7 @@ function BulkMailDialog({
           </DialogDescription>
         </DialogHeader>
         <p className="text-sm leading-relaxed text-ink">
-          Appen skickar inte mejlet själv. Öppna Gmail som {SELLER.email}, bifoga PDF:en och klicka Skicka.
+          Appen skickar inte mejlet själv. Gmail öppnas som {SELLER.email}. Välj det kontot om Google frågar, bifoga PDF:en och klicka Skicka.
         </p>
         <p className="text-sm text-muted">
           {current.property || current.address || "Ingen fastighet"} · {formatKr(invoiceTotals(current).total)}
@@ -1113,7 +1113,7 @@ function BulkMailDialog({
           </Button>
           <Button type="button" onClick={sendCurrent}>
             <Mail />
-            Öppna Gmail
+            Öppna Gmail som {SELLER.email}
           </Button>
           {index + 1 < invoices.length ? (
             <Button type="button" variant="outline" onClick={() => setIndex(index + 1)}>
@@ -1142,7 +1142,9 @@ function MailStepDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Skicka från {SELLER.email}</DialogTitle>
-          <DialogDescription>Appen skickar inte mejlet själv. Ni skickar det i Gmail.</DialogDescription>
+          <DialogDescription>
+            Gmail öppnas med avsändaren {SELLER.email}. Om Google frågar vilket konto, välj {SELLER.email}.
+          </DialogDescription>
         </DialogHeader>
         <div className="grid gap-2 text-sm text-ink">
           <p>
@@ -1176,7 +1178,7 @@ function MailStepDialog({
           </Button>
           <Button type="button" onClick={() => openInvoiceGmail(invoice)}>
             <Mail />
-            Öppna Gmail
+            Öppna Gmail som {SELLER.email}
           </Button>
         </DialogFooter>
       </DialogContent>

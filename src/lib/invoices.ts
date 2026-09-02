@@ -160,17 +160,20 @@ export function invoiceMailBody(invoice: Invoice): string {
 }
 
 export function invoiceGmailLink(invoice: Invoice): string {
-  const compose = new URLSearchParams({
-    view: "cm",
-    fs: "1",
-    tf: "1",
-    authuser: SELLER.email,
-    to: invoice.email,
-    su: invoiceMailSubject(invoice),
-    body: invoiceMailBody(invoice),
-  });
-  const gmail = `https://mail.google.com/mail/?${compose.toString()}`;
-  return `https://accounts.google.com/AccountChooser?Email=${encodeURIComponent(SELLER.email)}&continue=${encodeURIComponent(gmail)}`;
+  const from = SELLER.email;
+  const compose = new URL("https://mail.google.com/mail/u/");
+  compose.searchParams.set("authuser", from);
+  compose.searchParams.set("view", "cm");
+  compose.searchParams.set("fs", "1");
+  compose.searchParams.set("tf", "1");
+  compose.searchParams.set("to", invoice.email);
+  compose.searchParams.set("su", invoiceMailSubject(invoice));
+  compose.searchParams.set("body", invoiceMailBody(invoice));
+  const chooser = new URL("https://accounts.google.com/AccountChooser");
+  chooser.searchParams.set("Email", from);
+  chooser.searchParams.set("hl", "sv");
+  chooser.searchParams.set("continue", compose.toString());
+  return chooser.toString();
 }
 
 export function invoiceMailtoLink(invoice: Invoice): string {
