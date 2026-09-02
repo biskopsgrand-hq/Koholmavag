@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import { Link } from "@tanstack/react-router";
 import { RedirectToSignIn } from "@/lib/auth/gates";
 import { signOut } from "@/lib/auth/client";
-import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { useCurrentUserState, type AppUser } from "@/lib/auth/use-current-user";
 import { OWNER_EMAIL, asMemberList, isApproved, type AccessState } from "@/lib/access";
 import { getMyAccess, listAccessMembers, requestAccess } from "@/lib/access-fns";
 import { APP_NAME } from "@/lib/brand";
@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 
 const AccessContext = createContext<AccessState | null>(null);
 let accessCache: AccessState | null = null;
+let lastUser: AppUser | null = null;
 
 export function useAccess(): AccessState | null {
   return useContext(AccessContext) ?? accessCache;
@@ -17,8 +18,26 @@ export function useAccess(): AccessState | null {
 
 export function AuthGate({ children }: { children: ReactNode }) {
   const { user, isPending } = useCurrentUserState();
-  if (isPending) return <AuthPending />;
-  if (!user) {
+  const [, bump] = useState(0);
+
+  if (user) lastUser = user;
+
+  useEffect(() => {
+    if (user || isPending) return;
+    if (!lastUser) {
+      bump((n) => n + 1);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      lastUser = null;
+      bump((n) => n + 1);
+    }, 4000);
+    return () => window.clearTimeout(timer);
+  }, [user, isPending]);
+
+  const current = user ?? lastUser;
+  if (isPending && !current) return <AuthPending />;
+  if (!current) {
     return (
       <>
         <AuthPending />
