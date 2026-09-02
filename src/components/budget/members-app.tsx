@@ -72,6 +72,7 @@ export function MembersApp() {
   const registerRef = useRef(register);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savingRef = useRef(false);
+  const dirtyRef = useRef(false);
   registerRef.current = register;
 
   useEffect(() => {
@@ -108,12 +109,15 @@ export function MembersApp() {
   }, []);
 
   const pullShared = useCallback(async () => {
-    if (!ready || savingRef.current || saveTimer.current) return;
+    if (!ready || savingRef.current || saveTimer.current || dirtyRef.current) return;
     try {
       const [members, rows] = await Promise.all([loadMembers({ data: {} }), loadInvoiceList({ data: {} })]);
-      const filled = applySeedPhones(members.members, KOHOLMA_MEMBERS);
-      const next = { ...members, members: filled.members, listId: members.listId || KOHOLMA_LIST_ID };
-      if (savingRef.current || saveTimer.current) return;
+      if (savingRef.current || saveTimer.current || dirtyRef.current) return;
+      const next = {
+        ...members,
+        members: mergeMemberLists([members.members, registerRef.current.members], KOHOLMA_MEMBERS),
+        listId: members.listId || KOHOLMA_LIST_ID,
+      };
       setRegister(next);
       writeMemberCache(next);
       setInvoices(rows);
@@ -147,6 +151,7 @@ export function MembersApp() {
     registerRef.current = payload;
     setRegister(payload);
     writeMemberCache(payload);
+    dirtyRef.current = true;
     savingRef.current = true;
     try {
       const saved = await withSessionRetry(() => saveMembers({ data: payload }));
@@ -157,6 +162,7 @@ export function MembersApp() {
       registerRef.current = kept;
       setRegister(kept);
       writeMemberCache(kept);
+      dirtyRef.current = false;
       return kept;
     } catch (err) {
       writeMemberCache(payload);
@@ -237,12 +243,14 @@ export function MembersApp() {
     registerRef.current = next;
     setRegister(next);
     writeMemberCache(next);
-    if (!save) return;
+    dirtyRef.current = true;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
       saveTimer.current = null;
-      void persist(registerRef.current).then(() => toast.success("Sparat", { id: "member-save" }));
-    }, 200);
+      void persist(registerRef.current).then(() => {
+        if (save) toast.success("Sparat", { id: "member-save" });
+      });
+    }, save ? 150 : 450);
   }
 
   async function removeMember(id: string) {

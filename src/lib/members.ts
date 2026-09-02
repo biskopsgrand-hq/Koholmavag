@@ -521,25 +521,25 @@ function pickCustom(seedValue: string, ...values: string[]): string {
 }
 
 export function mergeMemberFields(base: AssociationMember, overlay: AssociationMember, seed?: AssociationMember | null): AssociationMember {
-  return {
+  const next: AssociationMember = {
     ...base,
     ...overlay,
-    id: base.id || overlay.id,
-    name: pickCustom(seed?.name ?? "", overlay.name, base.name),
-    email: pickCustom(seed?.email ?? "", overlay.email, base.email),
-    property: pickCustom(seed?.property ?? "", overlay.property, base.property),
-    address: pickCustom(seed?.address ?? "", overlay.address, base.address),
+    id: overlay.id || base.id,
+    name: nonEmpty(overlay.name) || nonEmpty(base.name) || nonEmpty(seed?.name),
+    email: nonEmpty(overlay.email) || nonEmpty(base.email) || nonEmpty(seed?.email),
+    property: nonEmpty(overlay.property) || nonEmpty(base.property) || nonEmpty(seed?.property),
+    address: nonEmpty(overlay.address) || nonEmpty(base.address) || nonEmpty(seed?.address),
     zip: hasZip(overlay.zip) ? formatZip(overlay.zip) : hasZip(base.zip) ? formatZip(base.zip) : formatZip(seed?.zip ?? ""),
     city: nonEmpty(overlay.city) || nonEmpty(base.city) || nonEmpty(seed?.city),
-    postal: formatPostal(
-      hasZip(overlay.zip) ? overlay.zip : hasZip(base.zip) ? base.zip : seed?.zip ?? "",
-      nonEmpty(overlay.city) || nonEmpty(base.city) || seed?.city || "",
-    ),
-    phone: pickCustom(seed?.phone ?? "", overlay.phone, base.phone),
-    note: pickCustom(seed?.note ?? "", overlay.note, base.note),
-    customerNo: pickCustom(seed?.customerNo ?? "", overlay.customerNo, base.customerNo),
+    phone: nonEmpty(overlay.phone) || nonEmpty(base.phone) || nonEmpty(seed?.phone),
+    note: nonEmpty(overlay.note) || nonEmpty(base.note) || nonEmpty(seed?.note),
+    customerNo: nonEmpty(overlay.customerNo) || nonEmpty(base.customerNo) || nonEmpty(seed?.customerNo),
     share: overlay.share || base.share,
     fee: overlay.fee || base.fee,
+  };
+  return {
+    ...next,
+    postal: formatPostal(next.zip, next.city) || nonEmpty(overlay.postal) || nonEmpty(base.postal),
   };
 }
 

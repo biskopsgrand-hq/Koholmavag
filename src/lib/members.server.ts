@@ -113,7 +113,7 @@ export async function loadMemberRegister(userId: string): Promise<MemberRegister
   const live = await readRow(REGISTER_ID);
   const backup = await readRow(BACKUP_ID);
   const members = applySeedPhones(
-    mergeMemberLists([KOHOLMA_MEMBERS, live.members, backup.members], KOHOLMA_MEMBERS),
+    mergeMemberLists([KOHOLMA_MEMBERS, backup.members, live.members], KOHOLMA_MEMBERS),
     KOHOLMA_MEMBERS,
   ).members.map(ensurePostal);
   const recovered: MemberRegister = {
