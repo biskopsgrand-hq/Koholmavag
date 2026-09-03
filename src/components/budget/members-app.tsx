@@ -50,6 +50,7 @@ import {
 } from "@/lib/invoices";
 import { SELLER } from "@/lib/seller";
 import { loadInvoiceList, saveInvoiceList } from "@/lib/invoices-fns";
+import { bookInvoice, unbookInvoice } from "@/lib/invoice-book";
 import { currentFiscalYear, fiscalYearLabel, formatKr, parseAmountInput } from "@/lib/format";
 import { useLiveSync } from "@/lib/live-sync";
 import { withSessionRetry } from "@/lib/save-with-session";
@@ -334,6 +335,7 @@ export function MembersApp() {
       setDraftInvoice(null);
       setMailStep(null);
       toast.success(`Skickad till ${invoice.email} från koholmavagen@gmail.com med PDF.`, { id: "invoice-mail" });
+      bookInvoice(invoice, invoice.paid);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Kunde inte skicka.";
       toast.error(message, { id: "invoice-mail" });
@@ -391,17 +393,19 @@ export function MembersApp() {
 
   async function togglePaid(invoice: Invoice) {
     const paid = !invoice.paid;
-    await persistInvoices(
-      invoices.map((row) =>
-        row.id === invoice.id
-          ? { ...row, paid, paidAt: paid ? new Date().toISOString() : null }
-          : row,
-      ),
-    );
+    const next = {
+      ...invoice,
+      paid,
+      paidAt: paid ? new Date().toISOString() : null,
+    };
+    await persistInvoices(invoices.map((row) => (row.id === invoice.id ? next : row)));
+    bookInvoice(next, paid);
+    toast.success(paid ? `Bokförd som intäkt · ${invoice.number}` : `Markerad obetald · ${invoice.number}`);
   }
 
   async function removeInvoice(id: string) {
     await persistInvoices(invoices.filter((row) => row.id !== id));
+    unbookInvoice(id);
     toast("Fakturan togs bort.");
   }
 

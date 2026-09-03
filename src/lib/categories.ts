@@ -27,9 +27,9 @@ const INCOME_SWATCHES = [
 ];
 
 export const DEFAULT_CATEGORIES: Category[] = [
-  { id: "salary", name: "Lön", type: "income", swatch: "var(--color-moss)" },
-  { id: "side", name: "Extraarbete", type: "income", swatch: "var(--color-pine)" },
-  { id: "benefit", name: "Bidrag", type: "income", swatch: "var(--color-ink)" },
+  { id: "member-fee", name: "Årsavgift", type: "income", swatch: "var(--color-moss)" },
+  { id: "salary", name: "Lön", type: "income", swatch: "var(--color-pine)" },
+  { id: "side", name: "Extraarbete", type: "income", swatch: "var(--color-ink)" },
   { id: "income-other", name: "Övrig inkomst", type: "income", swatch: "var(--color-muted)" },
 
   { id: "housing", name: "Boende", type: "expense", swatch: "var(--color-chart-housing)" },

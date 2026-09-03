@@ -395,10 +395,11 @@ export const useBudgetStore = create<BudgetState>()(
       yearBooks: {},
       ready: false,
       addTransaction: (input) => {
+        const id = input.id?.trim() || crypto.randomUUID();
         set((state) => ({
           transactions: [
             {
-              id: crypto.randomUUID(),
+              id,
               type: input.type,
               amount: input.amount,
               categoryId: input.categoryId,
@@ -406,7 +407,7 @@ export const useBudgetStore = create<BudgetState>()(
               date: input.date,
               accrued: Boolean(input.accrued),
             },
-            ...state.transactions,
+            ...state.transactions.filter((tx) => tx.id !== id),
           ],
         }));
         queueSave();
