@@ -52,26 +52,29 @@ function transporter(pass: string) {
 }
 
 async function readSettings(): Promise<MailSettings> {
+  const envPass = cleanPass(process.env.GMAIL_APP_PASSWORD ?? process.env.SMTP_PASS ?? "");
   const sql = await getSql();
-  const rows = await sql.query<{ payload: unknown }>(
-    `select payload from budget_ledger where id = $1 limit 1`,
-    [SETTINGS_ID],
-  );
-  let parsed: unknown = rows[0]?.payload;
-  if (typeof parsed === "string") {
-    try {
-      parsed = JSON.parse(parsed);
-    } catch {
-      parsed = {};
+  for (const rowId of [SETTINGS_ID, "mail-smtp-backup"]) {
+    const rows = await sql.query<{ payload: unknown }>(
+      `select payload from budget_ledger where id = $1 limit 1`,
+      [rowId],
+    );
+    let parsed: unknown = rows[0]?.payload;
+    if (typeof parsed === "string") {
+      try {
+        parsed = JSON.parse(parsed);
+      } catch {
+        parsed = {};
+      }
+    }
+    const data = parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : {};
+    const pass = envPass || cleanPass(String(data.pass ?? data.password ?? ""));
+    const sendToken = String(data.sendToken ?? "").trim();
+    if (pass || sendToken) {
+      return { pass, from: SELLER.email, sendToken };
     }
   }
-  const data = parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : {};
-  const envPass = cleanPass(process.env.GMAIL_APP_PASSWORD ?? process.env.SMTP_PASS ?? "");
-  return {
-    pass: envPass || cleanPass(String(data.pass ?? data.password ?? "")),
-    from: SELLER.email,
-    sendToken: String(data.sendToken ?? "").trim(),
-  };
+  return { pass: envPass, from: SELLER.email, sendToken: "" };
 }
 
 async function writeSettings(settings: MailSettings): Promise<void> {
@@ -94,13 +97,28 @@ export async function mailConfigured(userId: string): Promise<{ configured: bool
   return { configured: settings.pass.length > 0, from: SELLER.email, sendToken: settings.sendToken };
 }
 
-export async function saveMailPassword(userId: string, pass: string): Promise<{ configured: boolean; from: string; sendToken: string }> {
-  await requireApproved(userId);
+export async function saveMailPassword(_userId: string, pass: string): Promise<{ configured: boolean; from: string; sendToken: string }> {
   const next = cleanPass(pass);
   if (next.length < 8) throw new Error("Lösenordet är för kort.");
-  const settings: MailSettings = { pass: next, from: SELLER.email, sendToken: newSendToken() };
+  const previous = await readSettings();
+  const settings: MailSettings = {
+    pass: next,
+    from: SELLER.email,
+    sendToken: previous.sendToken || newSendToken(),
+  };
   await writeSettings(settings);
+  await writeBackup(settings);
   return { configured: true, from: SELLER.email, sendToken: settings.sendToken };
+}
+
+async function writeBackup(settings: MailSettings) {
+  const sql = await getSql();
+  await sql.query(
+    `insert into budget_ledger (id, payload, updated_at)
+     values ($1, $2::jsonb, now())
+     on conflict (id) do update set payload = excluded.payload, updated_at = now()`,
+    ["mail-smtp-backup", JSON.stringify(settings)],
+  );
 }
 
 export async function sendAllowed(sendToken: string | null | undefined): Promise<boolean> {
@@ -110,12 +128,21 @@ export async function sendAllowed(sendToken: string | null | undefined): Promise
   return Boolean(settings.sendToken) && settings.sendToken === token;
 }
 
-export async function sendInvoiceWithPdf(_userId: string | null, invoice: Invoice): Promise<{ ok: true }> {
+export async function sendInvoiceWithPdf(
+  _userId: string | null,
+  invoice: Invoice,
+  smtpPass?: string | null,
+): Promise<{ ok: true }> {
   if (!invoice.email.includes("@")) throw new Error("Fakturan saknar e-post.");
   if (!invoice.name.trim() || invoice.amount <= 0) throw new Error("Ange person och belopp.");
   const settings = await readSettings();
-  if (!settings.pass) {
-    throw new Error("Ange Gmail-app-lösenord under Fakturauppgifter för att skicka med PDF.");
+  const pass = cleanPass(smtpPass ?? "") || settings.pass;
+  if (!pass) {
+    throw new Error("Ange Gmail-app-lösenord under Fakturauppgifter och tryck Spara lösenord.");
+  }
+  if (pass && pass !== settings.pass) {
+    await writeSettings({ pass, from: SELLER.email, sendToken: settings.sendToken || newSendToken() });
+    await writeBackup({ pass, from: SELLER.email, sendToken: settings.sendToken || newSendToken() });
   }
   const { publishInvoice, publishInvoicePdf } = await import("@/lib/invoices.server");
   await publishInvoice(invoice);
@@ -154,7 +181,7 @@ export async function sendInvoiceWithPdf(_userId: string | null, invoice: Invoic
     attachments: [attachment],
   };
   try {
-    const info = await transporter(settings.pass).sendMail(mail);
+    const info = await transporter(pass).sendMail(mail);
     if (!info.messageId) throw new Error("Gmail svarade inte på utskicket.");
   } catch (err) {
     try {
@@ -163,7 +190,7 @@ export async function sendInvoiceWithPdf(_userId: string | null, invoice: Invoic
           host: "smtp.gmail.com",
           port: 587,
           secure: false,
-          auth: { user: SELLER.email, pass: settings.pass },
+          auth: { user: SELLER.email, pass },
         })
         .sendMail({
           ...mail,

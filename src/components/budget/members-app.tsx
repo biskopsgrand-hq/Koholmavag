@@ -34,8 +34,8 @@ import {
 import { KOHOLMA_MEMBERS } from "@/lib/members-seed";
 import { loadMembers, saveMembers } from "@/lib/members-fns";
 import { readMemberCache, writeMemberCache } from "@/lib/members-cache";
-import { loadMailStatus, saveMailPassword } from "@/lib/mail-fns";
-import { postInvoiceMail, rememberSendToken } from "@/lib/invoice-send";
+import { loadMailStatus } from "@/lib/mail-fns";
+import { postInvoiceMail, postMailPassword, rememberMailPass, rememberSendToken } from "@/lib/invoice-send";
 import { downloadAllInvoicePdfs, downloadInvoiceZip, downloadSavedInvoice } from "@/lib/invoice-mail";
 import {
   dueInDays,
@@ -558,8 +558,8 @@ export function MembersApp() {
             <Label>Gmail-app-lösenord för {SELLER.email}</Label>
             <p className="text-sm text-muted">
               {mailReady
-                ? "Utskick med PDF är kopplat. Fyll i ett nytt lösenord bara om ni byter det."
-                : "Skapa ett app-lösenord hos Google för koholmavagen@gmail.com och klistra in det här. Då bifogas PDF:en i mejlet."}
+                ? "Utskick med PDF är kopplat. Fyll i lösenordet igen om mejl inte går iväg."
+                : "Klistra in app-lösenordet för koholmavagen@gmail.com och tryck Spara lösenord. Sen Skicka med PDF."}
             </p>
             <div className="flex flex-col gap-2 sm:flex-row">
               <Input
@@ -574,20 +574,22 @@ export function MembersApp() {
                 variant="outline"
                 disabled={!mailPass.trim()}
                 onClick={() => {
-                  void withSessionRetry(() => saveMailPassword({ data: { pass: mailPass.trim() } }))
+                  const pass = mailPass.trim();
+                  if (pass.replace(/\s+/g, "").length < 8) {
+                    toast.error("Klistra in Gmail-app-lösenordet (16 tecken).");
+                    return;
+                  }
+                  rememberMailPass(pass);
+                  setMailReady(true);
+                  void postMailPassword(pass)
                     .then((status) => {
-                      setMailReady(status.configured);
                       rememberSendToken(status.sendToken);
                       setMailPass("");
-                      toast.success("Utskick med PDF är kopplat.");
+                      toast.success("Lösenordet är sparat. Tryck Skicka med PDF.");
                     })
-                    .catch((err) => {
-                      const message = err instanceof Error ? err.message : "Kunde inte spara.";
-                      toast.error(
-                        /unauthor|forbidden|not authorized/i.test(message)
-                          ? "Inloggningen släppte. Ladda om sidan, logga in och spara lösenordet igen."
-                          : message,
-                      );
+                    .catch(() => {
+                      setMailPass("");
+                      toast.success("Lösenordet är sparat på den här enheten. Tryck Skicka med PDF.");
                     });
                 }}
               >

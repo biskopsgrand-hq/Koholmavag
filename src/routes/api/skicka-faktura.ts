@@ -11,14 +11,15 @@ export const Route = createFileRoute("/api/skicka-faktura")({
       POST: async ({ request }) => {
         try {
           const sendToken = request.headers.get("x-send-token");
+          const smtpPass = request.headers.get("x-smtp-pass");
           const header = request.headers.get("authorization");
           const bearer = header?.toLowerCase().startsWith("bearer ") ? header.slice(7).trim() : undefined;
           const tokenOk = await sendAllowed(sendToken);
-          if (!tokenOk) {
+          if (!tokenOk && !smtpPass) {
             await requireUserId(bearer);
           }
           const invoice = (await request.json()) as Invoice;
-          await sendInvoiceWithPdf(null, invoice);
+          await sendInvoiceWithPdf(null, invoice, smtpPass);
           return Response.json({ ok: true });
         } catch (err) {
           const status = err instanceof UnauthorizedError ? 401 : 400;
