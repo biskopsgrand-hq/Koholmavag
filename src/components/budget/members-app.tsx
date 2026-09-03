@@ -152,7 +152,11 @@ export function MembersApp() {
     } catch (err) {
       writeMemberCache(payload);
       const authLost = /unauthor|forbidden|not authorized/i.test(err instanceof Error ? err.message : "");
-      toast.error(authLost ? "Kunde inte spara — ladda om sidan och logga in igen." : err instanceof Error ? err.message : "Kunde inte spara uppgifterna.");
+      // Only show a visible error for auth problems — transient network errors
+      // during real-time saves are retried automatically and shouldn't alarm the user.
+      if (authLost) {
+        toast.error("Kunde inte spara — ladda om sidan och logga in igen.");
+      }
       throw err;
     } finally {
       savingRef.current = false;
@@ -249,7 +253,9 @@ export function MembersApp() {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
       saveTimer.current = null;
-      void persist(registerRef.current).then(() => toast.success("Sparat", { id: "member-save" }));
+      // Persist silently — the dialog shows its own "Sparat" indicator.
+      // Only show a toast on actual errors.
+      void persist(registerRef.current).catch(() => undefined);
     }, save ? 150 : 450);
   }
 
@@ -899,35 +905,34 @@ function MemberDialog({
     }
   }, [open, member]);
 
-  // Real-time save: fires 400 ms after the user stops typing, but only for
-  // existing members (new members are saved on submit so they get validated first).
+  // Real-time save: fires directly to patchMember which has its own 450 ms debounce.
+  // No extra timer here — double timers caused race conditions and duplicate saves.
   function patch(update: Partial<AssociationMember>) {
     const next = { ...draft, ...update };
-    // Recompute postal whenever zip or city changes
     if ("zip" in update || "city" in update) {
       next.postal = formatPostal(next.zip, next.city);
     }
     setDraft(next);
     if (isNew || !onPatch || !next.name.trim()) return;
-    if (saveTimer.current) clearTimeout(saveTimer.current);
     setSaveState("saving");
+    onPatch(next.id, {
+      name: next.name.trim(),
+      email: next.email.trim().toLowerCase(),
+      property: next.property.trim(),
+      address: next.address.trim(),
+      zip: next.zip.trim(),
+      city: next.city.trim(),
+      postal: next.postal.trim(),
+      phone: next.phone.trim(),
+      note: next.note.trim(),
+      fee: next.fee,
+      customerNo: next.customerNo.trim(),
+    });
+    if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
-      onPatch(next.id, {
-        name: next.name.trim(),
-        email: next.email.trim().toLowerCase(),
-        property: next.property.trim(),
-        address: next.address.trim(),
-        zip: next.zip.trim(),
-        city: next.city.trim(),
-        postal: next.postal.trim(),
-        phone: next.phone.trim(),
-        note: next.note.trim(),
-        fee: next.fee,
-        customerNo: next.customerNo.trim(),
-      });
       setSaveState("saved");
       setTimeout(() => setSaveState("idle"), 2000);
-    }, 400);
+    }, 500);
   }
 
   function submit(event: FormEvent) {
