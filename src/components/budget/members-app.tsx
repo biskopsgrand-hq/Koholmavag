@@ -559,7 +559,7 @@ export function MembersApp() {
             <p className="text-sm text-muted">
               {mailReady
                 ? "Utskick med PDF är kopplat. Fyll i lösenordet igen om mejl inte går iväg."
-                : "Klistra in app-lösenordet för koholmavagen@gmail.com och tryck Spara lösenord. Sen Skicka med PDF."}
+                : "Klistra in app-lösenordet för koholmavagen@gmail.com (16 bokstäver från Google) och tryck Spara lösenord. Inte webb-lösenordet."}
             </p>
             <div className="flex flex-col gap-2 sm:flex-row">
               <Input

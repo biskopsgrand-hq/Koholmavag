@@ -74,7 +74,7 @@ export async function postInvoiceMail(invoice: Invoice): Promise<void> {
     method: "POST",
     credentials: "include",
     headers: mailHeaders(),
-    body: JSON.stringify(invoice),
+    body: JSON.stringify({ invoice, smtpPass: readMailPass() }),
   });
   const data = (await response.json().catch(() => ({}))) as { error?: string };
   if (!response.ok) throw new Error(data.error || "Kunde inte skicka mejlet.");

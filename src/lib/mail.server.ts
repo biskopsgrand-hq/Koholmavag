@@ -1,7 +1,5 @@
-import { writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import nodemailer from "nodemailer";
+import type { SendMailOptions } from "nodemailer";
 import { getSql } from "@/lib/db";
 import { getMyAccessForUserId } from "@/lib/access.server";
 import { buildInvoicePdf } from "@/lib/invoice-pdf";
@@ -31,10 +29,19 @@ function newSendToken(): string {
   return `kv-${crypto.randomUUID().replaceAll("-", "")}`;
 }
 
+function passVariants(raw: string): string[] {
+  const trimmed = String(raw ?? "").trim();
+  const compact = trimmed.replace(/\s+/g, "");
+  const spaced = compact.length === 16 ? compact.replace(/(.{4})/g, "$1 ").trim() : "";
+  return [...new Set([compact, trimmed, spaced].filter((value) => value.length >= 8))];
+}
+
 function smtpError(err: unknown): Error {
   const message = err instanceof Error ? err.message : String(err ?? "Kunde inte skicka.");
-  if (/invalid login|username and password|badcredentials|eauth/i.test(message)) {
-    return new Error("Gmail avvisade lösenordet. Spara app-lösenordet igen under Fakturauppgifter.");
+  if (/invalid login|username and password|badcredentials|eauth|application-specific password/i.test(message)) {
+    return new Error(
+      "Gmail tog inte emot lösenordet. Det ska vara ett app-lösenord (16 bokstäver) skapat inloggad som koholmavagen@gmail.com — inte webb-lösenordet. Skapa ett nytt på myaccount.google.com/apppasswords och spara det under Fakturauppgifter.",
+    );
   }
   if (/quota|daily.*limit|user sending/i.test(message)) {
     return new Error("Gmail har nått utskicksgränsen för idag.");
@@ -42,13 +49,43 @@ function smtpError(err: unknown): Error {
   return new Error(message.replace(/pass(word)?[=:].*/gi, "").trim() || "Kunde inte skicka mejlet.");
 }
 
-function transporter(pass: string) {
+function smtpTransport(pass: string, port: 465 | 587) {
   return nodemailer.createTransport({
     host: "smtp.gmail.com",
-    port: 465,
-    secure: true,
+    port,
+    secure: port === 465,
     auth: { user: SELLER.email, pass },
   });
+}
+
+async function sendWithPass(pass: string, mail: SendMailOptions) {
+  let last: unknown;
+  for (const variant of passVariants(pass)) {
+    for (const port of [465, 587] as const) {
+      try {
+        const info = await smtpTransport(variant, port).sendMail(mail);
+        if (info.messageId) return info;
+        last = new Error("Gmail svarade inte på utskicket.");
+      } catch (err) {
+        last = err;
+      }
+    }
+  }
+  throw smtpError(last);
+}
+
+async function verifyPass(pass: string): Promise<boolean> {
+  for (const variant of passVariants(pass)) {
+    for (const port of [465, 587] as const) {
+      try {
+        await smtpTransport(variant, port).verify();
+        return true;
+      } catch {
+        /* try next */
+      }
+    }
+  }
+  return false;
 }
 
 async function readSettings(): Promise<MailSettings> {
@@ -108,6 +145,12 @@ export async function saveMailPassword(_userId: string, pass: string): Promise<{
   };
   await writeSettings(settings);
   await writeBackup(settings);
+  const ok = await verifyPass(next);
+  if (!ok) {
+    throw new Error(
+      "Gmail tog inte emot lösenordet. Logga in som koholmavagen@gmail.com, skapa ett nytt app-lösenord (16 bokstäver) på myaccount.google.com/apppasswords och klistra in det här. Inte webb-lösenordet.",
+    );
+  }
   return { configured: true, from: SELLER.email, sendToken: settings.sendToken };
 }
 
@@ -136,7 +179,7 @@ export async function sendInvoiceWithPdf(
   if (!invoice.email.includes("@")) throw new Error("Fakturan saknar e-post.");
   if (!invoice.name.trim() || invoice.amount <= 0) throw new Error("Ange person och belopp.");
   const settings = await readSettings();
-  const pass = cleanPass(smtpPass ?? "") || settings.pass;
+  const pass = String(smtpPass ?? "").trim() || settings.pass;
   if (!pass) {
     throw new Error("Ange Gmail-app-lösenord under Fakturauppgifter och tryck Spara lösenord.");
   }
@@ -165,41 +208,13 @@ export async function sendInvoiceWithPdf(
     SELLER.name,
     SELLER.email,
   ].join("\n");
-  const filePath = join(tmpdir(), filename);
-  await writeFile(filePath, bytes);
-  const attachment = {
-    filename,
-    path: filePath,
-    contentType: "application/pdf" as const,
-  };
-  const mail = {
+  await sendWithPass(pass, {
     from: `"${SELLER.name}" <${SELLER.email}>`,
     to: invoice.email,
     replyTo: SELLER.email,
     subject: `${invoiceMailSubject(invoice)} · ${invoice.name} · ${Date.now().toString().slice(-6)}`,
     text: body,
-    attachments: [attachment],
-  };
-  try {
-    const info = await transporter(pass).sendMail(mail);
-    if (!info.messageId) throw new Error("Gmail svarade inte på utskicket.");
-  } catch (err) {
-    try {
-      const info = await nodemailer
-        .createTransport({
-          host: "smtp.gmail.com",
-          port: 587,
-          secure: false,
-          auth: { user: SELLER.email, pass },
-        })
-        .sendMail({
-          ...mail,
-          attachments: [{ filename, content: bytes, contentType: "application/pdf" }],
-        });
-      if (!info.messageId) throw err;
-    } catch (retryErr) {
-      throw smtpError(retryErr);
-    }
-  }
+    attachments: [{ filename, content: bytes, contentType: "application/pdf" }],
+  });
   return { ok: true };
 }
