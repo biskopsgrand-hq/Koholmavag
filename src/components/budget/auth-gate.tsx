@@ -26,13 +26,28 @@ export function AuthGate({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
+    let debounce: number | undefined;
     const tick = () => {
-      if (document.visibilityState === "visible") void authClient.getSession().catch(() => undefined);
+      if (document.visibilityState !== "visible") return;
+      // Debounce rapid visibility changes (e.g. tab flicker) — only fire once
+      // per 2 s window to avoid stacking session requests.
+      if (debounce !== undefined) return;
+      debounce = window.setTimeout(() => {
+        debounce = undefined;
+        void authClient.getSession().catch(() => undefined);
+      }, 2000);
     };
-    tick();
-    const timer = window.setInterval(tick, 120000);
+    // Initial check on mount — but defer it so the sign-in redirect can land first.
+    const init = window.setTimeout(() => {
+      void authClient.getSession().catch(() => undefined);
+    }, 500);
+    const timer = window.setInterval(() => {
+      void authClient.getSession().catch(() => undefined);
+    }, 120000);
     document.addEventListener("visibilitychange", tick);
     return () => {
+      window.clearTimeout(init);
+      window.clearTimeout(debounce);
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", tick);
     };
@@ -67,23 +82,27 @@ function AccessGate({ children }: { children: ReactNode }) {
       try {
         const state = await getMyAccess({ data: {} });
         if (cancelled) return;
-        if (state.status === "none" || state.status === "pending") {
-          if (accessCache && isApproved(accessCache.status)) {
-            remember(accessCache);
-            return;
-          }
-          const created = await requestAccess({ data: {} });
-          if (!cancelled) remember({ ...created, freshRequest: true });
+        // Already approved or denied — just show it, no second round-trip needed.
+        if (state.status === "approved" || state.status === "denied") {
+          remember(state);
           return;
         }
-        remember(state);
+        // Optimistic: if we have a cached approved state, keep showing it while
+        // we verify — avoids a flash back to the pending screen on re-mount.
+        if (accessCache && isApproved(accessCache.status)) {
+          remember(accessCache);
+          return;
+        }
+        // New user or pending — register the access request.
+        const created = await requestAccess({ data: {} });
+        if (!cancelled) remember({ ...created, freshRequest: state.status === "none" });
       } catch (err: unknown) {
         if (cancelled) return;
         attempts += 1;
         if (attempts < 5) {
           window.setTimeout(() => {
             if (!cancelled) void load();
-          }, 300 * attempts);
+          }, 400 * attempts);
           return;
         }
         console.error("access check failed", err);
@@ -272,12 +291,16 @@ function SignOutButton() {
 
 export function AuthPending() {
   return (
-    <div className="grid min-h-dvh place-items-center bg-bg">
-      <div className="flex flex-col items-center gap-3">
-        <p className="max-w-xs text-center text-sm font-medium text-balance text-muted">
-          {APP_NAME}
-        </p>
-        <div className="h-1.5 w-20 animate-pulse rounded-full bg-surface-2" />
+    <div className="grid min-h-dvh place-items-center bg-bg px-4">
+      <div className="flex w-full max-w-sm flex-col items-center gap-4">
+        <p className="text-sm font-medium text-muted">{APP_NAME}</p>
+        {/* Skeleton that mirrors the app shell so the transition feels smooth */}
+        <div className="w-full space-y-3">
+          <div className="h-2 w-3/4 animate-pulse rounded-full bg-surface-2" />
+          <div className="h-2 w-full animate-pulse rounded-full bg-surface-2" />
+          <div className="h-2 w-5/6 animate-pulse rounded-full bg-surface-2" />
+        </div>
+        <p className="text-xs text-muted/60">Laddar…</p>
       </div>
     </div>
   );

@@ -4,6 +4,12 @@ node_modules/
 .env
 .env.*
 
+# Grok sandbox artifacts — never part of the real app
+*-grok-workspace*.zip
+.node_modules.lock
+startup.sh
+.grok/
+
 # Vercel build output — must never be committed. When present in the repo,
 # Vercel deploys these prebuilt artifacts verbatim ("Using prebuilt build
 # artifacts from .vercel/output") and skips `npm run build`, shipping a stale

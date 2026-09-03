@@ -11,7 +11,7 @@ export const Route = createRootRoute({
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: APP_NAME },
-      { name: "description", content: "Budgetplan med inkomster, utgifter, kategorier och månadsbudget." },
+      { name: "description", content: "Koholma Vägsamfällighet – information, budget och medlemshantering för samfällighetens delägare." },
       { name: "theme-color", content: "#efe9dc" },
     ],
     links: [
