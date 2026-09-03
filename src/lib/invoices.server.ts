@@ -45,6 +45,7 @@ function asInvoice(raw: unknown): Invoice | null {
     issuedAt: String(row.issuedAt ?? new Date().toISOString()),
     paid: row.paid === true || row.paid === "true",
     paidAt: row.paidAt ? String(row.paidAt) : null,
+    sentAt: row.sentAt ? String(row.sentAt) : null,
     year: Number(row.year) || new Date().getFullYear(),
   };
 }

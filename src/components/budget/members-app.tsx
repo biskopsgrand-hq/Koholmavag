@@ -51,7 +51,7 @@ import {
 import { SELLER } from "@/lib/seller";
 import { loadInvoiceList, saveInvoiceList } from "@/lib/invoices-fns";
 import { bookInvoice, unbookInvoice } from "@/lib/invoice-book";
-import { currentFiscalYear, fiscalYearLabel, formatKr, parseAmountInput } from "@/lib/format";
+import { currentFiscalYear, fiscalYearLabel, formatIsoDate, formatKr, parseAmountInput } from "@/lib/format";
 import { useLiveSync } from "@/lib/live-sync";
 import { withSessionRetry } from "@/lib/save-with-session";
 import { cn } from "@/lib/utils";
@@ -67,7 +67,7 @@ export function MembersApp() {
   const [draftInvoice, setDraftInvoice] = useState<Invoice | null>(null);
   const [openInvoice, setOpenInvoice] = useState<Invoice | null>(null);
   const [busy, setBusy] = useState(false);
-  const [invoiceFilter, setInvoiceFilter] = useState<"all" | "unpaid" | "paid">("all");
+  const [invoiceFilter, setInvoiceFilter] = useState<"all" | "unpaid" | "paid" | "unsent">("all");
   const [selected, setSelected] = useState<string[]>([]);
   const [bulkQueue, setBulkQueue] = useState<Invoice[] | null>(null);
   const [mailStep, setMailStep] = useState<Invoice | null>(null);
@@ -294,6 +294,7 @@ export function MembersApp() {
         issuedAt: new Date().toISOString(),
         paid: false,
         paidAt: null,
+        sentAt: null,
         year,
       });
     } catch (err) {
@@ -332,6 +333,9 @@ export function MembersApp() {
     try {
       await saveInvoice(invoice, true).catch(() => undefined);
       await postInvoiceMail(invoice);
+      // Mark as sent and persist
+      const sent = { ...invoice, sentAt: new Date().toISOString() };
+      await persistInvoices(invoices.map((row) => row.id === sent.id ? sent : row));
       setDraftInvoice(null);
       setMailStep(null);
       toast.success(`Skickad till ${invoice.email} från koholmavagen@gmail.com med PDF.`, { id: "invoice-mail" });
@@ -378,15 +382,23 @@ export function MembersApp() {
     await persistInvoices(next);
     setBusy(true);
     let ok = 0;
+    const sentNow: string[] = [];
     try {
       for (const invoice of queue) {
         await postInvoiceMail(invoice);
+        sentNow.push(invoice.id);
         ok += 1;
         toast.success(`Skickade ${ok} av ${queue.length} med PDF.`, { id: "bulk-mail" });
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Utskicket avbröts.", { id: "bulk-mail" });
     } finally {
+      // Persist sentAt for all successfully sent invoices
+      if (sentNow.length > 0) {
+        const sentAt = new Date().toISOString();
+        const updated = next.map((inv) => sentNow.includes(inv.id) ? { ...inv, sentAt } : inv);
+        await persistInvoices(updated).catch(() => undefined);
+      }
       setBusy(false);
     }
   }
@@ -412,6 +424,7 @@ export function MembersApp() {
   const visibleInvoices = invoices.filter((invoice) => {
     if (invoiceFilter === "paid") return invoice.paid;
     if (invoiceFilter === "unpaid") return !invoice.paid;
+    if (invoiceFilter === "unsent") return !invoice.sentAt;
     return true;
   });
   const unpaidTotal = invoices
@@ -432,7 +445,7 @@ export function MembersApp() {
         <div className="min-w-0">
           <BrandLockup page="Medlemsregister" />
           <p className="mt-1 text-sm text-muted">
-            {register.members.length} medlemmar · {invoices.filter((row) => !row.paid).length} obetalda fakturor
+            {register.members.length} medlemmar · {invoices.filter((row) => !row.paid).length} obetalda · {invoices.filter((row) => !row.sentAt).length} ej skickade
             {unpaidTotal > 0 ? ` · ${formatKr(unpaidTotal)}` : ""}
           </p>
         </div>
@@ -590,6 +603,7 @@ export function MembersApp() {
               ["all", "Alla"],
               ["unpaid", "Obetalda"],
               ["paid", "Betalda"],
+              ["unsent", "Ej skickade"],
             ] as const).map(([id, label]) => (
               <Button
                 key={id}
@@ -616,6 +630,12 @@ export function MembersApp() {
                     </p>
                     <p className="truncate text-sm text-muted">
                       {invoice.address || invoice.property || "Ingen adress"} · moms {invoice.vatRate} % · {formatKr(totals.total)}
+                    </p>
+                    <p className="text-xs text-muted mt-0.5">
+                      {invoice.sentAt
+                        ? `Skickad ${formatIsoDate(invoice.sentAt.slice(0, 10))}`
+                        : "Ej skickad"}
+                      {invoice.paidAt ? ` · Betald ${formatIsoDate(invoice.paidAt.slice(0, 10))}` : ""}
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">

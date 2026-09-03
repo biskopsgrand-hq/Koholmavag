@@ -23,6 +23,7 @@ export type Invoice = {
   vatRate: VatRate;
   dueDate: string;
   issuedAt: string;
+  sentAt: string | null;
   paid: boolean;
   paidAt: string | null;
   year: number;
@@ -121,6 +122,7 @@ export function invoiceFromMember(
     issuedAt,
     paid: false,
     paidAt: null,
+    sentAt: null,
     year,
   };
 }
