@@ -1,1 +1,1 @@
-export const APP_NAME = "Koholma Byväg Samfällighet";
+export const APP_NAME = "Koholma Vägsamfällighet";
