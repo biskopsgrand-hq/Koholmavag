@@ -78,6 +78,7 @@ function AccessGate({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
     let attempts = 0;
+
     async function load() {
       try {
         const state = await getMyAccess({ data: {} });
@@ -99,10 +100,14 @@ function AccessGate({ children }: { children: ReactNode }) {
       } catch (err: unknown) {
         if (cancelled) return;
         attempts += 1;
-        if (attempts < 5) {
+        // Neon cold starts can take 3–5 s; use progressive backoff up to 8 attempts.
+        const maxAttempts = 8;
+        if (attempts < maxAttempts) {
+          // Backoff: 500 ms, 1 s, 1.5 s, 2 s, 2.5 s, 3 s, 3.5 s
+          const delay = Math.min(500 * attempts, 3500);
           window.setTimeout(() => {
             if (!cancelled) void load();
-          }, 400 * attempts);
+          }, delay);
           return;
         }
         console.error("access check failed", err);
@@ -110,7 +115,18 @@ function AccessGate({ children }: { children: ReactNode }) {
           setAccess(accessCache);
           return;
         }
-        setError("Kunde inte kontrollera behörighet. Ladda om sidan.");
+        // Show a more helpful message depending on error type.
+        const message = err instanceof Error ? err.message.toLowerCase() : "";
+        const isDbError =
+          message.includes("connect") ||
+          message.includes("timeout") ||
+          message.includes("econnrefused") ||
+          message.includes("database");
+        setError(
+          isDbError
+            ? "Kunde inte nå databasen. Kontrollera att Vercel-miljövariablerna är rätt inställda och ladda om sidan."
+            : "Kunde inte kontrollera behörighet. Ladda om sidan.",
+        );
       }
     }
     void load();
