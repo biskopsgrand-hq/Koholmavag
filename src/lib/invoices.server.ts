@@ -73,6 +73,42 @@ export async function publishInvoice(invoice: Invoice): Promise<Invoice | null> 
   return next;
 }
 
+export async function publishInvoicePdf(id: string, bytes: Uint8Array, filename: string): Promise<void> {
+  const needle = String(id ?? "").trim();
+  if (!needle || bytes.byteLength < 100) return;
+  const sql = await getSql();
+  await sql.query(
+    `insert into budget_ledger (id, payload, updated_at)
+     values ($1, $2::jsonb, now())
+     on conflict (id) do update set payload = excluded.payload, updated_at = now()`,
+    [
+      `invoice-pdf:${needle}`,
+      JSON.stringify({
+        filename,
+        pdf: Buffer.from(bytes).toString("base64"),
+      }),
+    ],
+  );
+}
+
+export async function findInvoicePdf(id: string): Promise<{ filename: string; bytes: Buffer } | null> {
+  const needle = decodeURIComponent(String(id ?? "").trim());
+  if (!needle) return null;
+  const sql = await getSql();
+  const rows = await sql.query<{ payload: unknown }>(
+    `select payload from budget_ledger where id = $1 limit 1`,
+    [`invoice-pdf:${needle}`],
+  );
+  const parsed = parsePayload(rows[0]?.payload);
+  const data = parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : {};
+  const pdf = String(data.pdf ?? "").trim();
+  if (!pdf) return null;
+  return {
+    filename: String(data.filename ?? "faktura.pdf"),
+    bytes: Buffer.from(pdf, "base64"),
+  };
+}
+
 export async function findInvoiceById(id: string): Promise<Invoice | null> {
   const needle = decodeURIComponent(String(id ?? "").trim());
   if (!needle) return null;

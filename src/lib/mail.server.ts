@@ -1,8 +1,11 @@
+import { writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import nodemailer from "nodemailer";
 import { getSql } from "@/lib/db";
 import { getMyAccessForUserId } from "@/lib/access.server";
-import { buildInvoicePdf, invoiceFileName } from "@/lib/invoice-pdf";
-import { invoiceBodyText, invoiceMailSubject, type Invoice } from "@/lib/invoices";
+import { buildInvoicePdf } from "@/lib/invoice-pdf";
+import { invoiceBodyText, invoiceMailSubject, invoicePdfUrl, type Invoice } from "@/lib/invoices";
 import { SELLER } from "@/lib/seller";
 
 const SETTINGS_ID = "mail-smtp";
@@ -22,10 +25,6 @@ async function requireApproved(userId: string) {
 
 function cleanPass(value: string): string {
   return value.replace(/\s+/g, "").trim();
-}
-
-function escapeHtml(value: string): string {
-  return value.replace(/&/g, "&").replace(/</g, "<").replace(/>/g, ">");
 }
 
 function newSendToken(): string {
@@ -118,44 +117,59 @@ export async function sendInvoiceWithPdf(_userId: string | null, invoice: Invoic
   if (!settings.pass) {
     throw new Error("Ange Gmail-app-lösenord under Fakturauppgifter för att skicka med PDF.");
   }
-  const { publishInvoice } = await import("@/lib/invoices.server");
+  const { publishInvoice, publishInvoicePdf } = await import("@/lib/invoices.server");
   await publishInvoice(invoice);
   const pdf = await buildInvoicePdf(invoice);
-  const bytes = Buffer.from(pdf.buffer, pdf.byteOffset, pdf.byteLength);
-  if (bytes.length < 1000) throw new Error("PDF:en kunde inte skapas.");
-  const body = `${invoiceBodyText(invoice)}\n\nFakturan är bifogad som PDF-fil.\n\nMed vänlig hälsning\n${SELLER.name}\n${SELLER.email}`;
-  const filename = invoiceFileName(invoice).endsWith(".pdf") ? invoiceFileName(invoice) : `${invoiceFileName(invoice)}.pdf`;
+  const bytes = Buffer.from(pdf);
+  if (bytes.length < 1000 || bytes.subarray(0, 4).toString() !== "%PDF") {
+    throw new Error("PDF:en kunde inte skapas.");
+  }
+  const filename = `Faktura-${invoice.number.replace(/[^\w.-]+/g, "-")}.pdf`;
+  await publishInvoicePdf(invoice.id, bytes, filename);
+  const pdfUrl = invoicePdfUrl(invoice);
+  const body = [
+    invoiceBodyText(invoice),
+    "",
+    "PDF-fakturan är bifogad detta mejl.",
+    "Om filen saknas, öppna fakturan här:",
+    pdfUrl,
+    "",
+    "Med vänlig hälsning",
+    SELLER.name,
+    SELLER.email,
+  ].join("\n");
+  const filePath = join(tmpdir(), filename);
+  await writeFile(filePath, bytes);
+  const attachment = {
+    filename,
+    path: filePath,
+    contentType: "application/pdf" as const,
+  };
   const mail = {
     from: `"${SELLER.name}" <${SELLER.email}>`,
     to: invoice.email,
     replyTo: SELLER.email,
-    subject: invoiceMailSubject(invoice),
+    subject: `${invoiceMailSubject(invoice)} · ${invoice.name} · ${Date.now().toString().slice(-6)}`,
     text: body,
-    html: `<div style="font-family:Georgia,serif;white-space:pre-wrap">${escapeHtml(body)}</div><p><strong>PDF-fakturan är bifogad detta mejl.</strong></p>`,
-    messageId: `<faktura-${invoice.id}-${Date.now()}@koholmavagen>`,
-    headers: { "X-Koholma-Invoice": invoice.id },
-    attachments: [
-      {
-        filename,
-        content: bytes.toString("base64"),
-        encoding: "base64" as const,
-        contentType: "application/pdf",
-        contentDisposition: "attachment" as const,
-      },
-    ],
+    attachments: [attachment],
   };
   try {
-    await transporter(settings.pass).sendMail(mail);
-  } catch {
+    const info = await transporter(settings.pass).sendMail(mail);
+    if (!info.messageId) throw new Error("Gmail svarade inte på utskicket.");
+  } catch (err) {
     try {
-      await nodemailer
+      const info = await nodemailer
         .createTransport({
           host: "smtp.gmail.com",
           port: 587,
           secure: false,
           auth: { user: SELLER.email, pass: settings.pass },
         })
-        .sendMail(mail);
+        .sendMail({
+          ...mail,
+          attachments: [{ filename, content: bytes, contentType: "application/pdf" }],
+        });
+      if (!info.messageId) throw err;
     } catch (retryErr) {
       throw smtpError(retryErr);
     }
