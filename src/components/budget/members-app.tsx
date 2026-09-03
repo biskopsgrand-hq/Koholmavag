@@ -804,6 +804,7 @@ export function MembersApp() {
           }
         }}
         onSave={(member) => void saveMember(member)}
+        onPatch={(id, patch) => patchMember(id, patch)}
       />
 
       {draftInvoice ? (
@@ -878,21 +879,61 @@ function MemberDialog({
   member,
   onOpenChange,
   onSave,
+  onPatch,
 }: {
   open: boolean;
   member: AssociationMember | null;
   onOpenChange: (open: boolean) => void;
   onSave: (member: AssociationMember) => void;
+  onPatch?: (id: string, patch: Partial<AssociationMember>) => void;
 }) {
   const [draft, setDraft] = useState<AssociationMember>(emptyMember());
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isNew = !member?.name;
 
   useEffect(() => {
-    if (open && member) setDraft(member);
+    if (open && member) {
+      setDraft(member);
+      setSaveState("idle");
+    }
   }, [open, member]);
+
+  // Real-time save: fires 400 ms after the user stops typing, but only for
+  // existing members (new members are saved on submit so they get validated first).
+  function patch(update: Partial<AssociationMember>) {
+    const next = { ...draft, ...update };
+    // Recompute postal whenever zip or city changes
+    if ("zip" in update || "city" in update) {
+      next.postal = formatPostal(next.zip, next.city);
+    }
+    setDraft(next);
+    if (isNew || !onPatch || !next.name.trim()) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    setSaveState("saving");
+    saveTimer.current = setTimeout(() => {
+      onPatch(next.id, {
+        name: next.name.trim(),
+        email: next.email.trim().toLowerCase(),
+        property: next.property.trim(),
+        address: next.address.trim(),
+        zip: next.zip.trim(),
+        city: next.city.trim(),
+        postal: next.postal.trim(),
+        phone: next.phone.trim(),
+        note: next.note.trim(),
+        fee: next.fee,
+        customerNo: next.customerNo.trim(),
+      });
+      setSaveState("saved");
+      setTimeout(() => setSaveState("idle"), 2000);
+    }, 400);
+  }
 
   function submit(event: FormEvent) {
     event.preventDefault();
     if (!draft.name.trim()) return;
+    if (saveTimer.current) clearTimeout(saveTimer.current);
     onSave({
       ...draft,
       name: draft.name.trim(),
@@ -911,29 +952,50 @@ function MemberDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{member?.name ? "Redigera medlem" : "Ny medlem"}</DialogTitle>
-          <DialogDescription>Uppgifterna används på fakturan.</DialogDescription>
+          <DialogTitle className="flex items-center gap-2">
+            {isNew ? "Ny medlem" : "Redigera medlem"}
+            {!isNew && (
+              <span className={cn(
+                "text-xs font-normal transition-opacity duration-300",
+                saveState === "saving" ? "text-muted opacity-100" : saveState === "saved" ? "text-pine opacity-100" : "opacity-0"
+              )}>
+                {saveState === "saving" ? "Sparar…" : "✓ Sparat"}
+              </span>
+            )}
+          </DialogTitle>
+          {!isNew && (
+            <DialogDescription>Ändringar sparas automatiskt.</DialogDescription>
+          )}
+          {isNew && (
+            <DialogDescription>Uppgifterna används på fakturan.</DialogDescription>
+          )}
         </DialogHeader>
         <form onSubmit={submit} className="flex min-h-0 flex-col gap-3">
           <div className="grid max-h-[min(60dvh,28rem)] gap-3 overflow-y-auto overscroll-contain pr-1">
-            <Field label="Namn" value={draft.name} onChange={(name) => setDraft({ ...draft, name })} />
-            <Field label="Adress" value={draft.address} onChange={(address) => setDraft({ ...draft, address })} />
-            <Field label="Postnummer" value={draft.zip} onChange={(zip) => setDraft({ ...draft, zip, postal: formatPostal(zip, draft.city) })} />
-            <Field label="Postort" value={draft.city} onChange={(city) => setDraft({ ...draft, city, postal: formatPostal(draft.zip, city) })} />
-            <Field label="Fastighet" value={draft.property} onChange={(property) => setDraft({ ...draft, property })} />
-            <Field label="E-post" value={draft.email} onChange={(email) => setDraft({ ...draft, email })} />
-            <Field label="Telefon" value={draft.phone} onChange={(phone) => setDraft({ ...draft, phone })} />
+            <Field label="Namn" value={draft.name} onChange={(name) => patch({ name })} />
+            <Field label="Adress" value={draft.address} onChange={(address) => patch({ address })} />
+            <Field label="Postnummer" value={draft.zip} onChange={(zip) => patch({ zip })} />
+            <Field label="Postort" value={draft.city} onChange={(city) => patch({ city })} />
+            <Field label="Fastighet" value={draft.property} onChange={(property) => patch({ property })} />
+            <Field label="E-post" value={draft.email} onChange={(email) => patch({ email })} />
+            <Field label="Telefon" value={draft.phone} onChange={(phone) => patch({ phone })} />
+            <Field
+              label="Kundnummer"
+              value={draft.customerNo}
+              onChange={(customerNo) => patch({ customerNo })}
+            />
             <Field
               label="Egen avgift (kr, tom = standard)"
               value={draft.fee ? String(draft.fee) : ""}
-              onChange={(fee) => setDraft({ ...draft, fee: parseAmountInput(fee) ?? 0 })}
+              onChange={(fee) => patch({ fee: parseAmountInput(fee) ?? 0 })}
             />
+            <Field label="Notering" value={draft.note} onChange={(note) => patch({ note })} />
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Avbryt
+              {isNew ? "Avbryt" : "Stäng"}
             </Button>
-            <Button type="submit">Spara</Button>
+            {isNew && <Button type="submit">Spara</Button>}
           </DialogFooter>
         </form>
       </DialogContent>
