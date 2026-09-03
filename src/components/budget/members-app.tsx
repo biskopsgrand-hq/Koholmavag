@@ -20,7 +20,6 @@ import { rowsFromFile } from "@/lib/import-sheet";
 import {
   EMPTY_REGISTER,
   KOHOLMA_LIST_ID,
-  applySeedPhones,
   formatPostal,
   parseZipCity,
   memberFee,
@@ -83,22 +82,10 @@ export function MembersApp() {
     void Promise.all([loadMembers({ data: {} }), loadInvoiceList({ data: {} }), loadMailStatus({ data: {} })])
       .then(async ([members, rows, mail]) => {
         let register = members;
-        const cached = readMemberCache();
-        if (cached?.members.length) {
-          register = {
-            ...register,
-            members: mergeMemberLists([register.members, cached.members], KOHOLMA_MEMBERS),
-          };
+        if (!register.members.length) {
+          const cached = readMemberCache();
+          if (cached?.members.length) register = cached;
         }
-        const phones = applySeedPhones(register.members, KOHOLMA_MEMBERS);
-        register = {
-          ...register,
-          members: phones.members,
-          listId: KOHOLMA_LIST_ID,
-        };
-        register = await saveMembers({
-          data: { ...register, deletedIds: register.deletedIds ?? [] },
-        });
         setRegister(register);
         writeMemberCache(register);
         setInvoices(rows);
@@ -119,13 +106,8 @@ export function MembersApp() {
     try {
       const [members, rows] = await Promise.all([loadMembers({ data: {} }), loadInvoiceList({ data: {} })]);
       if (savingRef.current || saveTimer.current || dirtyRef.current) return;
-      const next = {
-        ...members,
-        members: mergeMemberLists([members.members, registerRef.current.members], KOHOLMA_MEMBERS),
-        listId: members.listId || KOHOLMA_LIST_ID,
-      };
-      setRegister(next);
-      writeMemberCache(next);
+      setRegister(members);
+      writeMemberCache(members);
       setInvoices(rows);
     } catch {
       /* keep current until next pull */
@@ -161,15 +143,11 @@ export function MembersApp() {
     savingRef.current = true;
     try {
       const saved = await withSessionRetry(() => saveMembers({ data: payload }));
-      const kept: MemberRegister = {
-        ...saved,
-        members: mergeMemberLists([saved.members, payload.members], KOHOLMA_MEMBERS),
-      };
-      registerRef.current = kept;
-      setRegister(kept);
-      writeMemberCache(kept);
+      registerRef.current = saved;
+      setRegister(saved);
+      writeMemberCache(saved);
       dirtyRef.current = false;
-      return kept;
+      return saved;
     } catch (err) {
       writeMemberCache(payload);
       const authLost = /unauthor|forbidden|not authorized/i.test(err instanceof Error ? err.message : "");

@@ -110,29 +110,23 @@ async function writeRow(id: string, register: MemberRegister): Promise<void> {
 export async function loadMemberRegister(userId: string): Promise<MemberRegister> {
   await requireApproved(userId);
   const live = await readRow(REGISTER_ID);
+  if (live.members.length > 0) {
+    return {
+      ...live,
+      members: live.members.map(ensurePostal),
+    };
+  }
   const backup = await readRow(BACKUP_ID);
   const members = applySeedPhones(
-    mergeMemberLists([KOHOLMA_MEMBERS, backup.members, live.members], KOHOLMA_MEMBERS),
+    mergeMemberLists([KOHOLMA_MEMBERS, backup.members], KOHOLMA_MEMBERS),
     KOHOLMA_MEMBERS,
   ).members.map(ensurePostal);
   const recovered: MemberRegister = {
     ...EMPTY_REGISTER,
-    ...live,
-    defaultFee: live.defaultFee || backup.defaultFee,
-    dueDate: live.dueDate || backup.dueDate,
-    payment: live.payment || backup.payment,
-    message: live.message || backup.message,
-    listId: live.listId || backup.listId || "",
-    deletedIds: [...new Set([...live.deletedIds, ...backup.deletedIds])],
+    ...backup,
     members,
   };
-  const livePhones = live.members.filter((row) => row.phone.trim()).length;
-  const recoveredPhones = members.filter((row) => row.phone.trim()).length;
-  const liveZip = live.members.filter((row) => /^\d{3}\s?\d{2}\b/.test(row.zip || "")).length;
-  const recoveredZip = members.filter((row) => /^\d{3}\s?\d{2}\b/.test(row.zip || "")).length;
-  if (recoveredPhones > livePhones || recoveredZip > liveZip || recoveredZip < members.length || (live.members.length === 0 && members.length > 0)) {
-    await writeRow(REGISTER_ID, recovered);
-  }
+  if (members.length > 0) await writeRow(REGISTER_ID, recovered);
   return recovered;
 }
 

@@ -125,6 +125,29 @@ function mergeLedgers(
   };
 }
 
+function replaceLedger(payload: {
+  monthlyBudget: number;
+  categories: Category[];
+  transactions: Transaction[];
+  yearBooks: Record<string, YearBook>;
+  deletedIds?: string[];
+}) {
+  for (const id of payload.deletedIds ?? []) deletedIds.add(id);
+  const transactions = payload.transactions.filter((tx) => !deletedIds.has(tx.id) && tx.amount > 0);
+  const categories = payload.categories.length > 0 ? payload.categories : DEFAULT_CATEGORIES;
+  const yearBooks = normalizeYearBooks(payload.yearBooks ?? {});
+  useBudgetStore.setState({
+    monthlyBudget: payload.monthlyBudget,
+    categories,
+    transactions,
+    yearBooks,
+    ready: true,
+  });
+  if (transactions.length > 0) {
+    rememberLocalBackup(transactions, yearBooks, categories);
+  }
+}
+
 function applyLedger(
   payload: {
     monthlyBudget: number;
@@ -134,28 +157,7 @@ function applyLedger(
     deletedIds?: string[];
   },
 ) {
-  const current = useBudgetStore.getState();
-  for (const id of payload.deletedIds ?? []) deletedIds.add(id);
-  const merged = mergeLedgers(
-    {
-      monthlyBudget: current.monthlyBudget,
-      categories: current.categories,
-      transactions: current.transactions,
-      yearBooks: current.yearBooks,
-    },
-    payload,
-  );
-  if (merged.transactions.length === 0 && current.transactions.length > 0) return;
-  useBudgetStore.setState({
-    monthlyBudget: merged.monthlyBudget,
-    categories: merged.categories,
-    transactions: merged.transactions,
-    yearBooks: Object.keys(merged.yearBooks).length > 0 ? normalizeYearBooks(merged.yearBooks) : current.yearBooks,
-    ready: true,
-  });
-  if (merged.transactions.length > 0) {
-    rememberLocalBackup(merged.transactions, merged.yearBooks, merged.categories);
-  }
+  replaceLedger(payload);
 }
 
 function coerceAmount(value: unknown): number {
@@ -326,12 +328,17 @@ export async function hydrateSharedBudget(): Promise<void> {
     for (let attempt = 0; attempt < 6; attempt += 1) {
       try {
         const remote = await loadBudget({ data: {} });
-        const merged = mergeLedgers(remote, local);
-        applyLedger(merged);
-        if (merged.transactions.length > remote.transactions.length) {
+        if (remote.transactions.length > 0 || Object.keys(remote.yearBooks ?? {}).length > 0) {
+          applyLedger(remote);
+          return;
+        }
+        if (local) {
+          applyLedger(local);
           const { withSessionRetry } = await import("@/lib/save-with-session");
-          const saved = await withSessionRetry(() => saveBudget({ data: { ...merged, deletedIds: [] } }));
+          const saved = await withSessionRetry(() => saveBudget({ data: { ...local, deletedIds: [] } }));
           applyLedger(saved);
+        } else {
+          applyLedger(remote);
         }
         return;
       } catch (err) {

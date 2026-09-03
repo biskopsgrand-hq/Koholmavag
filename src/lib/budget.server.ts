@@ -145,15 +145,12 @@ export async function loadSharedBudget(userId: string): Promise<LoadedBudget> {
   await requireApproved(userId);
   const sql = await getSql();
   const rows = await sql<{ id: string; payload: unknown }>`
-    select id, payload from budget_ledger
+    select id, payload from budget_ledger where id in (${LEDGER_ID}, ${BACKUP_ID})
   `;
-  const skip = new Set(["directory", "members", "members-backup", "invoices", "invoices-backup"]);
-  let best: BudgetPayload = EMPTY_PAYLOAD;
-  for (const row of rows) {
-    if (skip.has(row.id)) continue;
-    const parsed = parsePayload(row.payload);
-    best = mergePayloads(best, parsed);
-  }
+  const live = parsePayload(rows.find((row) => row.id === LEDGER_ID)?.payload);
+  const backup = parsePayload(rows.find((row) => row.id === BACKUP_ID)?.payload);
+  const best =
+    live.transactions.length >= backup.transactions.length ? mergePayloads(backup, live) : mergePayloads(live, backup);
   return { ...best, existed: best.transactions.length > 0 };
 }
 
