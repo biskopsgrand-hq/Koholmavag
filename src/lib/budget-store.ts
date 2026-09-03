@@ -286,6 +286,16 @@ let saveGen = 0;
 let hydratePromise: Promise<void> | null = null;
 const deletedIds = new Set<string>();
 
+/** Notify other tabs/windows that data changed so they refresh immediately. */
+function broadcastDataChanged() {
+  try {
+    // localStorage storage events only fire in OTHER tabs, not the current one.
+    window.localStorage.setItem("koholma-data-changed", String(Date.now()));
+  } catch {
+    /* ignore quota */
+  }
+}
+
 function queueSave() {
   if (typeof window === "undefined") return;
   const state = useBudgetStore.getState();
@@ -299,9 +309,11 @@ function queueSave() {
       savePending = false;
       return;
     }
+    // Safety: always clear savePending after 10 s even if the request hangs,
+    // so refreshSharedBudget() never stays blocked forever.
     const stuck = window.setTimeout(() => {
       if (gen === saveGen) savePending = false;
-    }, 8000);
+    }, 10000);
     void import("@/lib/save-with-session")
       .then(async ({ withSessionRetry }) => {
         const { saveBudget } = await import("@/lib/budget-fns");
@@ -310,6 +322,7 @@ function queueSave() {
       .then((saved) => {
         if (gen !== saveGen) return;
         applyLedger(saved);
+        broadcastDataChanged();
       })
       .catch((err) => console.error("budget save failed", err))
       .finally(() => {
@@ -337,6 +350,7 @@ export async function hydrateSharedBudget(): Promise<void> {
           const { withSessionRetry } = await import("@/lib/save-with-session");
           const saved = await withSessionRetry(() => saveBudget({ data: { ...local, deletedIds: [] } }));
           applyLedger(saved);
+          broadcastDataChanged();
         } else {
           applyLedger(remote);
         }
@@ -346,6 +360,8 @@ export async function hydrateSharedBudget(): Promise<void> {
         await new Promise((resolve) => window.setTimeout(resolve, 400 * (attempt + 1)));
       }
     }
+    // Reset so the next mount (e.g. after reconnect) can try again.
+    hydratePromise = null;
     if (local) {
       applyLedger(local);
       return;
@@ -371,12 +387,17 @@ export async function restoreLocalBudget(): Promise<number> {
 }
 
 export async function refreshSharedBudget(): Promise<void> {
+  // Skip refresh while a local save is in flight to avoid overwriting
+  // an optimistic UI update. But don't wait forever — savePending is
+  // cleared by a 10-second safety timer in queueSave().
   if (savePending) return;
   try {
     const { loadBudget } = await import("@/lib/budget-fns");
     const remote = await loadBudget({ data: {} });
+    // Still pending? A save started while we were fetching — discard to
+    // avoid clobbering the user's latest write.
     if (savePending) return;
-    if (remote.transactions.length === 0) return;
+    if (remote.transactions.length === 0 && Object.keys(remote.yearBooks ?? {}).length === 0) return;
     applyLedger(remote);
   } catch {
     /* keep current snapshot until next refresh */

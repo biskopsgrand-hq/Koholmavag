@@ -9,7 +9,10 @@ export function BudgetSync({ children }: { children: ReactNode }) {
     void hydrateSharedBudget();
   }, []);
 
-  useLiveSync(() => refreshSharedBudget(), 4000);
+  // Poll every 3 s (down from 4 s) and refresh immediately on focus/online/tab-visible.
+  // The storage-event cross-tab signal in useLiveSync ensures the other tab
+  // refreshes within ~150 ms of a save completing.
+  useLiveSync(refreshSharedBudget, 3000);
 
   if (!ready) {
     return (
