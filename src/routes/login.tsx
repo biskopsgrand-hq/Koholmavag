@@ -249,8 +249,15 @@ async function completeEmailSignIn(email: string, password: string): Promise<voi
     if (typeof value === "string") token = value;
   }
   keepPreviewSession(token);
-  // Navigate immediately — the session cookie/bearer is now set.
-  // A redundant getSession() round-trip here added ~300–600 ms with no benefit.
+  // Write a minimal session user to cache so AuthGate can skip the
+  // AuthPending screen on the next page load.
+  if (data && typeof data === "object" && "user" in data) {
+    const u = (data as { user?: { id?: string; email?: string; name?: string } }).user;
+    if (u?.id) {
+      const { writeSessionUser } = await import("@/lib/session-user");
+      writeSessionUser({ id: u.id, displayName: u.name ?? null, primaryEmail: u.email ?? email, profileImageUrl: null, isDevFallback: false });
+    }
+  }
   window.location.assign(nextPath());
 }
 

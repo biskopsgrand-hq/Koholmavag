@@ -54,6 +54,8 @@ export function AuthGate({ children }: { children: ReactNode }) {
   }, []);
 
   const current = user ?? lastUser ?? readSessionUser();
+  // If we have a cached user (from localStorage), show the app immediately
+  // and verify the session in the background — avoids AuthPending flash.
   if (isPending && !current) return <AuthPending />;
   if (!current) {
     return (
@@ -63,10 +65,10 @@ export function AuthGate({ children }: { children: ReactNode }) {
       </>
     );
   }
-  return <AccessGate>{children}</AccessGate>;
+  return <AccessGate fastTrack={Boolean(current && isPending)}>{children}</AccessGate>;
 }
 
-function AccessGate({ children }: { children: ReactNode }) {
+function AccessGate({ children, fastTrack = false }: { children: ReactNode; fastTrack?: boolean }) {
   const [access, setAccess] = useState<AccessState | null>(accessCache);
   const [error, setError] = useState<string | null>(null);
 
@@ -165,7 +167,14 @@ function AccessGate({ children }: { children: ReactNode }) {
       </PendingShell>
     );
   }
-  if (!access && !error) return <AuthPending />;
+  if (!access && !error) {
+    // If we have a cached approved state, show children immediately while
+    // the real access check runs in the background (fastTrack).
+    if (fastTrack && accessCache && isApproved(accessCache.status)) {
+      return <>{children}</>;
+    }
+    return <AuthPending />;
+  }
   if (error) {
     return (
       <PendingShell>
