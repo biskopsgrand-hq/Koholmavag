@@ -626,8 +626,17 @@ export async function setMemberPasswordForAdmin(
   const normalized = normalizeEmail(email);
   if (!isOwnerEmail(normalized)) {
     const member = await memberByEmail(normalized);
-    if (member?.status !== "approved") {
+    const inDirectory = (await readDirectory()).find((row) => row.email === normalized);
+    const status = combineAccessStatus(
+      parseAccessStatus(member?.status),
+      inDirectory?.status ?? "none",
+    );
+    if (status !== "approved") {
       throw new Error("Bara godkända personer kan få ett nytt lösenord.");
+    }
+    // Sync to access_members so future checks work without hitting the directory
+    if (!member || member.status !== "approved") {
+      await upsertMemberStatus(normalized, "approved", inDirectory?.name ?? member?.name ?? undefined);
     }
   }
   await setCredentialPassword(normalized, password);
