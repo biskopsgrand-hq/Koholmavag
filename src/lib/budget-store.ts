@@ -327,7 +327,7 @@ function queueSave() {
   window.clearTimeout(saveTimer);
   saveTimer = window.setTimeout(() => {
     const snapshot = useBudgetStore.getState();
-    if (!snapshot.ready || snapshot.transactions.length === 0) {
+    if (!snapshot.ready) {
       savePending = false;
       return;
     }

@@ -158,7 +158,7 @@ export async function loadSharedBudget(userId: string): Promise<LoadedBudget> {
 export async function saveSharedBudget(userId: string, payload: BudgetPayload): Promise<BudgetPayload> {
   await requireApproved(userId);
   const incoming = parsePayload(payload);
-  console.log("[saveSharedBudget] incoming.transactions:", incoming.transactions.length, "userId:", userId);
+  console.log("[saveSharedBudget] incoming.transactions:", incoming.transactions.length, "categories:", incoming.categories.length, "userId:", userId);
   const sql = await getSql();
   const rows = await sql<{ id: string; payload: unknown }>`
     select id, payload from budget_ledger where id in (${LEDGER_ID}, ${BACKUP_ID})
@@ -167,7 +167,13 @@ export async function saveSharedBudget(userId: string, payload: BudgetPayload): 
   const backup = parsePayload(rows.find((row) => row.id === BACKUP_ID)?.payload);
   const richest =
     existing.transactions.length >= backup.transactions.length ? existing : backup;
-  if (incoming.transactions.length === 0 && richest.transactions.length > 0) {
+  // Only skip save if incoming has NO transactions AND no meaningful changes
+  // (categories same as default, no yearbooks). Never skip if transactions exist.
+  const incomingIsEmpty =
+    incoming.transactions.length === 0 &&
+    Object.keys(incoming.yearBooks ?? {}).length === 0 &&
+    richest.transactions.length > 0;
+  if (incomingIsEmpty) {
     return richest;
   }
   const next = richest.transactions.length > 0 ? mergePayloads(richest, incoming) : incoming;
