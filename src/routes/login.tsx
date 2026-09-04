@@ -206,7 +206,13 @@ function LedgerMark({ className }: { className?: string }) {
 }
 
 function keepPreviewSession(token: string | null) {
+  // Only store bearer token in Grok sandbox preview (iframe with partitioned
+  // cookies). On production (www.koholmavag.com) the session cookie handles
+  // auth — storing the bearer token here causes it to be sent on every request
+  // which then expires from sessionStorage on reload, breaking the session.
   if (!token || typeof window === "undefined") return;
+  const isPreview = window.location.hostname.endsWith(".grok-sandbox.com");
+  if (!isPreview) return;
   try {
     window.sessionStorage.setItem("grok-auth.bearer-token", token);
   } catch {

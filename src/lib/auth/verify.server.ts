@@ -64,16 +64,6 @@ export async function getSessionUser(
   if (bearerToken) {
     headers = new Headers(request.headers);
     headers.set("Authorization", `Bearer ${bearerToken}`);
-  } else {
-    // Fallback: read session token directly from cookie and set as bearer.
-    // This handles cases where the __Host- cookie reaches the server but
-    // Better Auth's cookie reader doesn't pick it up correctly.
-    const { readSessionToken } = await import("./server");
-    const cookieToken = readSessionToken();
-    if (cookieToken) {
-      headers = new Headers(request.headers);
-      headers.set("Authorization", `Bearer ${cookieToken}`);
-    }
   }
   const session = await auth.api.getSession({ headers });
   if (!session?.user) return null;
