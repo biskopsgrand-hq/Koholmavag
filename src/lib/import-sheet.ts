@@ -1,4 +1,4 @@
-import { isKoholmaAddressSheet, membersFromSheet, parseCsvText } from "@/lib/members";
+import { headerMatches, isKoholmaAddressSheet, membersFromSheet, parseCsvText, NAME_KEYS, EMAIL_KEYS, ADDRESS_KEYS, PROPERTY_KEYS } from "@/lib/members";
 
 async function readCsvText(file: File): Promise<string> {
   const buffer = await file.arrayBuffer();
@@ -42,6 +42,20 @@ export async function rowsFromFile(file: File): Promise<Record<string, string>[]
     if (!sheet) return [];
     const matrix = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: "", raw: false });
     const header = Array.isArray(matrix[0]) ? matrix[0] : [];
+
+    // If the first row has named column headers (Namn, E-post, Adress etc),
+    // use them directly — this handles exports from this app and structured sheets.
+    const hasNamedHeaders = header.some((h) =>
+      headerMatches(String(h), NAME_KEYS) ||
+      headerMatches(String(h), EMAIL_KEYS) ||
+      headerMatches(String(h), ADDRESS_KEYS) ||
+      headerMatches(String(h), PROPERTY_KEYS)
+    );
+    if (hasNamedHeaders) {
+      return XLSX.utils.sheet_to_json<Record<string, string>>(sheet, { defval: "", raw: false });
+    }
+
+    // Fall back to legacy Koholma positional format (no headers)
     if (isKoholmaAddressSheet(header) || matrix.length > 1) {
       return membersFromSheet(matrix).map(memberToRow);
     }

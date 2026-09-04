@@ -39,12 +39,12 @@ export const EMPTY_REGISTER: MemberRegister = {
 
 export const KOHOLMA_LIST_ID = "adresslista-koholma-2026-postnr";
 
-const NAME_KEYS = ["namn", "name", "medlem", "förnamn", "efternamn", "fulltnamn", "ägare", "lagfaren", "kontaktperson", "kontakt", "person", "innehavare"];
-const EMAIL_KEYS = ["e-post", "epost", "e post", "email", "e-mail", "mailadress"];
-const PROPERTY_KEYS = ["fastighetsbeteckning", "fastighet", "beteckning", "property", "lägenhet", "tomt"];
-const ADDRESS_KEYS = ["adress", "address", "gata", "postadress", "gatuadress"];
-const POSTAL_KEYS = ["postnr", "postnummer", "postkod", "zip"];
-const CITY_KEYS = ["ort", "stad", "postort", "city"];
+export const NAME_KEYS = ["namn", "name", "medlem", "förnamn", "efternamn", "fulltnamn", "ägare", "lagfaren", "kontaktperson", "kontakt", "person", "innehavare"];
+export const EMAIL_KEYS = ["e-post", "epost", "e post", "email", "e-mail", "mailadress"];
+export const PROPERTY_KEYS = ["fastighetsbeteckning", "fastighet 1", "fastighet1", "fastighet", "beteckning", "property", "lägenhet", "tomt"];
+export const ADDRESS_KEYS = ["adress", "address", "gata", "postadress", "gatuadress"];
+export const POSTAL_KEYS = ["postnr", "postnummer", "postkod", "zip"];
+export const CITY_KEYS = ["ort", "stad", "postort", "city"];
 const SHARE_KEYS = ["andelstal", "andel", "share"];
 const FEE_KEYS = ["årsavgift", "avgift", "belopp", "fee"];
 const NOTE_KEYS = ["notering", "note", "kommentar", "anteckning"];
@@ -67,7 +67,7 @@ function normHeader(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-function headerMatches(header: string, keys: string[]): boolean {
+export function headerMatches(header: string, keys: string[]): boolean {
   const h = normHeader(header).replace(/[_./]+/g, " ");
   return keys.some((key) => h === key || h.startsWith(`${key} `) || h.endsWith(` ${key}`) || h.includes(` ${key} `) || (key.length >= 5 && h.includes(key)));
 }
