@@ -46,12 +46,18 @@ export { GROK_PROVIDERS };
 // to server functions, via `@/lib/auth/middleware`). Empty everywhere except the
 // preview after a popup sign-in, so the cookie path is untouched elsewhere.
 const BEARER_KEY = "grok-auth.bearer-token";
+const PROD_SESSION_KEY = "koholma-auth.session-token";
 
 /** The stored preview bearer token, or null. */
 export function getBearerToken(): string | null {
   if (typeof window === "undefined") return null;
   try {
-    return window.sessionStorage.getItem(BEARER_KEY);
+    // In preview: use sessionStorage bearer token
+    if (window.location.hostname.endsWith(".grok-sandbox.com")) {
+      return window.sessionStorage.getItem(BEARER_KEY);
+    }
+    // On production: use localStorage session token
+    return window.localStorage.getItem(PROD_SESSION_KEY);
   } catch {
     return null;
   }
@@ -60,8 +66,13 @@ export function getBearerToken(): string | null {
 function setBearerToken(token: string | null): void {
   if (typeof window === "undefined") return;
   try {
-    if (token) window.sessionStorage.setItem(BEARER_KEY, token);
-    else window.sessionStorage.removeItem(BEARER_KEY);
+    if (window.location.hostname.endsWith(".grok-sandbox.com")) {
+      if (token) window.sessionStorage.setItem(BEARER_KEY, token);
+      else window.sessionStorage.removeItem(BEARER_KEY);
+    } else {
+      if (token) window.localStorage.setItem(PROD_SESSION_KEY, token);
+      else window.localStorage.removeItem(PROD_SESSION_KEY);
+    }
   } catch {
     /* storage unavailable — ignore */
   }

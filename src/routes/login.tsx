@@ -206,15 +206,17 @@ function LedgerMark({ className }: { className?: string }) {
 }
 
 function keepPreviewSession(token: string | null) {
-  // Only store bearer token in Grok sandbox preview (iframe with partitioned
-  // cookies). On production (www.koholmavag.com) the session cookie handles
-  // auth — storing the bearer token here causes it to be sent on every request
-  // which then expires from sessionStorage on reload, breaking the session.
   if (!token || typeof window === "undefined") return;
-  const isPreview = window.location.hostname.endsWith(".grok-sandbox.com");
-  if (!isPreview) return;
   try {
-    window.sessionStorage.setItem("grok-auth.bearer-token", token);
+    const isPreview = window.location.hostname.endsWith(".grok-sandbox.com");
+    if (isPreview) {
+      window.sessionStorage.setItem("grok-auth.bearer-token", token);
+    } else {
+      // On production: store in localStorage so it survives page reloads.
+      // This is needed because Vercel doesn't reliably forward cookies on
+      // POST /_serverFn/ requests, so we send the token as a bearer header instead.
+      window.localStorage.setItem("koholma-auth.session-token", token);
+    }
   } catch {
     /* storage unavailable */
   }

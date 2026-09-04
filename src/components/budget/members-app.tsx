@@ -203,12 +203,24 @@ export function MembersApp() {
         toast.error("Hittade inga medlemmar i filen. Första raden ska vara rubriker, t.ex. Namn;E-post;Fastighet.");
         return;
       }
-      const next = await persist({
-        ...register,
-        members: incoming,
-        deletedIds: ["__all__"],
-        listId: file.name,
-      });
+      // Retry up to 3 times — session cookie can be intermittently missing
+      let next: MemberRegister | null = null;
+      let lastErr: unknown;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          if (attempt > 0) await new Promise((r) => window.setTimeout(r, 800 * attempt));
+          next = await persist({
+            ...register,
+            members: incoming,
+            deletedIds: ["__all__"],
+            listId: file.name,
+          });
+          break;
+        } catch (err) {
+          lastErr = err;
+        }
+      }
+      if (!next) throw lastErr;
       toast(
         `Läste in ${incoming.length} medlemmar, t.ex. ${incoming
           .slice(0, 2)
