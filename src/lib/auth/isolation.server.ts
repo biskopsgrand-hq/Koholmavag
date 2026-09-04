@@ -33,14 +33,13 @@ export class CrossSiteRequestError extends Error {
 /** Throw `CrossSiteRequestError` for a scripted cross-site/sibling request. */
 export function assertSameSiteRequest(): void {
   const request = getRequest();
-  if (!request) return; // no request context (e.g. build) — nothing to guard
+  if (!request) return;
   const h = request.headers;
   const site = h.get("sec-fetch-site");
-  // Non-browser client (no header), the app's own origin, or a direct
-  // (address-bar/bookmark) load are all fine.
-  if (!site || site === "same-origin" || site === "none") return;
-  // A top-level GET navigation (e.g. the broker's OAuth callback redirect) is
-  // fine even when it's cross-site; scripted requests never set navigate mode.
+  // Non-browser client, same-origin, same-site, or direct load are all fine.
+  // We also allow same-site because Vercel edge may proxy requests from
+  // www.koholmavag.com to the serverless function with sec-fetch-site: same-site.
+  if (!site || site === "same-origin" || site === "same-site" || site === "none") return;
   const dest = h.get("sec-fetch-dest");
   const isTopLevelGet =
     h.get("sec-fetch-mode") === "navigate" &&
