@@ -294,6 +294,7 @@ async function notifyOwner(name: string | null, email: string, token: string): P
 
 async function requireAdmin(userId: string): Promise<void> {
   const profile = await profileForUserId(userId);
+  console.log("[requireAdmin] userId:", userId, "email:", profile?.email, "OWNER_EMAIL:", OWNER_EMAIL, "match:", profile ? isOwnerEmail(profile.email) : false);
   if (!profile || !isOwnerEmail(profile.email)) {
     throw new Error("Forbidden");
   }
