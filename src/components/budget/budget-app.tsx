@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import {
   ChevronLeft,
   ChevronRight,
+  FileDown,
   MoreHorizontal,
   Pencil,
   Plus,
@@ -223,10 +224,30 @@ export function BudgetApp() {
         <section className="rounded-2xl bg-surface p-5 shadow-[var(--shadow-border)] lg:col-span-7 sm:p-6">
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-lg font-medium text-ink">Transaktioner</h2>
-            <Button onClick={openCreate} className="w-full sm:w-auto">
-              <Plus />
-              Lägg till
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" onClick={() => {
+                void import("@/lib/export-sheet").then(({ exportTransactionsXlsx }) =>
+                  exportTransactionsXlsx(transactions, `transaktioner-${selectedMonth.slice(0, 4)}.xlsx`)
+                ).then(() => toast("Transaktioner exporterades som Excel."))
+                  .catch(() => toast.error("Kunde inte exportera Excel."));
+              }}>
+                <FileDown />
+                Excel
+              </Button>
+              <Button variant="outline" onClick={() => {
+                void import("@/lib/export-sheet").then(({ exportTransactionsCsv }) =>
+                  exportTransactionsCsv(transactions, `transaktioner-${selectedMonth.slice(0, 4)}.csv`)
+                ).then(() => toast("Transaktioner exporterades som CSV."))
+                  .catch(() => toast.error("Kunde inte exportera CSV."));
+              }}>
+                <FileDown />
+                CSV
+              </Button>
+              <Button onClick={openCreate} className="w-full sm:w-auto">
+                <Plus />
+                Lägg till
+              </Button>
+            </div>
           </div>
 
           <div className="mb-4 grid grid-cols-3 gap-1 rounded-lg bg-surface-2 p-1">

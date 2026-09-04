@@ -17,6 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { rowsFromFile } from "@/lib/import-sheet";
+import { exportMembersCsv, exportMembersXlsx, exportInvoicesCsv, exportInvoicesXlsx } from "@/lib/export-sheet";
 import {
   EMPTY_REGISTER,
   KOHOLMA_LIST_ID,
@@ -523,6 +524,31 @@ export function MembersApp() {
             <FileDown />
             Ladda ner alla PDF
           </Button>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={register.members.length === 0}
+            onClick={() => {
+              void exportMembersXlsx(register.members, `medlemmar-${year}.xlsx`)
+                .then(() => toast("Medlemsregistret exporterades som Excel."))
+                .catch(() => toast.error("Kunde inte exportera Excel."));
+            }}
+          >
+            <FileDown />
+            Exportera Excel
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={register.members.length === 0}
+            onClick={() => {
+              void exportMembersCsv(register.members, `medlemmar-${year}.csv`);
+              toast("Medlemsregistret exporterades som CSV.");
+            }}
+          >
+            <FileDown />
+            Exportera CSV
+          </Button>
         </div>
       </section>
 
@@ -620,6 +646,31 @@ export function MembersApp() {
                 {label}
               </Button>
             ))}
+            <Button
+              type="button"
+              variant="outline"
+              disabled={invoices.length === 0}
+              onClick={() => {
+                void exportInvoicesXlsx(visibleInvoices, `fakturor-${year}.xlsx`)
+                  .then(() => toast("Fakturor exporterades som Excel."))
+                  .catch(() => toast.error("Kunde inte exportera Excel."));
+              }}
+            >
+              <FileDown />
+              Excel
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={invoices.length === 0}
+              onClick={() => {
+                void exportInvoicesCsv(visibleInvoices, `fakturor-${year}.csv`);
+                toast("Fakturor exporterades som CSV.");
+              }}
+            >
+              <FileDown />
+              CSV
+            </Button>
           </div>
         </div>
         {visibleInvoices.length === 0 ? (
