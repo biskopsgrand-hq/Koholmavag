@@ -17,6 +17,7 @@ const EMPTY_PAYLOAD: BudgetPayload = {
 
 async function requireApproved(userId: string) {
   const access = await getMyAccessForUserId(userId);
+  console.log("[requireApproved] userId:", userId, "status:", access.status);
   if (access.status === "approved") return access;
   const sql = await getSql();
   const rows = await sql<{ status: string }>`
