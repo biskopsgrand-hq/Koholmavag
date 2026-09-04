@@ -149,6 +149,7 @@ export async function loadSharedBudget(userId: string): Promise<LoadedBudget> {
   `;
   const live = parsePayload(rows.find((row) => row.id === LEDGER_ID)?.payload);
   const backup = parsePayload(rows.find((row) => row.id === BACKUP_ID)?.payload);
+  console.log("[loadSharedBudget] live.transactions:", live.transactions.length, "backup.transactions:", backup.transactions.length, "live.categories:", live.categories.length, "rows:", rows.map(r => r.id));
   const best =
     live.transactions.length >= backup.transactions.length ? mergePayloads(backup, live) : mergePayloads(live, backup);
   return { ...best, existed: best.transactions.length > 0 };
