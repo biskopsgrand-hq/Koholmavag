@@ -409,16 +409,15 @@ export async function restoreLocalBudget(): Promise<number> {
 }
 
 export async function refreshSharedBudget(): Promise<void> {
-  // Skip refresh while a local save is in flight to avoid overwriting
-  // an optimistic UI update. But don't wait forever — savePending is
-  // cleared by a 10-second safety timer in queueSave().
   if (savePending) return;
   try {
     const { loadBudget } = await import("@/lib/budget-fns");
     const remote = await loadBudget({ data: {} });
-    // Still pending? A save started while we were fetching — discard to
-    // avoid clobbering the user's latest write.
     if (savePending) return;
+    // Never overwrite existing local transactions with an empty server response.
+    // This prevents auth failures during polling from wiping local state.
+    const currentTx = useBudgetStore.getState().transactions;
+    if (remote.transactions.length === 0 && currentTx.length > 0) return;
     if (remote.transactions.length === 0 && Object.keys(remote.yearBooks ?? {}).length === 0) return;
     applyLedger(remote);
   } catch {

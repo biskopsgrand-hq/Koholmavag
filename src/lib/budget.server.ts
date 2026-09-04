@@ -17,7 +17,6 @@ const EMPTY_PAYLOAD: BudgetPayload = {
 
 async function requireApproved(userId: string) {
   const access = await getMyAccessForUserId(userId);
-  console.log("[requireApproved] userId:", userId, "status:", access.status);
   if (access.status === "approved") return access;
   const sql = await getSql();
   const rows = await sql<{ status: string }>`
@@ -158,7 +157,6 @@ export async function loadSharedBudget(userId: string): Promise<LoadedBudget> {
 export async function saveSharedBudget(userId: string, payload: BudgetPayload): Promise<BudgetPayload> {
   await requireApproved(userId);
   const incoming = parsePayload(payload);
-  console.log("[saveSharedBudget] incoming.transactions:", incoming.transactions.length, "categories:", incoming.categories.length, "userId:", userId);
   const sql = await getSql();
   const rows = await sql<{ id: string; payload: unknown }>`
     select id, payload from budget_ledger where id in (${LEDGER_ID}, ${BACKUP_ID})
