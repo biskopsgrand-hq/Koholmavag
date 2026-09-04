@@ -130,7 +130,7 @@ export function MembersApp() {
     return () => window.removeEventListener("pagehide", flush);
   }, []);
 
-  async function persist(next: MemberRegister) {
+  async function persist(next: MemberRegister, retries = 2): Promise<MemberRegister> {
     const payload: MemberRegister = {
       ...EMPTY_REGISTER,
       ...next,
@@ -152,12 +152,19 @@ export function MembersApp() {
       return saved;
     } catch (err) {
       writeMemberCache(payload);
-      const authLost = /unauthor|forbidden|not authorized/i.test(err instanceof Error ? err.message : "");
-      // Only show a visible error for auth problems — transient network errors
-      // during real-time saves are retried automatically and shouldn't alarm the user.
+      const msg = err instanceof Error ? err.message.toLowerCase() : "";
+      const authLost = /unauthor|forbidden|not authorized/.test(msg);
       if (authLost) {
         toast.error("Kunde inte spara — ladda om sidan och logga in igen.");
+        throw err;
       }
+      // Retry on transient network errors
+      if (retries > 0) {
+        await new Promise((resolve) => window.setTimeout(resolve, 600));
+        return persist(payload, retries - 1);
+      }
+      // All retries exhausted — tell the user clearly
+      toast.error("Kunde inte spara ändringarna. Kontrollera din internetanslutning och försök igen.", { id: "persist-error", duration: 6000 });
       throw err;
     } finally {
       savingRef.current = false;

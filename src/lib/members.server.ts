@@ -159,6 +159,8 @@ export async function saveMemberRegister(userId: string, incoming: MemberRegiste
     message: parsed.message || fallback.message,
     listId: parsed.listId || fallback.listId || "",
     deletedIds: deleted,
+    // parsed must be overlay (last in list) so user edits win over stored data.
+    // Previously fallback and parsed were swapped, causing edits to be overwritten.
     members: mergeMemberLists([fallback.members, parsed.members], KOHOLMA_MEMBERS).filter(
       (member) => !deletedSet.has(member.id),
     ),
