@@ -631,12 +631,19 @@ export async function setMemberPasswordForAdmin(
       parseAccessStatus(member?.status),
       inDirectory?.status ?? "none",
     );
-    if (status !== "approved") {
+    // Allow admin to set password for anyone who is approved in either source,
+    // OR anyone who exists in the directory (admin added them explicitly).
+    const isApproved = status === "approved" || inDirectory !== undefined;
+    if (!isApproved) {
       throw new Error("Bara godkända personer kan få ett nytt lösenord.");
     }
-    // Sync to access_members so future checks work without hitting the directory
+    // Sync to access_members so future checks work
     if (!member || member.status !== "approved") {
-      await upsertMemberStatus(normalized, "approved", inDirectory?.name ?? member?.name ?? undefined);
+      try {
+        await upsertMemberStatus(normalized, "approved", inDirectory?.name ?? member?.name ?? undefined);
+      } catch (err) {
+        console.error("access_members sync failed (non-fatal)", err);
+      }
     }
   }
   await setCredentialPassword(normalized, password);
