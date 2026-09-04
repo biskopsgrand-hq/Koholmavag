@@ -144,12 +144,17 @@ function mergePayloads(base: BudgetPayload, incoming: BudgetPayload): BudgetPayl
 export async function loadSharedBudget(userId: string): Promise<LoadedBudget> {
   await requireApproved(userId);
   const sql = await getSql();
+  // Log ALL rows in budget_ledger to see what's actually stored
+  const allRows = await sql<{ id: string; updated_at: string }>`
+    select id, updated_at::text from budget_ledger order by updated_at desc
+  `;
+  console.log("[loadSharedBudget] ALL budget_ledger rows:", JSON.stringify(allRows.map(r => ({ id: r.id, updated_at: r.updated_at }))));
   const rows = await sql<{ id: string; payload: unknown }>`
     select id, payload from budget_ledger where id in (${LEDGER_ID}, ${BACKUP_ID})
   `;
   const live = parsePayload(rows.find((row) => row.id === LEDGER_ID)?.payload);
   const backup = parsePayload(rows.find((row) => row.id === BACKUP_ID)?.payload);
-  console.log("[loadSharedBudget] live.transactions:", live.transactions.length, "backup.transactions:", backup.transactions.length, "live.categories:", live.categories.length, "rows:", rows.map(r => r.id));
+  console.log("[loadSharedBudget] live.transactions:", live.transactions.length, "backup.transactions:", backup.transactions.length, "live.categories:", live.categories.length);
   const best =
     live.transactions.length >= backup.transactions.length ? mergePayloads(backup, live) : mergePayloads(live, backup);
   return { ...best, existed: best.transactions.length > 0 };
