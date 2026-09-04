@@ -60,11 +60,25 @@ export async function getSessionUser(
   if (!authConfigured && !gateIdentityEnabled()) return null;
   const request = getRequest();
   if (!request) return null;
-  let headers = request.headers;
+
+  // Build headers — always try to attach a token so the bearer plugin
+  // can resolve the session even when cookies aren't forwarded by Vercel.
+  let headers = new Headers(request.headers);
+
   if (bearerToken) {
-    headers = new Headers(request.headers);
+    // Explicit bearer from authMiddleware (preview / client-sent token)
     headers.set("Authorization", `Bearer ${bearerToken}`);
+  } else {
+    // On production, read the session cookie directly and pass it as bearer.
+    // Vercel forwards cookies on GET requests but not always on POST
+    // serverFn calls — this ensures the session is always resolvable.
+    const { readSessionToken } = await import("./server");
+    const cookieToken = readSessionToken();
+    if (cookieToken) {
+      headers.set("Authorization", `Bearer ${cookieToken}`);
+    }
   }
+
   const session = await auth.api.getSession({ headers });
   if (!session?.user) return null;
   return { id: session.user.id, email: session.user.email ?? null };
