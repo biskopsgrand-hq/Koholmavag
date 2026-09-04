@@ -175,7 +175,7 @@ function LoginScreen() {
               </form>
 
               <p className="mt-5 text-center text-sm text-muted">
-                {mode === "signin" ? "Första gången?" : "Har du redan ett lösenord?"}{" "}
+                {mode === "signin" ? "Loggar in första gången?" : "Har du redan ett lösenord?"}{" "}
                 <button
                   type="button"
                   className="font-medium text-pine"
@@ -184,7 +184,7 @@ function LoginScreen() {
                     setError(null);
                   }}
                 >
-                  {mode === "signin" ? "Begär tillgång" : "Logga in"}
+                  {mode === "signin" ? "Skapa konto" : "Logga in"}
                 </button>
               </p>
             </>
