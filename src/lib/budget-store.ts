@@ -134,8 +134,30 @@ function replaceLedger(payload: {
 }) {
   for (const id of payload.deletedIds ?? []) deletedIds.add(id);
   const transactions = payload.transactions.filter((tx) => !deletedIds.has(tx.id) && tx.amount > 0);
-  const categories = payload.categories.length > 0 ? payload.categories : DEFAULT_CATEGORIES;
   const yearBooks = normalizeYearBooks(payload.yearBooks ?? {});
+
+  // Never overwrite user-customised categories with DEFAULT_CATEGORIES from a
+  // poll refresh. If the server returns DEFAULT_CATEGORIES (e.g. because a save
+  // hadn't landed yet) but the local store already has custom categories, keep
+  // the local ones. Custom = any category whose id/name differs from defaults.
+  const defaultIds = new Set(DEFAULT_CATEGORIES.map((c) => c.id));
+  const incomingAreDefault =
+    payload.categories.length === DEFAULT_CATEGORIES.length &&
+    payload.categories.every((c) => defaultIds.has(c.id));
+  const currentCategories = useBudgetStore.getState().categories;
+  const currentAreCustom =
+    currentCategories.length > 0 &&
+    !(
+      currentCategories.length === DEFAULT_CATEGORIES.length &&
+      currentCategories.every((c) => defaultIds.has(c.id))
+    );
+  const categories =
+    incomingAreDefault && currentAreCustom
+      ? currentCategories
+      : payload.categories.length > 0
+        ? payload.categories
+        : DEFAULT_CATEGORIES;
+
   useBudgetStore.setState({
     monthlyBudget: payload.monthlyBudget,
     categories,
