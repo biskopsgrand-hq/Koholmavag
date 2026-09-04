@@ -108,7 +108,6 @@ export async function requireUserId(bearerToken?: string): Promise<string> {
     return DEV_USER_ID;
   }
   const user = await getSessionUser(bearerToken);
-  console.log("[requireUserId] bearerToken:", bearerToken ? "present" : "none", "user:", user?.id ?? "null", "email:", user?.email ?? "null", "authConfigured:", authConfigured);
   if (!user) throw new UnauthorizedError();
   return user.id;
 }
