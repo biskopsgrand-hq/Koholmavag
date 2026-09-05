@@ -25,6 +25,13 @@ export const authClient = createAuthClient({
       if (token) ctx.headers.set("Authorization", `Bearer ${token}`);
       return ctx;
     },
+    onResponse(ctx) {
+      // Better Auth returns a fresh token in set-auth-token on every response.
+      // Store it so subsequent server calls always use the latest valid token.
+      const newToken = ctx.response.headers.get("set-auth-token");
+      if (newToken) setBearerToken(newToken);
+      return ctx;
+    },
   },
 });
 
