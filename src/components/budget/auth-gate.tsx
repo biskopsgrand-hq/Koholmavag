@@ -27,37 +27,29 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let debounce: number | undefined;
-
-    async function refreshSession() {
-      try {
-        const result = await authClient.getSession();
-        // Always update the localStorage token so server calls stay authenticated.
-        const token = (result as unknown as { data?: { session?: { token?: string } } })?.data?.session?.token;
-        if (token) window.localStorage.setItem("koholma-auth.session-token", token);
-      } catch {
-        /* ignore */
-      }
-    }
-
     const tick = () => {
       if (document.visibilityState !== "visible") return;
+      // Debounce rapid visibility changes (e.g. tab flicker) — only fire once
+      // per 2 s window to avoid stacking session requests.
       if (debounce !== undefined) return;
       debounce = window.setTimeout(() => {
         debounce = undefined;
-        void refreshSession();
+        void authClient.getSession().catch(() => undefined);
       }, 2000);
     };
-
-    const init = window.setTimeout(() => void refreshSession(), 500);
-    const timer = window.setInterval(() => void refreshSession(), 120000);
+    // Initial check on mount — but defer it so the sign-in redirect can land first.
+    const init = window.setTimeout(() => {
+      void authClient.getSession().catch(() => undefined);
+    }, 500);
+    const timer = window.setInterval(() => {
+      void authClient.getSession().catch(() => undefined);
+    }, 120000);
     document.addEventListener("visibilitychange", tick);
-    window.addEventListener("focus", tick);
     return () => {
       window.clearTimeout(init);
       window.clearTimeout(debounce);
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", tick);
-      window.removeEventListener("focus", tick);
     };
   }, []);
 

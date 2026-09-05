@@ -346,17 +346,7 @@ function queueSave() {
         applyLedger(saved);
         broadcastDataChanged();
       })
-      .catch((err) => {
-        console.error("budget save failed", err);
-        // Show a visible error so the user knows the save failed
-        // and doesn't navigate away thinking data is safe.
-        import("sonner").then(({ toast }) => {
-          toast.error("Kunde inte spara — kontrollera att du är inloggad och försök igen.", {
-            id: "budget-save-error",
-            duration: 8000,
-          });
-        }).catch(() => undefined);
-      })
+      .catch((err) => console.error("budget save failed", err))
       .finally(() => {
         window.clearTimeout(stuck);
         if (gen === saveGen) savePending = false;
