@@ -609,6 +609,7 @@ export function monthTotals(transactions: Transaction[]) {
   let expense = 0;
   for (const tx of transactions) {
     if (tx.accrued) continue;
+    console.log("[monthTotals] counting tx:", tx.note, "accrued:", tx.accrued, "amount:", tx.amount, "type:", tx.type);
     const amount = Number(tx.amount);
     if (!Number.isFinite(amount) || amount <= 0) continue;
     if (tx.type === "income") income += amount;
