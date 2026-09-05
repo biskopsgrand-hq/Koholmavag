@@ -477,7 +477,24 @@ export const useBudgetStore = create<BudgetState>()(
         set((state) => ({
           transactions: state.transactions.filter((tx) => tx.id !== id),
         }));
-        queueSave();
+        // Save immediately with short delay — deletes must reach the server
+        // before the user can reload the page and get stale data back.
+        savePending = true;
+        const gen = ++saveGen;
+        window.clearTimeout(saveTimer);
+        saveTimer = window.setTimeout(() => {
+          const snapshot = useBudgetStore.getState();
+          if (!snapshot.ready) { savePending = false; return; }
+          const stuck = window.setTimeout(() => { if (gen === saveGen) savePending = false; }, 10000);
+          void import("@/lib/save-with-session")
+            .then(async ({ withSessionRetry }) => {
+              const { saveBudget } = await import("@/lib/budget-fns");
+              return withSessionRetry(() => saveBudget({ data: payloadFromState(snapshot) }));
+            })
+            .then((saved) => { if (gen !== saveGen) return; applyLedger(saved); broadcastDataChanged(); })
+            .catch((err) => console.error("budget delete save failed", err))
+            .finally(() => { window.clearTimeout(stuck); if (gen === saveGen) savePending = false; });
+        }, 100); // 100ms instead of 400ms for deletes
       },
       addCategory: (name, type) => {
         const trimmed = name.trim();
