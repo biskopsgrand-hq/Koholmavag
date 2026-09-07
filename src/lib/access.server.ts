@@ -162,7 +162,9 @@ export async function getMyAccessForUserId(userId: string): Promise<AccessState>
   if (!profile) return closedState();
   if (isOwnerEmail(profile.email)) return upsertOwner(userId, profile.name);
   const member = await memberForUser(userId, profile.email);
-  const listed = (await readDirectory()).find((row) => row.email === profile.email);
+  const directory = await readDirectory();
+  const listed = directory.find((row) => row.email === profile.email);
+  console.log("[getMyAccessForUserId] email:", profile.email, "member?.status:", member?.status, "listed?.status:", listed?.status, "directory emails:", directory.map(d => d.email));
   const status = combineAccessStatus(
     parseAccessStatus(member?.status),
     listed?.status ?? "none",
