@@ -191,6 +191,11 @@ function AccessGate({ children, fastTrack = false }: { children: ReactNode; fast
           access={access}
           onRefresh={async () => {
             const state = await getMyAccess({ data: {} });
+            if (state.status === "approved") {
+              // Force a full reload so the auth flow restarts cleanly
+              window.location.reload();
+              return;
+            }
             remember({ ...state, freshRequest: false });
           }}
         />
