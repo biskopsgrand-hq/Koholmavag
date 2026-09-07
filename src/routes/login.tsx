@@ -64,13 +64,15 @@ function LoginScreen() {
         return;
       }
       if (mode === "signup") {
-        const { error: signUpError } = await authClient.signUp.email({
+        let signupToken: string | null = null;
+        const { data: signupData, error: signUpError } = await authClient.signUp.email({
           email: trimmedEmail,
           password,
           name: name.trim() || trimmedEmail,
           fetchOptions: {
             onSuccess(ctx) {
-              keepPreviewSession(readAuthToken(ctx));
+              signupToken = readAuthToken(ctx);
+              keepPreviewSession(signupToken);
             },
           },
         });
@@ -81,6 +83,18 @@ function LoginScreen() {
             return;
           }
           throw new Error(signUpError.message);
+        }
+        // Store token in localStorage so server calls work immediately
+        if (signupToken) {
+          window.localStorage.setItem("koholma-auth.session-token", signupToken);
+        }
+        // Write session user cache
+        if (signupData && typeof signupData === "object" && "user" in signupData) {
+          const u = (signupData as { user?: { id?: string; email?: string; name?: string } }).user;
+          if (u?.id) {
+            const { writeSessionUser } = await import("@/lib/session-user");
+            writeSessionUser({ id: u.id, displayName: u.name ?? null, primaryEmail: u.email ?? trimmedEmail, profileImageUrl: null, isDevFallback: false });
+          }
         }
         // Fire-and-forget access request — AuthGate will handle it on arrival.
         requestAccess({ data: {} }).catch(() => {});
