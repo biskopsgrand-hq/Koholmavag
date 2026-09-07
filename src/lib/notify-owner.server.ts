@@ -11,9 +11,10 @@ export async function notifyOwnerOfAccessRequest(input: {
   const message = [
     `${who} (${input.email}) vill ha tillgång till ${APP_NAME}.`,
     "",
-    "Godkänn eller neka i mejlet via länken:",
+    `✅ GODKÄNN HÄR (klicka länken):`,
     input.approveUrl,
     "",
+    "Länken godkänner personen direkt — ingen inloggning krävs.",
     "Du kan också godkänna under Godkännanden i appen.",
   ].join("\n");
 
@@ -25,27 +26,30 @@ export async function notifyOwnerOfAccessRequest(input: {
     name: who,
     email: input.email,
     message,
-    Godkänn: input.approveUrl,
+    "✅ Godkänn direkt": input.approveUrl,
   };
 
-  const json = await fetch(`https://formsubmit.co/ajax/${encodeURIComponent(OWNER_EMAIL)}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    body: JSON.stringify(fields),
-  });
-  if (json.ok) return;
+  // Try JSON first, then form-encoded, then give up gracefully
+  try {
+    const json = await fetch(`https://formsubmit.co/ajax/${encodeURIComponent(OWNER_EMAIL)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify(fields),
+    });
+    if (json.ok) return;
+  } catch { /* fall through */ }
 
-  const form = new URLSearchParams(fields);
-  const encoded = await fetch(`https://formsubmit.co/${encodeURIComponent(OWNER_EMAIL)}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
-    body: form,
-    redirect: "manual",
-  });
-  if (encoded.ok || encoded.status === 302 || encoded.status === 301) return;
-
-  throw new Error(`Kunde inte skicka notifiering (${json.status}/${encoded.status}).`);
+  try {
+    const form = new URLSearchParams(fields);
+    const encoded = await fetch(`https://formsubmit.co/${encodeURIComponent(OWNER_EMAIL)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
+      body: form,
+      redirect: "manual",
+    });
+    if (encoded.ok || encoded.status === 302 || encoded.status === 301) return;
+    throw new Error(`Kunde inte skicka notifiering (${encoded.status}).`);
+  } catch (err) {
+    throw err;
+  }
 }
