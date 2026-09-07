@@ -164,7 +164,6 @@ export async function getMyAccessForUserId(userId: string): Promise<AccessState>
   const member = await memberForUser(userId, profile.email);
   const directory = await readDirectory();
   const listed = directory.find((row) => row.email === profile.email);
-  console.log("[getMyAccessForUserId] email:", profile.email, "member?.status:", member?.status, "listed?.status:", listed?.status, "directory emails:", directory.map(d => d.email));
   const status = combineAccessStatus(
     parseAccessStatus(member?.status),
     listed?.status ?? "none",
@@ -485,8 +484,14 @@ export async function inviteMemberForAdmin(userId: string, email: string, name: 
   const normalized = normalizeEmail(email);
   if (!normalized.includes("@")) throw new Error("Ogiltig e-post.");
   const saved = await upsertMemberStatus(normalized, "approved", name);
-  const directory = await rememberMember(saved);
-  return mergeMembers(await readMemberRows(), directory, [saved]);
+  // Also update directory — but don't let directory failures block the approval
+  try {
+    const directory = mergeMembers(await readDirectory(), [{ ...saved, status: "approved" }]);
+    await writeDirectory(directory);
+  } catch (err) {
+    console.error("directory update failed (non-fatal)", err);
+  }
+  return mergeMembers(await readMemberRows(), [{ ...saved, status: "approved" }], [saved]);
 }
 
 export async function peekAccessToken(token: string): Promise<{ email: string; name: string | null; status: AccessStatus } | null> {
