@@ -87,6 +87,13 @@ function LoginScreen() {
         // Store token in localStorage so server calls work immediately
         if (signupToken) {
           window.localStorage.setItem("koholma-auth.session-token", signupToken);
+        } else {
+          // Token not in response — fetch it explicitly before navigating
+          try {
+            const session = await authClient.getSession();
+            const t = (session as unknown as { data?: { session?: { token?: string } } })?.data?.session?.token;
+            if (t) window.localStorage.setItem("koholma-auth.session-token", t);
+          } catch { /* ignore */ }
         }
         // Write session user cache
         if (signupData && typeof signupData === "object" && "user" in signupData) {

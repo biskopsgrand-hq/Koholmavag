@@ -102,11 +102,9 @@ function AccessGate({ children, fastTrack = false }: { children: ReactNode; fast
       } catch (err: unknown) {
         if (cancelled) return;
         attempts += 1;
-        // Neon cold starts can take 3–5 s; use progressive backoff up to 8 attempts.
-        const maxAttempts = 8;
+        const maxAttempts = 12;
         if (attempts < maxAttempts) {
-          // Backoff: 500 ms, 1 s, 1.5 s, 2 s, 2.5 s, 3 s, 3.5 s
-          const delay = Math.min(500 * attempts, 3500);
+          const delay = Math.min(800 * attempts, 5000);
           window.setTimeout(() => {
             if (!cancelled) void load();
           }, delay);
