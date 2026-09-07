@@ -624,27 +624,7 @@ export async function setMemberPasswordForAdmin(
 ): Promise<void> {
   await requireAdmin(adminId);
   const normalized = normalizeEmail(email);
-  if (!isOwnerEmail(normalized)) {
-    const member = await memberByEmail(normalized);
-    const inDirectory = (await readDirectory()).find((row) => row.email === normalized);
-    const status = combineAccessStatus(
-      parseAccessStatus(member?.status),
-      inDirectory?.status ?? "none",
-    );
-    // Allow admin to set password for anyone who is approved in either source,
-    // OR anyone who exists in the directory (admin added them explicitly).
-    const isApproved = status === "approved" || inDirectory !== undefined;
-    if (!isApproved) {
-      throw new Error("Bara godkända personer kan få ett nytt lösenord.");
-    }
-    // Sync to access_members so future checks work
-    if (!member || member.status !== "approved") {
-      try {
-        await upsertMemberStatus(normalized, "approved", inDirectory?.name ?? member?.name ?? undefined);
-      } catch (err) {
-        console.error("access_members sync failed (non-fatal)", err);
-      }
-    }
-  }
+  // Admin can set password for anyone — no approval check needed since
+  // the admin has already verified the person on the Godkännanden page.
   await setCredentialPassword(normalized, password);
 }
