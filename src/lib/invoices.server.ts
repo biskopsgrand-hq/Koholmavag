@@ -158,8 +158,13 @@ export async function saveInvoices(userId: string, invoices: Invoice[]): Promise
   await requireApproved(userId);
   const next = invoices.map(asInvoice).filter((row): row is Invoice => row !== null);
   const existing = await loadInvoices(userId);
-  if (existing.length > 0 && next.length === 0) return existing;
   const sql = await getSql();
+  // Delete individual invoice rows for invoices that were removed
+  const removedIds = existing.filter((e) => !next.some((n) => n.id === e.id)).map((e) => e.id);
+  for (const removedId of removedIds) {
+    await sql.query(`delete from budget_ledger where id = $1`, [`invoice:${removedId}`]);
+    await sql.query(`delete from budget_ledger where id = $1`, [`invoice-pdf:${removedId}`]);
+  }
   if (existing.length > 0) {
     await sql.query(
       `insert into budget_ledger (id, payload, updated_at)
