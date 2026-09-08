@@ -23,6 +23,9 @@ export function AuthGate({ children }: { children: ReactNode }) {
   if (user) {
     lastUser = user;
     writeSessionUser(user);
+  } else if (!isPending) {
+    lastUser = null;
+    writeSessionUser(null);
   }
 
   useEffect(() => {
@@ -101,6 +104,7 @@ function AccessGate({ children, fastTrack = false }: { children: ReactNode; fast
         if (!cancelled) remember({ ...created, freshRequest: state.status === "none" });
       } catch (err: unknown) {
         if (cancelled) return;
+        if (err instanceof Error && err.message === "Unauthorized") return;
         attempts += 1;
         const maxAttempts = 12;
         if (attempts < maxAttempts) {
