@@ -81,7 +81,11 @@ function createNeonSql(): Promise<Sql> {
       const { neon } = await import("@neondatabase/serverless");
       const query = neon(databaseUrl!);
       return toSql(async (text: string, params: unknown[]) => {
-        const rows = await query(text, params as Parameters<typeof query>[1]);
+        // Split parameterized SQL on $1, $2... to reconstruct a TemplateStringsArray
+        // — the tagged-template path is unambiguous regardless of neon overloads.
+        const parts = text.split(/\$\d+/g);
+        const tmpl = Object.assign(parts.slice(), { raw: parts.slice() }) as TemplateStringsArray;
+        const rows = await query(tmpl, ...params);
         return rows as unknown[];
       });
     } catch {
